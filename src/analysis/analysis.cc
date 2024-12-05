@@ -1183,6 +1183,28 @@ unsigned DataSourceMdppSampleDecoder::getStatsBits(size_t index) const
     return {};
 }
 
+s32 DataSourceMdppSampleDecoder::getStatsOutputIndex(const size_t statsIndex) const
+{
+    if (statsIndex < getStatsCount())
+    {
+        return getMaxChannels() + statsIndex;
+    }
+
+    return -1;
+}
+
+s32 DataSourceMdppSampleDecoder::getStatsOutputIndex(const QString &statsName) const
+{
+    const auto &PartNames = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames;
+    auto it = std::find(PartNames.begin(), PartNames.end(), statsName);
+
+    if (it == std::end(PartNames))
+        return -1;
+
+    auto statsIndex = std::distance(std::begin(PartNames), it);
+    return getStatsOutputIndex(statsIndex);
+}
+
 //
 // DataSourceCopy
 //
@@ -3673,7 +3695,6 @@ size_t RateMonitorSink::getStorageSize() const
 
 struct WaveformSink::Private
 {
-    // Data inputs to be exported
     QVector<std::shared_ptr<Slot>> inputs_;
     size_t traceHistoryMaxDepth_ = WaveformSink::DefaultTraceHistoryMaxDepth;
     mutable mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> traceHistories_;
@@ -3683,6 +3704,7 @@ WaveformSink::WaveformSink(QObject *parent)
     : SinkInterface(parent)
     , d(std::make_unique<Private>())
 {
+    addSlot();
     addSlot();
 }
 
@@ -3694,9 +3716,18 @@ bool WaveformSink::addSlot()
 {
     auto inputType = InputType::Array;
 
-    auto slot = std::make_shared<Slot>(
-        this, getNumberOfSlots(),
-        QSL("Channel #") + QString::number(getNumberOfSlots()), inputType);
+    QString slotName;
+
+    if (getNumberOfSlots() == 0)
+    {
+        slotName = QSL("Phase Input");
+    }
+    else
+    {
+        slotName = QSL("Channel #") + QString::number(getNumberOfSlots()-1);
+    }
+
+    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), slotName, inputType);
 
     d->inputs_.push_back(slot);
 
@@ -3705,7 +3736,7 @@ bool WaveformSink::addSlot()
 
 bool WaveformSink::removeLastSlot()
 {
-    if (d->inputs_.size() > 1)
+    if (d->inputs_.size() > 2)
     {
         d->inputs_.back()->disconnectPipe();
         d->inputs_.pop_back();
@@ -3792,6 +3823,43 @@ mesytec::mvme::waveforms::TraceHistories WaveformSink::getTraceHistories() const
 mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> &WaveformSink::getTraceHistoriesProtected()
 {
     return d->traceHistories_;
+}
+
+void connect_mdpp_sample_decoder_to_waveform_sink(DataSourceMdppSampleDecoder *decoder, WaveformSink *sink)
+{
+    // sink input0 is the phase input
+    // the other sink inputs are trace data inputs
+    // the decoder has getMaxChannels() outputs and an additional getStatsCount() outputs after that.
+    // Steps:
+    // - find the phase output index in the decoder
+    // - connect the phase output to the sink input0
+    // - connect all the decoder trace outputs to the trace inputs of the WaveformSink
+
+    assert(decoder && sink);
+
+    if (!decoder || !sink)
+        return;
+
+    auto phaseOutputIndex = decoder->getStatsOutputIndex("phase");
+
+    if (phaseOutputIndex < 0)
+    {
+        assert(!"phase output not found in decoder");
+        return;
+    }
+
+    sink->connectArrayToInputSlot(0, decoder->getOutput(phaseOutputIndex));
+
+    // now connect all trace outputs to the trace inputs
+    const auto samplesOutputCount = decoder->getMaxChannels();
+
+    while (sink->getNumberOfSlots() < static_cast<s32>(samplesOutputCount) + 1)
+        sink->addSlot();
+
+    for (unsigned i=0; i<samplesOutputCount; ++i)
+    {
+        sink->connectArrayToInputSlot(i+1, decoder->getOutput(i));
+    }
 }
 
 //

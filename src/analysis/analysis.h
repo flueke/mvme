@@ -934,6 +934,8 @@ class DataSourceMdppSampleDecoder: public SourceInterface
         size_t getStatsCount() const;
         QString getStatsName(size_t index) const;
         unsigned getStatsBits(size_t index) const;
+        s32 getStatsOutputIndex(const size_t statsIndex) const;
+        s32 getStatsOutputIndex(const QString &statsName) const;
 
     protected:
         void postClone(const AnalysisObject *cloneSource) override;
@@ -2013,16 +2015,19 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
         void setTraceHistoryMaxDepth(size_t maxDepth);
         size_t getTraceHistoryMaxDepth() const;
 
-        // Returns a deep copy of the trace histories. Expensive!
+        // Returns a deep copy of the trace histories. Possibly expensive.
         mesytec::mvme::waveforms::TraceHistories getTraceHistories() const;
 
-        // Reference to the internal trace histories guarded by a mutex.
+        // Reference to the internal trace histories guarded by a mutex. Do not
+        // keep locked for long as it will stall analysis processing.
         mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> &getTraceHistoriesProtected();
 
     private:
         struct Private;
         std::unique_ptr<Private> d;
 };
+
+void connect_mdpp_sample_decoder_to_waveform_sink(DataSourceMdppSampleDecoder *decoder, WaveformSink *sink);
 
 class LIBMVME_EXPORT ExportSink: public SinkInterface
 {

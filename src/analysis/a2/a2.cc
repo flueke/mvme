@@ -4065,6 +4065,8 @@ void rate_monitor_sample_flow(Operator *op)
 // WaveformSink
 //
 
+// Note: input0 is assumed to be the phase array input!
+
 struct WaveformSinkData
 {
     // Trace histories by input array index.
@@ -4094,7 +4096,7 @@ Operator make_waveform_sink(
     }
 
     d->traceHistories_ = &traceHistories;
-    d->traceHistories_->access()->resize(inputCount);
+    d->traceHistories_->access()->resize(inputCount-1);
     d->traceHistoryMaxDepth_ = traceHistoryMaxDepth;
 
     return result;
@@ -4111,12 +4113,15 @@ void waveform_sink_step(Operator *op, A2 *)
     auto access = d->traceHistories_->access();
     auto &traceHistories = access.ref();
 
-    assert(op->inputCount == static_cast<s32>(traceHistories.size()));
+    assert(op->inputCount == static_cast<s32>(traceHistories.size()) + 1);
 
-    for (s32 idx = 0; idx < op->inputCount; ++idx)
+    const auto &phases = op->inputs[0];
+
+    for (s32 idx = 1; idx < op->inputCount; ++idx)
     {
         const auto &input = op->inputs[idx];
-        auto &traceHistory = traceHistories[idx];
+        const s32 channelIdx = idx - 1;
+        auto &traceHistory = traceHistories[channelIdx];
 
         mesytec::mvme::waveforms::Trace trace;
 
@@ -4130,6 +4135,7 @@ void waveform_sink_step(Operator *op, A2 *)
         trace.clear();
         trace.reserve(input.size);
 
+        // Fill the trace with (paramIndex, value) pairs
         for (s32 paramIndex = 0; paramIndex < input.size; ++paramIndex)
         {
             auto value = input[paramIndex];
@@ -4140,6 +4146,16 @@ void waveform_sink_step(Operator *op, A2 *)
 
             trace.push_back(paramIndex, value);
         }
+
+        // phase handling - no phase correction, just store the phase value
+        double phase = 1.0;
+        if (channelIdx < phases.size && is_param_valid(phases[channelIdx]))
+        {
+            phase = phases[channelIdx];
+        }
+        trace.meta["phase"] = phase;
+
+        //spdlog::warn("waveform_sink_step: trace.meta={}", mesytec::mvme::waveforms::trace_meta_to_string(trace.meta));
 
         traceHistory.push_front(std::move(trace));
     }
