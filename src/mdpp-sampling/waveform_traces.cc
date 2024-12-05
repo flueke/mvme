@@ -61,9 +61,14 @@ std::ostream &print_trace_compact(std::ostream &out, const Trace &trace)
 
     out << "[ ";
     mvlc::util::for_each(std::begin(trace.xs), std::end(trace.xs), std::begin(trace.ys), sample_printer);
-    try {
-        out.seekp(-2, std::ios_base::end); // remove trailing comma to make JSON parsers happy
-    } catch (const std::ios_base::failure &) {}
+    if (!trace.empty())
+    {
+        try
+        {
+            out.seekp(-2, std::ios_base::end); // remove trailing comma to make JSON parsers happy
+        }
+        catch (const std::ios_base::failure &) {}
+    }
     out << " ]\n";
 
     return out;
@@ -79,20 +84,21 @@ std::pair<double, double> find_minmax_y(const Trace &trace)
     return { util::make_quiet_nan(), util::make_quiet_nan() };
 }
 
-void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample)
+void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample, double phase)
 {
     output.clear();
 
     std::transform(std::begin(input.xs), std::end(input.xs), std::back_inserter(output.xs),
-        [dtSample](double x) { return x * dtSample; });
+        [dtSample, phase](double x) { return x * dtSample + dtSample * -phase; });
 
     output.ys = input.ys;
+    output.meta = input.meta;
 }
 
-void rescale_x_values(waveforms::Trace &input, double dtSample)
+void rescale_x_values(waveforms::Trace &input, double dtSample, double phase)
 {
     std::for_each(std::begin(input.xs), std::end(input.xs),
-        [dtSample, index=0](double &x) mutable { x = index++ * dtSample; });
+        [dtSample, phase, index=0](double &x) mutable { x = index++ * dtSample + dtSample * -phase; });
 }
 
 std::vector<const Trace *> get_trace_column(const TraceHistories &history, size_t traceIndex)
@@ -112,6 +118,20 @@ double get_trace_dx(const Trace &trace)
     if (trace.size() < 2)
         return 0.0;
     return trace.xs[1] - trace.xs[0];
+}
+
+std::string trace_meta_to_string(const Trace::MetaMap &meta)
+{
+    std::vector<std::string> strParts;
+
+    for (const auto &[key, value]: meta)
+    {
+        auto valueStr = std::visit([] (const auto &v) { return fmt::format("{}", v); }, value);
+        strParts.emplace_back(fmt::format("{}={}", key, valueStr));
+    }
+
+    std::sort(std::begin(strParts), std::end(strParts));
+    return fmt::format("{}", fmt::join(strParts, ", "));
 }
 
 }

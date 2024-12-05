@@ -3,6 +3,8 @@
 
 #include <cassert>
 #include <deque>
+#include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include <mesytec-mvlc/cpp_compat.h>
@@ -16,8 +18,12 @@ using mvlc::util::span;
 
 struct Trace
 {
+    using MetaValue = std::variant<int, double, std::string>;
+    using MetaMap = std::unordered_map<std::string, MetaValue>;
+
     std::vector<double> xs;
     std::vector<double> ys;
+    MetaMap meta;
 
     explicit Trace() = default;
 
@@ -31,6 +37,7 @@ struct Trace
     {
         xs.clear();
         ys.clear();
+        meta.clear();
     }
 
     void reserve(size_t capacity)
@@ -65,7 +72,7 @@ struct Trace
 
     bool operator==(const Trace &o) const
     {
-        return xs == o.xs && ys == o.ys;
+        return xs == o.xs && ys == o.ys && meta == o.meta;
     }
 
     bool operator!=(const Trace &o) const
@@ -87,12 +94,13 @@ std::ostream &print_trace_compact(std::ostream &out, const Trace &trace);
 
 std::pair<double, double> find_minmax_y(const Trace &trace);
 
-// scale x values by dtSample
-void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample);
+// scale x values by dtSample. Update: now also does x phase correction given a phase value in (0.0, 1.0).
+// Could create an extra function for this.
+void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, double dtSample, double phase = 1.0);
 
 // same as scale_x_values but use the index of the sample to calculate the x
 // value, ignoring the current input traces x value completely.
-void rescale_x_values(waveforms::Trace &input, double dtSample);
+void rescale_x_values(waveforms::Trace &input, double dtSample, double phase = 1.0);
 
 // pick a trace from the same column of each row in the trace history
 std::vector<const Trace *> get_trace_column(const TraceHistories &traceHistories, size_t traceIndex);
@@ -100,6 +108,8 @@ std::vector<const Trace *> get_trace_column(const TraceHistories &traceHistories
 // Returns the delta between x[0] and x[1]. Assumes dx is constant throughout
 // the trace! Returns a quiet NaN if the trace contains less than two samples.
 double get_trace_dx(const Trace &trace);
+
+std::string trace_meta_to_string(const Trace::MetaMap &meta);
 
 }
 
