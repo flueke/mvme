@@ -114,6 +114,7 @@ using logger_function = std::function<void (const std::string &level, const std:
 
 DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp16_scp_samples(
     const u32 *data, const size_t size, logger_function logger_fun = {});
+
 DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp32_scp_samples(
     const u32 *data, const size_t size, logger_function logger_fun = {});
 

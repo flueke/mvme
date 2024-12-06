@@ -58,7 +58,7 @@ static const Mdpp32ScpFilters mdpp32ScpFilters;
 std::shared_ptr<spdlog::logger> get_logger()
 {
     auto logger = mvlc::get_logger("mdpp_sam_decode");
-    logger->set_level(spdlog::level::info);
+    logger->set_level(spdlog::level::err);
     return logger;
 }
 
