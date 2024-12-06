@@ -547,19 +547,15 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
 
     for (size_t chan = indexMin; chan < indexMax; ++chan)
     {
-        if (rawTraces[chan].empty() && ipolTraces[chan].empty())
-            continue;
-
-        if (!rawTraces[chan].empty())
+        if (!rawTraces[chan].empty() && !rawTraces[chan].front().empty())
         {
             auto &rawTrace = rawTraces[chan].front();
             out << fmt::format("Channel{} trace meta: {}\n", chan, mesytec::mvme::waveforms::trace_meta_to_string(rawTrace.meta));
             out << fmt::format("Channel{} sample input ({} samples): ", chan, rawTrace.size());
             mesytec::mvme::waveforms::print_trace_compact(out, rawTrace);
-
         }
 
-        if (!ipolTraces[chan].empty())
+        if (!ipolTraces[chan].empty() && !ipolTraces[chan].front().empty())
         {
             auto &ipolTrace = ipolTraces[chan].front();
             out << fmt::format("Channel{} interpolated ({} samples): ", chan, ipolTrace.size());
