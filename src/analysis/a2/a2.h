@@ -16,6 +16,7 @@
 #include "a2_param.h"
 #include "listfilter.h"
 #include "mdpp-sampling/waveform_interpolation.h"
+#include "mdpp-sampling/mdpp_decode.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
@@ -230,6 +231,7 @@ DataSource make_datasource_mdpp_sample_decoder(
     const std::string &moduleType,
     unsigned maxChannels,
     unsigned maxSamples,
+    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent> &sharedEvent,
     u64 rngSeed,
     int moduleIndex,
     DataSourceOptions::opt_t options);

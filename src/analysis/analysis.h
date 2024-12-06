@@ -937,6 +937,14 @@ class DataSourceMdppSampleDecoder: public SourceInterface
         s32 getStatsOutputIndex(const size_t statsIndex) const;
         s32 getStatsOutputIndex(const QString &statsName) const;
 
+        // Returns a copy of the last decoded event. Use this for interactive
+        // debugging from the ui.
+        mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent getDecodedEvent() const;
+
+        // Reference to the internal decoded event guarded by a mutex. Do not
+        // keep locked for long as it will stall analysis processing.
+        mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent> &getDecodedEventProtected();
+
     protected:
         void postClone(const AnalysisObject *cloneSource) override;
 
@@ -949,6 +957,7 @@ class DataSourceMdppSampleDecoder: public SourceInterface
         // a1 layer output pipes
         std::vector<std::shared_ptr<Pipe>> m_outputs;
         Options::opt_t m_options;
+        mutable mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent> decodedEvent_;
 };
 
 using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;

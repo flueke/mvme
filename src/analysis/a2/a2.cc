@@ -746,10 +746,11 @@ void multihit_extractor_process_module_data(DataSource *ds, const u32 *data, u32
 
 // MdppSampleDecoder
 
+namespace mdpp_sampling = mesytec::mvme::mdpp_sampling;
 
 struct MdppSampleDecoder
 {
-    using DecoderFunction = std::function<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent (const u32 *data, const size_t size)>;
+    using DecoderFunction = std::function<mdpp_sampling::DecodedMdppSampleEvent (const u32 *data, const size_t size, mdpp_sampling::logger_function logger_fun)>;
 
     DecoderFunction decoder;
     // Max channels in this module.
@@ -757,6 +758,7 @@ struct MdppSampleDecoder
     // Max number of samples per channel. Samples that do not fit are discarded
     // (currently higher numbered samples are discarded first).
     unsigned maxSamples;
+    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent> *sharedSampleEvent;
     pcg32_fast rng;
     DataSourceOptions::opt_t options;
 };
@@ -766,6 +768,7 @@ MdppSampleDecoder make_mdpp_sample_decoder(
     unsigned maxChannels,
     unsigned maxSamples,
     u64 rngSeed,
+    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent> &sharedSampleEvent,
     DataSourceOptions::opt_t options)
 {
     MdppSampleDecoder result = {};
@@ -783,6 +786,7 @@ MdppSampleDecoder make_mdpp_sample_decoder(
 
     result.maxChannels = maxChannels;
     result.maxSamples = maxSamples;
+    result.sharedSampleEvent = &sharedSampleEvent;
     result.rng.seed(rngSeed);
     result.options = options;
 
@@ -794,6 +798,7 @@ DataSource make_datasource_mdpp_sample_decoder(
     const std::string &moduleType,
     unsigned maxChannels,
     unsigned maxSamples,
+    mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent> &sharedSampleEvent,
     u64 rngSeed,
     int moduleIndex,
     DataSourceOptions::opt_t options)
@@ -804,7 +809,7 @@ DataSource make_datasource_mdpp_sample_decoder(
     auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels + statsCount);
 
     auto ex = arena->pushObject<MdppSampleDecoder>();
-    *ex = make_mdpp_sample_decoder(moduleType, maxChannels, maxSamples, rngSeed, options);
+    *ex = make_mdpp_sample_decoder(moduleType, maxChannels, maxSamples, rngSeed, sharedSampleEvent, options);
     result.d = ex;
 
     // TODO: this is duplicated between analysis::DataSourceMdppSampleDecoder
@@ -826,8 +831,9 @@ DataSource make_datasource_mdpp_sample_decoder(
         {
             if (statsIndex == mdpp_sampling::TraceHeader::Phase)
             {
-                // we normalize the phase to [0.0, 1.0) on output to make it
-                // independent of the actual phase range
+                // Normalize the phase to [0.0, 1.0) on output to make it
+                // independent of the actual phase range. Simplifies consumer
+                // implementations as the phase range does not have to be known.
                 maxValue = 1.0;
             }
             else
@@ -863,7 +869,7 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
     assert(memory::is_aligned(data, ModuleDataAlignment));
 
     auto ex = reinterpret_cast<MdppSampleDecoder *>(ds->d);
-    auto decodedEvent = ex->decoder(data, dataSize);
+    auto decodedEvent = ex->decoder(data, dataSize, {});
 
     for (const auto &trace: decodedEvent.traces)
     {
@@ -909,6 +915,13 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
         ds->outputs[firstStatsIndex + PartIndex::Config][trace.channel] = trace.traceHeader.parts.config;
         ds->outputs[firstStatsIndex + PartIndex::Phase][trace.channel] = normalize_phase(trace.traceHeader.parts.phase);
         ds->outputs[firstStatsIndex + PartIndex::Length][trace.channel] = trace.traceHeader.parts.length;
+    }
+
+    // Move the decoded event into the shared event. The UI can pick this up and
+    // use it for debugging.
+    if (ex->sharedSampleEvent)
+    {
+        ex->sharedSampleEvent->access().ref() = std::move(decodedEvent);
     }
 }
 

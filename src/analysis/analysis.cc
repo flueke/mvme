@@ -1205,6 +1205,16 @@ s32 DataSourceMdppSampleDecoder::getStatsOutputIndex(const QString &statsName) c
     return getStatsOutputIndex(statsIndex);
 }
 
+mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent DataSourceMdppSampleDecoder::getDecodedEvent() const
+{
+    return decodedEvent_.copy();
+}
+
+mesytec::mvlc::Protected<mesytec::mvme::mdpp_sampling::DecodedMdppSampleEvent> &DataSourceMdppSampleDecoder::getDecodedEventProtected()
+{
+    return decodedEvent_;
+}
+
 //
 // DataSourceCopy
 //
@@ -3704,8 +3714,8 @@ WaveformSink::WaveformSink(QObject *parent)
     : SinkInterface(parent)
     , d(std::make_unique<Private>())
 {
-    addSlot();
-    addSlot();
+    addSlot(); // phase input
+    addSlot(); // first channel input
 }
 
 WaveformSink::~WaveformSink()

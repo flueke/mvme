@@ -1242,6 +1242,7 @@ void a2_adapter_build_datasources(
                         ex->getModuleTypeName().toStdString(),
                         ex->getMaxChannels(),
                         ex->getMaxSamples(),
+                        ex->getDecodedEventProtected(),
                         ex->getRngSeed(),
                         src.moduleIndex,
                         ex->getOptions());
