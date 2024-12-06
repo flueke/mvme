@@ -50,6 +50,7 @@
 #include "analysis/condition_ui.h"
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/listfilter_extractor_dialog.h"
+#include "analysis/mdpp_sample_decoder_monitor_widget.h"
 #include "analysis/object_info_widget.h"
 #include "analysis/waveform_sink_1d_widget.h"
 #include "analysis/waveform_sink_2d_widget.h"
@@ -3164,6 +3165,24 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
 
         if (activeNode->type() == NodeType_Source)
         {
+            if (auto decoderPtr = get_shared_analysis_object<DataSourceMdppSampleDecoder>(activeNode, DataRole_AnalysisObject))
+            {
+                menu.addAction("Open Monitor and Controls Window", m_q, [this, decoderPtr] {
+                    if (!m_serviceProvider->getWidgetRegistry()->hasObjectWidget(decoderPtr.get())
+                        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto widget = new MdppSampleDecoderMonitorWidget(decoderPtr, m_serviceProvider);
+                        widget->setAttribute(Qt::WA_DeleteOnClose);
+                        add_widget_close_action(widget);
+                        m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, decoderPtr.get(), decoderPtr->getId().toString());
+                    }
+                    else
+                    {
+                        m_serviceProvider->getWidgetRegistry()->activateObjectWidget(decoderPtr.get());
+                    }
+                });
+            }
+
             if (auto srcPtr = get_shared_analysis_object<SourceInterface>(activeNode,
                                                                           DataRole_AnalysisObject))
             {

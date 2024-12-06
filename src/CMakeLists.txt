@@ -129,6 +129,7 @@ install(TARGETS libmvme_mdpp_decode RUNTIME DESTINATION bin LIBRARY DESTINATION 
 qt5_wrap_ui(LIBMVME_UIC_OUT
     analysis/interval_condition_dialog.ui
     analysis/polygon_condition_dialog.ui
+    analysis/mdpp_sample_decoder_monitor_widget.ui
     daq_run_settings_dialog.ui
     mesytec_diagnostics.ui
     mvlc/mvlc_dev_ui.ui
@@ -160,6 +161,7 @@ add_library(libmvme SHARED
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
     analysis/listfilter_extractor_dialog.cc
+    analysis/mdpp_sample_decoder_monitor_widget.cc
     analysis/object_editor_dialog.cc
     analysis/object_factory.cc
     analysis/object_info_widget.cc
