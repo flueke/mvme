@@ -54,11 +54,8 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
     size_t eventNumber = 0;
     QUuid moduleId;
     s32 channel = -1;
-    float amplitude = util::make_quiet_nan(); // extracted amplitude value
-    float time = util::make_quiet_nan(); // extracted time value
+
     u32 moduleHeader = 0; // raw module header word
-    u32 amplitudeData = 0; // raw amplitude data word
-    u32 timeData = 0; // raw time data word
     double dtSample = MdppDefaultSamplePeriod;
 
     // Store both, the unmodified raw samples and the interpolated curve data.
@@ -112,15 +109,16 @@ struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
 
 using logger_function = std::function<void (const std::string &level, const std::string &message)>;
 
-DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp16_scp_samples(
-    const u32 *data, const size_t size, logger_function logger_fun = {});
-
-DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp32_scp_samples(
-    const u32 *data, const size_t size, logger_function logger_fun = {});
-
 // Pass the module type as a string. Currently supported types: mdpp16_scp and mdpp32_scp
 DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(
     const u32 *data, const size_t size, const char *moduleType, logger_function logger_fun = {});
+
+using DecoderFunction = std::function<DecodedMdppSampleEvent (
+    const u32 *data, const size_t size, mdpp_sampling::logger_function logger_fun)>;
+
+// Get the decoder function for the specified module type. Can use this to get
+// the decoder once, instead of re-checking the module type for each event.
+DecoderFunction LIBMVME_MDPP_DECODE_EXPORT get_decoder_function(const char *moduleType);
 
 using TraceBuffer = QList<ChannelTrace>;
 using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number

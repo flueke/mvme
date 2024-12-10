@@ -27,6 +27,7 @@
 #include "util/perf.h"
 #include <boost/dynamic_bitset/dynamic_bitset.hpp>
 #include <cpp11-on-multicore/common/benaphore.h>
+#include <mesytec-mvlc/util/string_util.h>
 
 #include <algorithm>
 #include <atomic>
@@ -773,15 +774,9 @@ MdppSampleDecoder make_mdpp_sample_decoder(
 {
     MdppSampleDecoder result = {};
 
-    if (moduleType == "mdpp16_scp")
-    {
-        result.decoder = mesytec::mvme::mdpp_sampling::decode_mdpp16_scp_samples;
-    }
-    else if (moduleType == "mdpp32_scp")
-    {
-        result.decoder = mesytec::mvme::mdpp_sampling::decode_mdpp32_scp_samples;
-    }
-    else
+    result.decoder = mesytec::mvme::mdpp_sampling::get_decoder_function(moduleType.c_str());
+
+    if (!result.decoder)
         throw std::runtime_error(fmt::format("Unsupported module type in MdppSampleDecoder: '{}'", moduleType));
 
     result.maxChannels = maxChannels;

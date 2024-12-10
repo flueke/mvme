@@ -138,8 +138,7 @@ void MdppSampleDecoderMonitorWidget::Private::refresh()
 
             oss << "trace #" << traceIndex << ":\n";
 
-            oss <<  fmt::format("  channel={}, amplitude={}, time={}\n",
-                traces[traceIndex].channel, traces[traceIndex].amplitude, traces[traceIndex].time);
+            oss <<  fmt::format("  channel={}\n", traces[traceIndex].channel);
 
             oss <<  fmt::format("  channel={}, #samples={}, trace header={:#010x}, .debug={}, .config={}, .phase={}, .length={}\n",
                 traces[traceIndex].channel, traces[traceIndex].samples.size(),

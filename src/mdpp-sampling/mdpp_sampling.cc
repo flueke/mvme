@@ -586,11 +586,11 @@ void MdppSamplingUi::replot()
             double yMin = boundingRect.bottom();
             double yMax = boundingRect.top();
 
-            sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, Amplitude=%5, Time=%6, #RawSamples=%7, #IpolSamples=%11 yMin=%8, yMax=%9, moduleHeader=0x%10")
+            sb->showMessage(QSL("Module: %1, Channel: %2, Trace: %3, Event#: %4, #RawSamples=%5, #IpolSamples=%6 yMin=%7, yMax=%8, moduleHeader=0x%9")
                 .arg(moduleName).arg(channel).arg(traceIndex).arg(trace->eventNumber)
-                .arg(trace->amplitude).arg(trace->time).arg(get_raw_sample_count(*trace))
-                .arg(yMin).arg(yMax).arg(trace->moduleHeader, 8, 16, QLatin1Char('0'))
+                .arg(get_raw_sample_count(*trace))
                 .arg(get_interpolated_sample_count(*trace))
+                .arg(yMin).arg(yMax).arg(trace->moduleHeader, 8, 16, QLatin1Char('0'))
                 );
         }
     }
@@ -686,8 +686,6 @@ void MdppSamplingUi::Private::printInfo()
 
     out << QSL("module %1 (type=%2)\n").arg(moduleName).arg(moduleTypename);
     out << fmt::format("linear event number: {}\n", trace->eventNumber).c_str();
-    out << fmt::format("amplitude: {}\n", trace->amplitude).c_str();
-    out << fmt::format("time: {}\n", trace->time).c_str();
     out << fmt::format("sampleCount: {}\n", trace->samples.size()).c_str();
     out << fmt::format("samples: [{}]\n", fmt::join(trace->samples, ", ")).c_str();
     out << fmt::format("interpolated: [{}]\n", fmt::join(trace->interpolated, ", ")).c_str();

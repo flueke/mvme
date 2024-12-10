@@ -28,12 +28,19 @@ namespace
 using FilterWithCaches = mvlc::util::FilterWithCaches;
 using mvlc::util::make_filter_with_caches;
 
+// CommonFilters contains filters used for all supported module types.
+//
+// The sub-structs contain "channel address yielding" filters only. These are
+// tested in the order they appear in the 'filters' array. The first matching
+// filter contributes the current channel address during decoding.
+
 struct CommonFilters
 {
 	const FilterWithCaches fModuleId        = make_filter_with_caches("0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX");
 	const FilterWithCaches fTriggerTime     = make_filter_with_caches("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fTimeStamp       = make_filter_with_caches("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fExtentedTs      = make_filter_with_caches("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
+
     // Samples header: D = debug[1:0], C = config[7:0], P = phase[8:0], L = length[9:0]
     // FIXME: still one bit too many! Took one away from the debug field.
     const FilterWithCaches fSamplesHeader   = make_filter_with_caches("0011 DCCC CCCC CPPP PPPP PPLL LLLL LLLL");
@@ -44,16 +51,66 @@ struct Mdpp16ScpFilters: public CommonFilters
 {
 	const FilterWithCaches fChannelTime    = make_filter_with_caches("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fAmplitude      = make_filter_with_caches("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD");
+
+    const std::array<FilterWithCaches, 2> channelFilters =
+    {
+        fChannelTime,
+        fAmplitude
+    };
+
+    const char *moduleType = "mdpp16_scp";
+};
+
+struct Mdpp16QdcFilters: public CommonFilters
+{
+    const FilterWithCaches fChannelTime      = make_filter_with_caches("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD");
+    const FilterWithCaches fIntegrationLong  = make_filter_with_caches("0001 XXXX XX00 AAAA DDDD DDDD DDDD DDDD");
+    const FilterWithCaches fIntegrationShort = make_filter_with_caches("0001 XXXX XX11 AAAA DDDD DDDD DDDD DDDD");
+
+    const std::array<FilterWithCaches, 3> channelFilters =
+    {
+        fChannelTime,
+        fIntegrationLong,
+        fIntegrationShort
+    };
+
+    const char *moduleType = "mdpp16_qdc";
 };
 
 struct Mdpp32ScpFilters: public CommonFilters
 {
 	const FilterWithCaches fChannelTime    = make_filter_with_caches("0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fAmplitude      = make_filter_with_caches("0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD");
+
+    const std::array<FilterWithCaches, 2> channelFilters =
+    {
+        fChannelTime,
+        fAmplitude
+    };
+
+    const char *moduleType = "mdpp32_scp";
+};
+
+struct Mdpp32QdcFilters: public CommonFilters
+{
+    const FilterWithCaches fChannelTime      = make_filter_with_caches("0001 XXXX X01A AAAA DDDD DDDD DDDD DDDD");
+    const FilterWithCaches fIntegrationLong  = make_filter_with_caches("0001 XXXX X00A AAAA DDDD DDDD DDDD DDDD");
+    const FilterWithCaches fIntegrationShort = make_filter_with_caches("0001 XXXX X11A AAAA DDDD DDDD DDDD DDDD");
+
+    const std::array<FilterWithCaches, 3> channelFilters =
+    {
+        fChannelTime,
+        fIntegrationLong,
+        fIntegrationShort
+    };
+
+    const char *moduleType = "mdpp32_qdc";
 };
 
 static const Mdpp16ScpFilters mdpp16ScpFilters;
+static const Mdpp16QdcFilters mdpp16QdcFilters;
 static const Mdpp32ScpFilters mdpp32ScpFilters;
+static const Mdpp32QdcFilters mdpp32QdcFilters;
 
 std::shared_ptr<spdlog::logger> get_logger()
 {
@@ -73,11 +130,7 @@ void reset_trace(ChannelTrace &trace)
 {
     trace.eventNumber = 0;
     trace.moduleId = QUuid();
-    trace.amplitude = mvme::util::make_quiet_nan();
-    trace.time = mvme::util::make_quiet_nan();
     trace.moduleHeader = 0;
-    trace.amplitudeData = 0;
-    trace.timeData = 0;
     trace.samples.clear();
     trace.traceHeader = {};
 }
@@ -127,6 +180,9 @@ std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const F
 template<typename Filters>
 DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t size, const Filters &filters, logger_function logger_fun)
 {
+    if (!logger_fun)
+        logger_fun = default_logger_fun;
+
     std::basic_string_view<u32> dataView(data, size);
 
     logger_fun("trace", fmt::format("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " ")));
@@ -167,17 +223,26 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 
 	for (auto wordPtr = data+1, dataEnd = data + size; wordPtr < dataEnd; ++wordPtr)
     {
-        // The data words containing amplitude or channel time are
-        // guaranteed to come before the samples for the respective channel.
+        // The data words containing amplitude, channel time, integration_long
+        // or integration_short are guaranteed to come before the samples for
+        // the respective channel.
         // This means we will always have a valid channel number when starting
         // to process sample data.
 
-        const bool amplitudeMatches = mvlc::util::matches(filters.fAmplitude, *wordPtr);
-        const bool channelTimeMatches = mvlc::util::matches(filters.fChannelTime, *wordPtr);
-
-        if (amplitudeMatches || channelTimeMatches)
+        // Try the filters in order. Stop at the first match.
+        const FilterWithCaches *channelFilter = nullptr;
+        for (const auto &filter: filters.channelFilters)
         {
-            auto &theFilter = amplitudeMatches ? filters.fAmplitude : filters.fChannelTime;
+            if (mvlc::util::matches(filter, *wordPtr))
+            {
+                channelFilter = &filter;
+                break;
+            }
+        }
+
+        if (channelFilter)
+        {
+            auto &theFilter = *channelFilter;
 
             // Note: extract yields unsigned, but the address values do easily
             // fit in signed 32-bit integers.
@@ -199,17 +264,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 
             currentTrace.channel = addr;
             currentTrace.moduleHeader = ret.header;
-
-            if (amplitudeMatches)
-            {
-                currentTrace.amplitude = value;
-                currentTrace.amplitudeData = *wordPtr;
-            }
-            else
-            {
-                currentTrace.time = value;
-                currentTrace.timeData = *wordPtr;
-            }
         }
 		else if (mvlc::util::matches(filters.fSamples, *wordPtr))
 		{
@@ -261,7 +315,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
                 currentTrace.samples.push_back(oddSigned);
             }
         }
-        else if (*wordPtr == 0u
+        else if (*wordPtr == 0u // fillword
                 || mvlc::util::matches(filters.fTimeStamp, *wordPtr)
                 || mvlc::util::matches(filters.fExtentedTs, *wordPtr)
                 || mvlc::util::matches(filters.fTriggerTime, *wordPtr))
@@ -292,41 +346,66 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     logger_fun("trace", fmt::format("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
                  ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size()));
 
-    return ret;
-}
-
-#define ActiveDecoder decode_mdpp_samples_impl
-
-DecodedMdppSampleEvent decode_mdpp16_scp_samples(const u32 *data, const size_t size, logger_function logger_fun)
-{
-    auto ret = ActiveDecoder(data, size, mdpp16ScpFilters, logger_fun ? logger_fun : default_logger_fun);
-    ret.moduleType = "mdpp16_scp";
+    // Store a copy of the raw input data in the result. Used in the UI to rerun
+    // the decoder for debugging purposes.
     std::copy(data, data + size, std::back_inserter(ret.inputData));
+    ret.moduleType = filters.moduleType;
+
     return ret;
 }
 
-DecodedMdppSampleEvent decode_mdpp32_scp_samples(const u32 *data, const size_t size, logger_function logger_fun)
-{
-    auto ret = ActiveDecoder(data, size, mdpp32ScpFilters, logger_fun ? logger_fun : default_logger_fun);
-    ret.moduleType = "mdpp32_scp";
-    std::copy(data, data + size, std::back_inserter(ret.inputData));
-    return ret;
-}
-
-#undef ActiveDecoder
-
-DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size, const char *moduleType, logger_function logger_fun)
+DecoderFunction get_decoder_function(const char *moduleType)
 {
     if (strcmp(moduleType, "mdpp16_scp") == 0)
-        return decode_mdpp16_scp_samples(data, size, logger_fun);
+    {
+        return [] (const u32 *data, const size_t size, logger_function logger_fun)
+        {
+            return decode_mdpp_samples_impl(data, size, mdpp16ScpFilters, logger_fun);
+        };
+    }
+    else if (strcmp(moduleType, "mdpp16_qdc") == 0)
+    {
+        return [] (const u32 *data, const size_t size, logger_function logger_fun)
+        {
+            return decode_mdpp_samples_impl(data, size, mdpp16QdcFilters, logger_fun);
+        };
+    }
     else if (strcmp(moduleType, "mdpp32_scp") == 0)
-        return decode_mdpp32_scp_samples(data, size, logger_fun);
+    {
+        return [] (const u32 *data, const size_t size, logger_function logger_fun)
+        {
+            return decode_mdpp_samples_impl(data, size, mdpp32ScpFilters, logger_fun);
+        };
+    }
+    else if (strcmp(moduleType, "mdpp32_qdc") == 0)
+    {
+        return [] (const u32 *data, const size_t size, logger_function logger_fun)
+        {
+            return decode_mdpp_samples_impl(data, size, mdpp32QdcFilters, logger_fun);
+        };
+    }
+
+    return {};
+}
+
+DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size, const char *moduleType, logger_function logger_fun_)
+{
+    auto logger_fun = logger_fun_ ? logger_fun_ : default_logger_fun;
+
+    DecodedMdppSampleEvent result;
+
+    if (auto decoder = get_decoder_function(moduleType))
+    {
+        result = decoder(data, size, logger_fun);
+    }
     else
     {
         logger_fun("error", fmt::format("decode_mdpp_samples: unknown module type '{}'", moduleType));
         SAM_ASSERT(!"unknown module type");
         return {};
     }
+
+    return result;
 }
 
 }
