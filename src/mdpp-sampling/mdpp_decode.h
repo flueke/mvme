@@ -30,7 +30,7 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
     {
         u32 pad: 4;
         u32 debug: 1;
-        u32 config: 8;
+        u32 config: 8; // bit 7: not offset correction, bit 6: not resampled -> if it's set do phase correction is software
         u32 phase: 9;
         u32 length: 10;
     } parts;
