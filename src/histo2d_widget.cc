@@ -77,6 +77,9 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
     assert(sink);
     Histo2DStatistics result;
 
+    if (sink->m_histos.empty())
+        return result;
+
     /* Counts: sum of all histo counts
      * Max Z: absolute max value of the histos
      * Coordinates: x = histo#, y = x coordinate of the max value in the histo
