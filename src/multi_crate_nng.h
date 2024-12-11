@@ -159,7 +159,7 @@ struct LIBMVME_EXPORT ReadoutParserContext: public AbstractJobContext
     size_t totalReadoutEvents = 0u;
     size_t totalSystemEvents = 0u;
     nng::unique_msg outputMessage = nng::make_unique_msg();
-    u32 outputMessageNumber = 0u;
+    u32 outputMessageNumber = 1u;
     mvlc::readout_parser::ReadoutParserState parserState;
     mvlc::Protected<mvlc::readout_parser::ReadoutParserCounters> parserCounters;
     Stopwatch flushTimer;
@@ -180,7 +180,7 @@ struct LIBMVME_EXPORT MultiEventSplitterContext: public AbstractJobContext
 
     u8 crateId = 0;
     nng::unique_msg outputMessage = nng::make_unique_msg();
-    u32 outputMessageNumber = 0u;
+    u32 outputMessageNumber = 1u;
     multi_event_splitter::State state;
     Stopwatch flushTimer;
 };
@@ -203,7 +203,7 @@ struct LIBMVME_EXPORT EventBuilderContext: public AbstractJobContext
     std::array<u8, mvlc::MaxVMECrates> outputCrateMappings;
 
     nng::unique_msg outputMessage = nng::make_unique_msg();
-    u32 outputMessageNumber = 0u;
+    u32 outputMessageNumber = 1u;
     Stopwatch flushTimer;
 
     EventBuilderContext()

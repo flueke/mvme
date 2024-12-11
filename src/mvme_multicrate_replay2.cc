@@ -581,7 +581,7 @@ int main(int argc, char *argv[])
 
 
 
-    #if 1
+    #if 0
     for (int i=0; i<1; ++i)
     {
         auto w = new QMainWindow;

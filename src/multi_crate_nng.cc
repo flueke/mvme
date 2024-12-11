@@ -1096,12 +1096,6 @@ LoopResult replay_loop(ReplayJobContext &context)
 
         while (partWords > 0 && nextHeader + partWords <= end)
         {
-            if (nextHeader + partWords >= end)
-            {
-                spdlog::trace("replay_loop: process input data: cannot advanced nextHeader, leaving loop");
-                break;
-            }
-
             nextHeader += partWords;
             auto [nextCrateId, nextPartWords, nextBufferType] = extract_part_info(nextHeader, std::end(input));
             partWords = nextPartWords;
@@ -1161,11 +1155,11 @@ LoopResult replay_loop(ReplayJobContext &context)
         if (mainBuf.free() < mvlc::util::Megabytes(1) * 0.5)
         {
             spdlog::warn("replay_loop: mainBuf is full (used={}, capacity={}), increasing size!", mainBuf.used(), mainBuf.capacity());
-            mainBuf.ensureFreeSpace(mvlc::util::Megabytes(1) * 0.5);
+            mainBuf.ensureFreeSpace(mvlc::util::Megabytes(1));
         }
 
         size_t bytesToRead = std::min(mainBuf.free(), mvlc::util::Megabytes(1));
-        assert(bytesToRead >= mvlc::util::Megabytes(1) * 0.5);
+        assert(bytesToRead >= mvlc::util::Megabytes(1));
         size_t bytesRead = 0;
 
         try
