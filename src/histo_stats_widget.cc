@@ -14,6 +14,7 @@
 #include <QPlainTextEdit>
 #include <QPrintDialog>
 #include <QPrinter>
+#include <QPrinterInfo>
 #include <QStatusBar>
 #include <QTableView>
 #include <QTextDocument>
@@ -576,7 +577,7 @@ void HistoStatsWidget::Private::handleActionExport()
     }
 
     QString buffer;
-    QTextStream out(&buffer);
+    QTextStream out(&buffer, QIODevice::Text);
     makeStatsText(out);
     outfile.write(buffer.toUtf8());
     QSettings().setValue("LastHistoStatsSaveDirectory", QFileInfo(filename).absolutePath());
@@ -584,6 +585,12 @@ void HistoStatsWidget::Private::handleActionExport()
 
 void HistoStatsWidget::Private::handleActionPrint()
 {
+    qDebug()<<"List of printers";
+    QList<QPrinterInfo> printerList=QPrinterInfo::availablePrinters();
+    foreach (QPrinterInfo printerInfo, printerList) {
+        qDebug()<<printerInfo.printerName();
+    }
+
     QPrinter printer;
     QPrintDialog printDialog(&printer);
 
