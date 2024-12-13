@@ -112,16 +112,13 @@ static const Mdpp16QdcFilters mdpp16QdcFilters;
 static const Mdpp32ScpFilters mdpp32ScpFilters;
 static const Mdpp32QdcFilters mdpp32QdcFilters;
 
-std::shared_ptr<spdlog::logger> get_logger()
+// Used if no logger function is provided. Set to error level to avoid spamming
+// the console.
+void default_logger_fun(const std::string &level, const std::string &message)
 {
     auto logger = mvlc::get_logger("mdpp_sam_decode");
     logger->set_level(spdlog::level::err);
-    return logger;
-}
-
-void default_logger_fun(const std::string &level, const std::string &message)
-{
-    get_logger()->log(spdlog::level::from_str(level), message);
+    logger->log(spdlog::level::from_str(level), message);
 }
 
 }
@@ -157,7 +154,6 @@ std::optional<u64> extract_timestamp(const u32 *data, const size_t size, const F
     }
     else
     {
-        SAM_ASSERT_WARN(!"decode_mdpp_samples: fTimeStamp");
         return ret;
     }
 
@@ -205,7 +201,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     }
     else
     {
-        SAM_ASSERT(!"decode_mdpp_samples: fModuleId");
+        logger_fun("warn", "decode_mdpp_samples: no module header present");
     }
 
     auto timestamp = extract_timestamp(data, size, filters, logger_fun);
@@ -216,7 +212,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     }
     else
     {
-        SAM_ASSERT_WARN(!"decode_mdpp_samples: timestamp");
+        logger_fun("warn", "decode_mdpp_samples: no timestamp present");
     }
 
     ChannelTrace currentTrace;
