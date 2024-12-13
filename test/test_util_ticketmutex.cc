@@ -8,7 +8,7 @@
 
 using namespace mesytec::mvme;
 
-static const auto TestDuration = std::chrono::seconds(5);
+static const auto TestDuration = std::chrono::seconds(1);
 static const auto ReportInterval = std::chrono::seconds(1);
 static const unsigned ThreadCount = 8;
 
