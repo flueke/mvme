@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 1.15.0-rc
+Version 1.15.0
 --------------------------------------------------
 
 The major user facing improvement is support for MDPP-16/32-SCP sampling mode. A
