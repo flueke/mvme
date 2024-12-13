@@ -208,38 +208,6 @@ class Arena
             return result;
         }
 
-        /* Construct an object of type T inside the arena. The object will be
-         * properly deconstructed on resetting or destroying the arena. */
-        template<typename T>
-        T *pushObject(size_t align = alignof(T))
-        {
-            /* Get memory and construct the object using placement new. */
-            void *mem = pushSize(sizeof(T), align);
-            T *result = new (mem) T;
-
-            /* Now push a lambda calling the object destructor onto the
-             * deleters vector.
-             * To achieve exception safety a unique_ptr with a custom deleter
-             * that only runs the destructor is used to temporarily hold the
-             * object pointer. If the vector operation throws the unique_ptr
-             * will properly destroy the object. Otherwise the deleter lambda
-             * has been stored and thus the unique pointer may release() its
-             * pointee. Note that in case of an exception the space for T has
-             * already been allocated inside the arena and will not be
-             * reclaimed. */
-            std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
-
-            m_deleters.emplace_back([result] () {
-                //fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, result);
-                result->~T();
-            });
-
-            /* emplace_back() did not throw. It's safe to release the guard now. */
-            guard_ptr.release();
-
-            return result;
-        }
-
         /* Construct an object of type T using the forwarded Args inside the arena. The
          * object will be properly deconstructed on resetting or destroying the arena. */
         template<typename T, typename... Args>
