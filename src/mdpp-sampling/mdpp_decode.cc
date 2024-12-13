@@ -8,12 +8,6 @@
 #include "util/math.h"
 #include "analysis/a2/a2_support.h"
 
-#if 0
-#define SAM_ASSERT(cond) assert(cond)
-#else
-#define SAM_ASSERT(cond)
-#endif
-
 #define SAM_ASSERT_WARN(cond) if (!(cond)) spdlog::warn("Assertion failed: {}", #cond)
 
 namespace mesytec::mvme::mdpp_sampling
@@ -189,7 +183,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     if (size < 2)
     {
         logger_fun("warn", "decode_mdpp_samples: input data size < 2, returning null result");
-        SAM_ASSERT(!"decode_mdpp_samples: input data size must be >= 2");
         return {};
     }
 
@@ -265,8 +258,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 		{
             if (currentTrace.channel < 0)
             {
-                logger_fun("warn", "decode_mdpp_samples: sample datum without prior amplitude or channel time data");
-                SAM_ASSERT(!"sample datum without prior amplitude or channel time data");
+                logger_fun("error", "decode_mdpp_samples: sample datum without prior amplitude or channel time data");
                 return {};
             }
 
@@ -274,7 +266,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
             {
                 // No header seen yet for this trace so this match is the samples header.
 
-                SAM_ASSERT(currentTrace.traceHeader.value == 0);
                 TraceHeader traceHeader;
 
                 traceHeader.parts.debug = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'D');
@@ -324,9 +315,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
             // Hit an unexpected data word.
             logger_fun("warn", fmt::format("decode_mdpp_samples: No filter match for word #{}: hex={:#010x}, bin={:#b}",
                 std::distance(data, wordPtr), *wordPtr, *wordPtr));
-            //mvlc::log_buffer(mvlc::default_logger(), spdlog::level::trace, dataView, "raw mdpp sample data");
-            //spdlog::warn("decode_mdpp_samples: input.size={}, input={:#010x}", dataView.size(), fmt::join(dataView, " "));
-            SAM_ASSERT(!"no filter match in mdpp data");
         }
     }
 
@@ -397,7 +385,6 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size, c
     else
     {
         logger_fun("error", fmt::format("decode_mdpp_samples: unknown module type '{}'", moduleType));
-        SAM_ASSERT(!"unknown module type");
         return {};
     }
 
