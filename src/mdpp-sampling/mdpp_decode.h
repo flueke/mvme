@@ -109,7 +109,8 @@ struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
 
 using logger_function = std::function<void (const std::string &level, const std::string &message)>;
 
-// Pass the module type as a string. Currently supported types: mdpp16_scp and mdpp32_scp
+// Pass the module type as a string. Currently supported types: mdpp16_scp,
+// mdpp16_qdc, mdpp32_scp and mdpp32_qdc.
 DecodedMdppSampleEvent LIBMVME_MDPP_DECODE_EXPORT decode_mdpp_samples(
     const u32 *data, const size_t size, const char *moduleType, logger_function logger_fun = {});
 

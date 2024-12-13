@@ -71,7 +71,7 @@ TEST(MdppSamplingDecode, decode_mdpp16_basic)
         0x3063018b, 0x2000abcd, 0xc29d1b98
     };
 
-    auto decoded = mdpp_sampling::decode_mdpp16_scp_samples(data.data(), data.size());
+    auto decoded = mdpp_sampling::decode_mdpp_samples(data.data(), data.size(), "mdpp16_scp");
 
     ASSERT_EQ(decoded.header, 0x400d001a);
     ASSERT_EQ(decoded.timestamp, static_cast<u64>(0x029d1b98) | (static_cast<u64>(0xabcd) << 30));
@@ -125,7 +125,7 @@ TEST(MdppSamplingDecode, decode_mdpp16_multihit_adjacent)
         0x3063018b, 0x2000abcd, 0xc29d1b98
     };
 
-    auto decoded = mdpp_sampling::decode_mdpp16_scp_samples(data.data(), data.size());
+    auto decoded = mdpp_sampling::decode_mdpp_samples(data.data(), data.size(), "mdpp16_scp");
 
     ASSERT_EQ(decoded.header, 0x400d001a);
     ASSERT_EQ(decoded.timestamp, static_cast<u64>(0x029d1b98) | (static_cast<u64>(0xabcd) << 30));
