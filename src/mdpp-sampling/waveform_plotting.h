@@ -321,6 +321,23 @@ void post_process_waveforms(
     size_t maxDepth,
     bool doPhaseCorrection);
 
+// Like post_process_waveforms() but processes the analysisTraceData snapshot as
+// is. This means the result contains exactly the traces contained in the input
+// snapshot, it's not built up using only the latest trace per input channel.
+// => Traces from different channels but with the same index in the channels
+// trace history are from the same analysis event.
+// => Way more expensive than post_process_waveforms() as it processes all traces.
+// TODO: add a starting traceIndex and a maxTraceCount parameter or in the UI
+// crate a copy of the trace data containing only the traces to be displayed,
+// then call post_process_waveform_snapshot() on that copy.
+void post_process_waveform_snapshot(
+    const waveforms::TraceHistories &analysisTraceData,
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor,
+    bool doPhaseCorrection);
+
 // Reprocess waveforms to account for changed dtSample and interpolationFactor
 // values.
 // The traces in rawDisplayTraces are rescaled by dtSample, then interpolated

@@ -30,6 +30,33 @@ inline QSpinBox *add_maxdepth_spin(QToolBar *toolbar)
     return result;
 }
 
+enum RefreshMode
+{
+    RefreshMode_LatestData,
+    RefreshMode_EventSnapshot
+};
+
+inline QComboBox *add_mode_selector(QToolBar *toolbar)
+{
+    auto result = new QComboBox;
+    result->addItem("Latest Data", RefreshMode_LatestData);
+    result->addItem("Event Snapshot", RefreshMode_EventSnapshot);
+    auto boxstruct = make_vbox_container("Refresh Mode", result, 0, -2);
+    toolbar->addWidget(boxstruct.container.release());
+    return result;
+}
+
+inline QSpinBox *add_trace_selector(QToolBar *toolbar)
+{
+    auto result = new QSpinBox;
+    result->setMinimum(0);
+    result->setMaximum(1);
+    result->setSpecialValueText("latest");
+    auto boxStruct = make_vbox_container(QSL("Trace#"), result, 0, -2);
+    toolbar->addWidget(boxStruct.container.release());
+    return result;
+}
+
 struct CurvesWithData
 {
     waveforms::WaveformCurves curves;
@@ -68,10 +95,15 @@ struct WaveformSink1DWidget::Private
     waveforms::TraceHistories rawDisplayTraces_;            // x-scaling only, no interpolation
     waveforms::TraceHistories interpolatedDisplayTraces_;   // x-scaling and interpolation
 
+    RefreshMode refreshMode_ = RefreshMode_LatestData;
+    RefreshMode prevRefreshMode_ = refreshMode_;
+
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
     mesytec::mvlc::util::Stopwatch frameTimer_;
 
+    QComboBox *combo_modeSelect_ = nullptr;
+    QSpinBox *traceSelect_ = nullptr;
     QSpinBox *spin_chanSelect = nullptr;
     QCheckBox *cb_showAllChannels_ = nullptr;
     bool showSampleSymbols_ = false;
@@ -127,8 +159,18 @@ WaveformSink1DWidget::WaveformSink1DWidget(
 
     auto tb = getToolBar();
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    //tb->setIconSize(QSize(16, 16));
     set_widget_font_pointsize(tb, 7);
+
+    d->combo_modeSelect_ = add_mode_selector(tb);
+
+    d->actionHold_ = tb->addAction(QIcon(":/control_pause.png"), "Hold");
+    d->actionHold_->setCheckable(true);
+    d->actionHold_->setChecked(false);
+    tb->addSeparator();
+
+    d->traceSelect_ = add_trace_selector(tb);
+    d->traceSelect_->setEnabled(false);
+    tb->addSeparator();
 
     auto [chanSelWidget, chanSelLayout] = make_widget_with_layout<QWidget, QGridLayout>();
     d->spin_chanSelect = new QSpinBox;
@@ -141,13 +183,6 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     tb->addWidget(chanSelWidget);
     tb->addSeparator();
 
-    //auto actionPrev = tb->addAction(QIcon(":/arrow_left.png"), "Prev");
-    d->actionHold_ = tb->addAction(QIcon(":/control_pause.png"), "Hold");
-    d->actionHold_->setCheckable(true);
-    d->actionHold_->setChecked(false);
-    //auto actionNext = tb->addAction(QIcon(":/arrow_right.png"), "Next");
-
-    tb->addSeparator();
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
     tb->addAction(QIcon(":/selection-resize.png"), QSL("Rescale Axes"), this, [this] {
         d->resetPlotAxes();
@@ -173,8 +208,6 @@ WaveformSink1DWidget::WaveformSink1DWidget(
 
     d->spin_maxDepth_ = add_maxdepth_spin(tb);
 
-    //histo_ui::install_tracker_picker(this);
-
     DO_AND_ASSERT(connect(histo_ui::get_zoomer(this), SIGNAL(zoomed(const QRectF &)), this, SLOT(replot())));
 
     // enable both the zoomer and mouse cursor tracker by default
@@ -182,8 +215,9 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     if (auto zoomAction = findChild<QAction *>("zoomAction"))
         zoomAction->setChecked(true);
 
-    if (auto trackerPickerAction = findChild<QAction *>("trackerPickerAction"))
-        trackerPickerAction->setChecked(true);
+    //histo_ui::install_tracker_picker(this);
+    //if (auto trackerPickerAction = findChild<QAction *>("trackerPickerAction"))
+    //    trackerPickerAction->setChecked(true);
 
     tb->addSeparator();
     d->spin_dtSample_ = add_dt_sample_setter(tb);
@@ -219,6 +253,17 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     tb->addWidget(d->pb_printInfo_);
 
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
+
+    connect(d->combo_modeSelect_, qOverload<int>(&QComboBox::currentIndexChanged),
+        this, [this] {
+        d->prevRefreshMode_ = d->refreshMode_;
+        d->refreshMode_ = static_cast<RefreshMode>(d->combo_modeSelect_->currentData().toInt());
+        d->traceSelect_->setEnabled(d->refreshMode_ == RefreshMode_EventSnapshot);
+        replot();
+    });
+
+    connect(d->traceSelect_, qOverload<int>(&QSpinBox::valueChanged),
+        this, [this]  { replot(); });
 
     connect(d->spin_chanSelect, qOverload<int>(&QSpinBox::valueChanged),
         this, [this] { d->selectedChannelChanged_ = true; replot(); });
@@ -277,12 +322,29 @@ void WaveformSink1DWidget::Private::postProcessData()
     // Note: this potentially removes Traces still referenced by underlying
     // QwtPlotCurves. Have to update/delete superfluous curves before calling
     // replot()!
-    waveforms::post_process_waveforms(
-        analysisTraceData_,
-        rawDisplayTraces_,
-        interpolatedDisplayTraces_,
-        dtSample, interpolationFactor,
-        maxDepth, doPhaseCorrection);
+
+    // TODO: clear things on mode change
+
+    switch (refreshMode_)
+    {
+    case RefreshMode_LatestData:
+        waveforms::post_process_waveforms(
+            analysisTraceData_,
+            rawDisplayTraces_,
+            interpolatedDisplayTraces_,
+            dtSample, interpolationFactor,
+            maxDepth, doPhaseCorrection);
+        break;
+
+    case RefreshMode_EventSnapshot:
+        waveforms::post_process_waveform_snapshot(
+            analysisTraceData_,
+            rawDisplayTraces_,
+            interpolatedDisplayTraces_,
+            dtSample, interpolationFactor,
+            doPhaseCorrection);
+        break;
+    }
 }
 
 void WaveformSink1DWidget::Private::reprocessData()
@@ -293,11 +355,25 @@ void WaveformSink1DWidget::Private::reprocessData()
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const bool doPhaseCorrection = cb_phaseCorrection_->isChecked();
 
-    waveforms::reprocess_waveforms(
-        rawDisplayTraces_,
-        interpolatedDisplayTraces_,
-        dtSample, interpolationFactor,
-        doPhaseCorrection);
+    switch (refreshMode_)
+    {
+    case RefreshMode_LatestData:
+        waveforms::reprocess_waveforms(
+            rawDisplayTraces_,
+            interpolatedDisplayTraces_,
+            dtSample, interpolationFactor,
+            doPhaseCorrection);
+        break;
+
+    case RefreshMode_EventSnapshot:
+        waveforms::post_process_waveform_snapshot(
+            analysisTraceData_,
+            rawDisplayTraces_,
+            interpolatedDisplayTraces_,
+            dtSample, interpolationFactor,
+            doPhaseCorrection);
+        break;
+    }
 }
 
 void WaveformSink1DWidget::Private::updateUi()
@@ -312,6 +388,14 @@ void WaveformSink1DWidget::Private::updateUi()
     // selector 1: Update the channel number spinbox
     const auto maxChannel = static_cast<signed>(rawDisplayTraces_.size()) - 1;
     spin_chanSelect->setMaximum(std::max(0, maxChannel));
+
+    // selector 2: Update the trace number spinbox
+    size_t maxTrace = 0;
+
+    if (!analysisTraceData_.empty())
+        maxTrace = analysisTraceData_.front().size() - 1;
+
+    traceSelect_->setMaximum(maxTrace);
 }
 
 // Warning: do not call this from within replot()! That will lead to infinite
@@ -372,8 +456,11 @@ void WaveformSink1DWidget::replot()
 {
     spdlog::trace("begin WaveformSink1DWidget::replot()");
 
-    const bool forceProcessing = d->selectedChannelChanged_ || d->dtSampleChanged_ || d->interpolationFactorChanged_;
+    const bool forceProcessing = (d->selectedChannelChanged_ || d->dtSampleChanged_
+         || d->interpolationFactorChanged_ || (d->prevRefreshMode_ != d->refreshMode_));
+
     d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = false;
+    d->prevRefreshMode_ = d->refreshMode_;
 
     if (d->actionHold_->isChecked() && forceProcessing)
     {
@@ -396,23 +483,23 @@ void WaveformSink1DWidget::replot()
     static const auto colors = make_plot_colors();
     const auto channelCount = d->rawDisplayTraces_.size();
     QRectF newBoundingRect = d->maxBoundingRect_;
-    size_t indexMin = 0;
-    size_t indexMax = channelCount;
+    size_t chanMin = 0;
+    size_t chanMax = channelCount;
 
     if (!d->cb_showAllChannels_->isChecked())
     {
         auto selectedChannel = d->spin_chanSelect->value();
         selectedChannel = std::clamp(selectedChannel, 0, static_cast<int>(channelCount) - 1);
-        indexMin = selectedChannel;
-        indexMax = selectedChannel + 1;
+        chanMin = selectedChannel;
+        chanMax = selectedChannel + 1;
     }
 
     size_t totalTraceEntriesNeeded = 0;
 
-    for (size_t chanIndex = indexMin; chanIndex < indexMax; ++chanIndex)
+    for (size_t chanIndex = chanMin; chanIndex < chanMax; ++chanIndex)
     {
         auto &ipolTraces = d->interpolatedDisplayTraces_.at(chanIndex);
-        const auto traceCount = ipolTraces.size();
+        const auto traceCount = d->refreshMode_ == RefreshMode_LatestData ? ipolTraces.size() : d->spin_maxDepth_->value();
         totalTraceEntriesNeeded += traceCount;
     }
 
@@ -441,17 +528,25 @@ void WaveformSink1DWidget::replot()
 
     size_t absTraceIndex = 0;
 
-    for (size_t chanIndex = indexMin; chanIndex < indexMax; ++chanIndex)
+    for (size_t chanIndex = chanMin; chanIndex < chanMax; ++chanIndex)
     {
         auto &rawTraces = d->rawDisplayTraces_[chanIndex];
         auto &ipolTraces = d->interpolatedDisplayTraces_[chanIndex];
         assert(rawTraces.size() == ipolTraces.size());
 
-        const auto traceColor = colors.value((chanIndex - indexMin) % colors.size());
-        const auto traceCount = ipolTraces.size();
+        const auto traceColor = colors.value((chanIndex - chanMin) % colors.size());
+
+        size_t traceIndex = (d->refreshMode_ == RefreshMode_LatestData
+            ? 0
+            : std::min(static_cast<int>(ipolTraces.size()), d->traceSelect_->value()));
+
+        const size_t traceCount = (d->refreshMode_ == RefreshMode_LatestData
+            ? ipolTraces.size()
+            : std::min(static_cast<int>(ipolTraces.size()), d->spin_maxDepth_->value()));
+
         const double slope = (1.0 - 0.1) / traceCount; // want alpha from 1.0 to 0.1
 
-        for (size_t traceIndex = 0; traceIndex < traceCount; ++traceIndex)
+        for (;traceIndex < traceCount; ++traceIndex)
         {
             auto &rawTrace = rawTraces[traceIndex];
             auto &ipolTrace = ipolTraces[traceIndex];
@@ -527,15 +622,15 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     size_t historyDepth = !rawTraces.empty() ? rawTraces[0].size() : 0u;
     auto selectedChannel = spin_chanSelect->value();
 
-    size_t indexMin = 0;
-    size_t indexMax = channelCount;
+    size_t chanMin = 0;
+    size_t chanMax = channelCount;
 
     if (!cb_showAllChannels_->isChecked())
     {
         auto selectedChannel = spin_chanSelect->value();
         selectedChannel = std::clamp(selectedChannel, 0, static_cast<int>(channelCount) - 1);
-        indexMin = selectedChannel;
-        indexMax = selectedChannel + 1;
+        chanMin = selectedChannel;
+        chanMax = selectedChannel + 1;
     }
 
     out << "Trace History Info:\n";
@@ -545,7 +640,7 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     out << fmt::format("  Selected channel: {}\n", cb_showAllChannels_->isChecked() ? "All" : std::to_string(selectedChannel));
     out << "\n";
 
-    for (size_t chan = indexMin; chan < indexMax; ++chan)
+    for (size_t chan = chanMin; chan < chanMax; ++chan)
     {
         if (!rawTraces[chan].empty() && !rawTraces[chan].front().empty())
         {

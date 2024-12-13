@@ -292,6 +292,51 @@ void post_process_waveforms(
     }
 }
 
+void post_process_waveform_snapshot(
+    const waveforms::TraceHistories &analysisTraceData,
+    waveforms::TraceHistories &rawDisplayTraces,
+    waveforms::TraceHistories &interpolatedDisplayTraces,
+    double dtSample,
+    int interpolationFactor,
+    bool doPhaseCorrection)
+{
+    rawDisplayTraces.resize(analysisTraceData.size());
+    interpolatedDisplayTraces.resize(analysisTraceData.size());
+
+    for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
+    {
+        const auto &inputTraces = analysisTraceData[chan];
+
+        auto &rawDestTraces = rawDisplayTraces[chan];
+        auto &ipolDestTraces = interpolatedDisplayTraces[chan];
+
+        rawDestTraces.resize(inputTraces.size());
+        ipolDestTraces.resize(inputTraces.size());
+
+        for (size_t traceIndex = 0; traceIndex < inputTraces.size(); ++traceIndex)
+        {
+            auto &inputTrace = inputTraces[traceIndex];
+            auto &rawDestTrace = rawDestTraces[traceIndex];
+            auto &ipolDestTrace = ipolDestTraces[traceIndex];
+
+            rawDestTrace.clear();
+            ipolDestTrace.clear();
+
+            double phase = 1.0;
+            if (doPhaseCorrection)
+            {
+                if (auto it = inputTrace.meta.find("phase"); it != std::end(inputTrace.meta))
+                    phase = std::get<double>(it->second);
+            }
+
+            rawDestTrace.meta = inputTrace.meta;
+            ipolDestTrace.meta = inputTrace.meta;
+            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample, phase);
+            waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
+        }
+    }
+}
+
 void reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
