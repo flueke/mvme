@@ -312,7 +312,7 @@ struct WaveformProcessingData
 // - take the latest trace from the front of the channels trace history,
 // - scale x by dtSample then interpolate while limiting each channels history to maxDepth.
 // Trace memory is reused once maxDepth is reached.
-void post_process_waveforms(
+size_t post_process_waveforms(
     const waveforms::TraceHistories &analysisTraceData,
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
@@ -326,11 +326,9 @@ void post_process_waveforms(
 // snapshot, it's not built up using only the latest trace per input channel.
 // => Traces from different channels but with the same index in the channels
 // trace history are from the same analysis event.
-// => Way more expensive than post_process_waveforms() as it processes all traces.
-// TODO: add a starting traceIndex and a maxTraceCount parameter or in the UI
-// crate a copy of the trace data containing only the traces to be displayed,
-// then call post_process_waveform_snapshot() on that copy.
-void post_process_waveform_snapshot(
+//
+// Returns the number of traces processed.
+size_t post_process_waveform_snapshot(
     const waveforms::TraceHistories &analysisTraceData,
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
@@ -344,7 +342,7 @@ void post_process_waveform_snapshot(
 // values.
 // The traces in rawDisplayTraces are rescaled by dtSample, then interpolated
 // data is written to interpolatedDisplayTraces.
-void reprocess_waveforms(
+size_t reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,

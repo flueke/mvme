@@ -231,7 +231,7 @@ inline waveforms::Trace maybe_recycle_trace(waveforms::TraceHistory &traceBuffer
     return result;
 }
 
-void post_process_waveforms(
+size_t post_process_waveforms(
     const waveforms::TraceHistories &analysisTraceData,
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
@@ -248,6 +248,8 @@ void post_process_waveforms(
 
     std::for_each(std::begin(interpolatedDisplayTraces), std::end(interpolatedDisplayTraces),
         [maxDepth] (auto &traces) { maybe_shrink_trace_history(traces, maxDepth); });
+
+    size_t tracesProcessed = 0;
 
     for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
     {
@@ -284,15 +286,18 @@ void post_process_waveforms(
 
             rawDestTraces.push_front(std::move(rawDestTrace));
             ipolDestTraces.push_front(std::move(ipolDestTrace));
+            ++tracesProcessed;
         }
 
         assert(rawDestTraces.size() <= maxDepth);
         assert(ipolDestTraces.size() <= maxDepth);
         assert(rawDestTraces.size() == ipolDestTraces.size());
     }
+
+    return tracesProcessed;
 }
 
-void post_process_waveform_snapshot(
+size_t post_process_waveform_snapshot(
     const waveforms::TraceHistories &analysisTraceData,
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
@@ -304,7 +309,7 @@ void post_process_waveform_snapshot(
 {
     rawDisplayTraces.resize(analysisTraceData.size());
     interpolatedDisplayTraces.resize(analysisTraceData.size());
-    size_t tracesProcessed = 0; (void) tracesProcessed;
+    size_t tracesProcessed = 0;
 
     for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
     {
@@ -344,10 +349,11 @@ void post_process_waveform_snapshot(
         }
     }
 
-    spdlog::info("post_process_waveform_snapshot(): processed {} traces", tracesProcessed);
+    spdlog::trace("post_process_waveform_snapshot(): processed {} traces", tracesProcessed);
+    return tracesProcessed;
 }
 
-void reprocess_waveforms(
+size_t reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
@@ -355,6 +361,7 @@ void reprocess_waveforms(
     bool doPhaseCorrection)
 {
     interpolatedDisplayTraces.resize(rawDisplayTraces.size());
+    size_t tracesProcessed = 0;
 
     for (size_t chan=0; chan<rawDisplayTraces.size(); ++chan)
     {
@@ -376,8 +383,11 @@ void reprocess_waveforms(
 
             waveforms::rescale_x_values(rawTrace, dtSample, phase);
             waveforms::interpolate(rawTrace, ipolTrace, interpolationFactor);
+            ++tracesProcessed;
         }
     }
+
+    return tracesProcessed;
 }
 
 }
