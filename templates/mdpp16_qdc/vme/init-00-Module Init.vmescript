@@ -2,21 +2,14 @@
 
 # Operation Mode
 # ############################################################################
-# tdc_resolution
-0x6042  0           # 0 ->  24 ps = 25 ns / 1024
-                    # 1 ->  49 ps = 25 ns / 512
-                    # 2 ->  98 ps = 25 ns / 256
-                    # 3 -> 195 ps = 25 ns / 128
-                    # 4 -> 391 ps = 25 ns / 64
-                    # 5 -> 781 ps = 25 ns / 32
-# ADC resolution
-0x6046	0			# 0 = 16 bit ... 4 = 12Bit (starting from FW3020, before alway 12Bit)
+# tdc_resolution									| Range
+0x6042  0           # 0 ->  24 ps = 25 ns / 1024	| 1.6us
+                    # 1 ->  49 ps = 25 ns / 512		| 3.2us
+                    # 2 ->  98 ps = 25 ns / 256		| 6.4us
+                    # 3 -> 195 ps = 25 ns / 128		| 12.8us
+                    # 4 -> 391 ps = 25 ns / 64		| 25.6us
+                    # 5 -> 781 ps = 25 ns / 32		| 51.2us
 
-# output_format
-0x6044  3           # 0 -> time and long integral
-                    # 1 -> long integral only (QDC-mode)
-                    # 2 -> time only (TDC mode)
-                    # 3 -> long integral, short integral and time
 
 # first_hit
 0x605C  1           # 0 -> transmit all hits per channel in the window
@@ -34,6 +27,8 @@
                     # > 0 -> window is delayed
 
 # win_width (14 bit value)
+# ** the setting for tdc resolution should provide a time range larger or equal the window width 
+# ** window dead time (minimum distance between two triggers)  = "width" + 500ns
 0x6054  $(200 / 1.56)    # first term in ns;
                     # win_width = (win_width[ns] / 25ns * 16)
                     # max value 16383; (Hex notation: 0x3FFF)

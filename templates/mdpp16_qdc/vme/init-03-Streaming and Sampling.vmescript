@@ -6,20 +6,23 @@ accu_mask_rotate 0x000000ff 32
 accu_test_warn gte 0x40 "MDPP-16_QDC >= FW3040 required for Sampling mode"
 
 # output_format
-# 0 (default)   -> Standard time and amplitude data.
-# 4 (streaming) -> Since QDC FW3040. Enables streaming mode.
-# Individual bits: {no_resampling, sampling, standard_streaming, compact_streaming, adc, tdc}
-0x6044 0b000000
+# 0 (default)   -> window of interest, no samples
+# 4  -> Since QDC FW3040. Enables compact_streaming.
+# 8  -> Since QDC FW3040. Enables standard_streaming.
+# Individual bits: {sampling, standard_streaming, compact_streaming, 0, 0}
+#					default: window of interest: standard_streaming = 0, compact_streaming = 0
+0x6044 0b00000
 
 # Sampling parameter (can be set for all channels or per channel pair)
 0x6100  8		# select_chan_pair, 8 = all channels
 
-0x6146 0		# number of pre-samples
+0x6146 5		# number of pre-samples
 0x6148 30		# total samples to output (even number required)
-0x614A 0b0000'0010		# sampling settings [3:0]
+0x614A 0b0000'0000		# sampling settings [3:0]
 						# 0 = directly from ADC
-						# 1 = after deconvolution of pre-differentiation
-						# 2 = output shaper of timing path
-						# 3 = output shaper of amplitude path
+						# 1 = short integration (first peak)
+						# 2 = long integration
+						
 						# sampling settings [7:4]
 						# bit 7 set: no offset correction1
+						# bit 6 set: no resampling

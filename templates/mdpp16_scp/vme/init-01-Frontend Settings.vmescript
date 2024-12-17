@@ -10,6 +10,11 @@
                 # range 1..127 in multiples of 12.5 ns;
                 #    (12.5 (15) ns to 1.6 us)
 
+# shaping_time (common for both selected channels)
+0x6124  $(2000 / 12.5)  # first term: in ns
+                # FWHM-width in multiples of 12.5ns (200 == 2.5 us)
+                # range 8..2000 (100 ns to 25 us)
+
 # PZ0 (signal_decay_time0 for selected channel0)
 0x6112   $(25000 / 12.5)  # first term: decay time in ns
                 # range 64..64k, 0.8 us to 800 us and infinite
@@ -29,10 +34,6 @@
 # threshold1
 0x611E  500    # same as threshold0
 
-# shaping_time (common for both selected channels)
-0x6124  $(2000 / 12.5)  # first term: in ns
-                # FWHM-width in multiples of 12.5ns (200 == 2.5 us)
-                # range 8..2000 (100 ns to 25 us)
 
 # signal_rise_time, determines the flat top of trapezoidal shaper (common for both selected channels)
 0x612A  0       # multiple of 12.5 ns (7 bit value)
