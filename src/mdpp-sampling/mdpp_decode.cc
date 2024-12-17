@@ -209,6 +209,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     }
 
     ChannelTrace currentTrace;
+    size_t totalSamples = 0;
 
 	for (auto wordPtr = data+1, dataEnd = data + size; wordPtr < dataEnd; ++wordPtr)
     {
@@ -245,6 +246,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
                 logger_fun("trace", fmt::format("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
                     currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", ")));
 
+                totalSamples += currentTrace.samples.size();
                 ret.traces.push_back(currentTrace); // store the old trace
 
                 // begin the new trace
@@ -327,8 +329,8 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
         ret.traces.push_back(currentTrace);
     }
 
-    logger_fun("trace", fmt::format("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}",
-                 ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size()));
+    logger_fun("trace", fmt::format("decode_mdpp_samples finished decoding: header={:#010x}, timestamp={}, moduleId={:#04x}, #traces={}, #totalSamples={}",
+                 ret.header, ret.timestamp, ret.headerModuleId, ret.traces.size(), totalSamples));
 
     // Store a copy of the raw input data in the result. Used in the UI to rerun
     // the decoder for debugging purposes.
