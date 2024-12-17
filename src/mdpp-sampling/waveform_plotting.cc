@@ -298,10 +298,13 @@ void post_process_waveform_snapshot(
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
     int interpolationFactor,
+    size_t startingTraceIndex,  // <- first "column"
+    size_t maxTraceCount,       // <- amount of "columns" to process and store in the display traces
     bool doPhaseCorrection)
 {
     rawDisplayTraces.resize(analysisTraceData.size());
     interpolatedDisplayTraces.resize(analysisTraceData.size());
+    size_t tracesProcessed = 0; (void) tracesProcessed;
 
     for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
     {
@@ -310,14 +313,18 @@ void post_process_waveform_snapshot(
         auto &rawDestTraces = rawDisplayTraces[chan];
         auto &ipolDestTraces = interpolatedDisplayTraces[chan];
 
-        rawDestTraces.resize(inputTraces.size());
-        ipolDestTraces.resize(inputTraces.size());
+        rawDestTraces.resize(std::min(maxTraceCount, inputTraces.size()));
+        ipolDestTraces.resize(std::min(maxTraceCount, inputTraces.size()));
 
-        for (size_t traceIndex = 0; traceIndex < inputTraces.size(); ++traceIndex)
+        const size_t traceIndexMin = std::min(startingTraceIndex, inputTraces.size());
+        const size_t traceIndexMax = std::min(startingTraceIndex + maxTraceCount, inputTraces.size());
+        size_t traceOutputIndex = 0;
+
+        for (size_t traceIndex = traceIndexMin; traceIndex < traceIndexMax; ++traceIndex, ++traceOutputIndex)
         {
             auto &inputTrace = inputTraces[traceIndex];
-            auto &rawDestTrace = rawDestTraces[traceIndex];
-            auto &ipolDestTrace = ipolDestTraces[traceIndex];
+            auto &rawDestTrace = rawDestTraces[traceOutputIndex];
+            auto &ipolDestTrace = ipolDestTraces[traceOutputIndex];
 
             rawDestTrace.clear();
             ipolDestTrace.clear();
@@ -333,8 +340,11 @@ void post_process_waveform_snapshot(
             ipolDestTrace.meta = inputTrace.meta;
             waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample, phase);
             waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
+            ++tracesProcessed;
         }
     }
+
+    spdlog::info("post_process_waveform_snapshot(): processed {} traces", tracesProcessed);
 }
 
 void reprocess_waveforms(

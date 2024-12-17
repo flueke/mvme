@@ -336,6 +336,8 @@ void post_process_waveform_snapshot(
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
     int interpolationFactor,
+    size_t startingTraceIndex,
+    size_t maxTraceCount,
     bool doPhaseCorrection);
 
 // Reprocess waveforms to account for changed dtSample and interpolationFactor

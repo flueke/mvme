@@ -121,6 +121,7 @@ struct WaveformSink1DWidget::Private
     QRectF maxBoundingRect_;
     QPushButton *pb_resetBoundingRect = nullptr;
 
+    bool selectedTraceChanged_ = false;
     bool selectedChannelChanged_ = false;
     bool dtSampleChanged_ = false;
     bool interpolationFactorChanged_ = false;
@@ -263,7 +264,10 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     });
 
     connect(d->traceSelect_, qOverload<int>(&QSpinBox::valueChanged),
-        this, [this]  { replot(); });
+        this, [this]  {
+        d->selectedTraceChanged_ = true;
+        replot();
+    });
 
     connect(d->spin_chanSelect, qOverload<int>(&QSpinBox::valueChanged),
         this, [this] { d->selectedChannelChanged_ = true; replot(); });
@@ -318,6 +322,7 @@ void WaveformSink1DWidget::Private::postProcessData()
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const size_t maxDepth = spin_maxDepth_->value();
     const bool doPhaseCorrection = cb_phaseCorrection_->isChecked();
+    const bool selectedTraceIndex = traceSelect_->value();
 
     // Note: this potentially removes Traces still referenced by underlying
     // QwtPlotCurves. Have to update/delete superfluous curves before calling
@@ -342,6 +347,7 @@ void WaveformSink1DWidget::Private::postProcessData()
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
             dtSample, interpolationFactor,
+            selectedTraceIndex, maxDepth,
             doPhaseCorrection);
         break;
     }
@@ -353,7 +359,9 @@ void WaveformSink1DWidget::Private::reprocessData()
 
     const auto dtSample = spin_dtSample_->value();
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
+    const size_t maxDepth = spin_maxDepth_->value();
     const bool doPhaseCorrection = cb_phaseCorrection_->isChecked();
+    const bool selectedTraceIndex = traceSelect_->value();
 
     switch (refreshMode_)
     {
@@ -371,6 +379,7 @@ void WaveformSink1DWidget::Private::reprocessData()
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
             dtSample, interpolationFactor,
+            selectedTraceIndex, maxDepth,
             doPhaseCorrection);
         break;
     }
@@ -456,10 +465,15 @@ void WaveformSink1DWidget::replot()
 {
     spdlog::trace("begin WaveformSink1DWidget::replot()");
 
-    const bool forceProcessing = (d->selectedChannelChanged_ || d->dtSampleChanged_
-         || d->interpolationFactorChanged_ || (d->prevRefreshMode_ != d->refreshMode_));
+    const bool forceProcessing = (
+        d->selectedChannelChanged_
+        || d->dtSampleChanged_
+        || d->interpolationFactorChanged_
+        || d->selectedTraceChanged_
+        || (d->prevRefreshMode_ != d->refreshMode_));
 
-    d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = false;
+    d->selectedChannelChanged_ = d->dtSampleChanged_ =
+    d->interpolationFactorChanged_ = d->selectedTraceChanged_ = false;
     d->prevRefreshMode_ = d->refreshMode_;
 
     if (d->actionHold_->isChecked() && forceProcessing)
