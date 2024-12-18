@@ -308,6 +308,13 @@ struct WaveformProcessingData
     waveforms::TraceHistories &interpolatedDisplayTraces;
 };
 
+enum PhaseCorrectionMode
+{
+    PhaseCorrection_Auto,
+    PhaseCorrection_On,
+    PhaseCorrection_Off
+};
+
 // For each channel in analysisTraceData:
 // - take the latest trace from the front of the channels trace history,
 // - scale x by dtSample then interpolate while limiting each channels history to maxDepth.
@@ -319,7 +326,7 @@ size_t post_process_waveforms(
     double dtSample,
     int interpolationFactor,
     size_t maxDepth,
-    bool doPhaseCorrection);
+    PhaseCorrectionMode phaseCorrection);
 
 // Like post_process_waveforms() but processes the analysisTraceData snapshot as
 // is. This means the result contains exactly the traces contained in the input
@@ -336,7 +343,7 @@ size_t post_process_waveform_snapshot(
     int interpolationFactor,
     size_t startingTraceIndex,
     size_t maxTraceCount,
-    bool doPhaseCorrection);
+    PhaseCorrectionMode phaseCorrection);
 
 // Reprocess waveforms to account for changed dtSample and interpolationFactor
 // values.
@@ -347,7 +354,7 @@ size_t reprocess_waveforms(
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
     int interpolationFactor,
-    bool doPhaseCorrection);
+    PhaseCorrectionMode phaseCorrection);
 
 }
 

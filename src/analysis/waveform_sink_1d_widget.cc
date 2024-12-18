@@ -112,7 +112,7 @@ struct WaveformSink1DWidget::Private
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
     QSpinBox *spin_interpolationFactor_ = nullptr;
-    QCheckBox *cb_phaseCorrection_ = nullptr;
+    QComboBox *combo_phaseCorrection_ = nullptr;
     // set both the max number of traces to keep per channel and the number of traces to show in the plot at the same time.
     QSpinBox *spin_maxDepth_ = nullptr;
     QPlainTextEdit *logView_ = nullptr;
@@ -227,10 +227,17 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
 
     {
-        d->cb_phaseCorrection_ = new QCheckBox("Phase Correction");
-        d->cb_phaseCorrection_->setChecked(true);
-        auto [widget, layout] = make_widget_with_layout<QWidget, QHBoxLayout>();
-        layout->addWidget(d->cb_phaseCorrection_);
+        d->combo_phaseCorrection_ = new QComboBox;
+        d->combo_phaseCorrection_->addItem("Auto", waveforms::PhaseCorrectionMode::PhaseCorrection_Auto);
+        d->combo_phaseCorrection_->addItem("On", waveforms::PhaseCorrectionMode::PhaseCorrection_On);
+        d->combo_phaseCorrection_->addItem("Off", waveforms::PhaseCorrectionMode::PhaseCorrection_Off);
+        d->combo_phaseCorrection_->setToolTip(QSL(
+            "Auto: use phase correction if 'NoResampling' is set in the traces 'config' field.\n"
+            "On: always use phase correction.\n"
+            "Off: never use phase correction."));
+        auto [widget, layout] = make_widget_with_layout<QWidget, QVBoxLayout>();
+        layout->addWidget(new QLabel("Phase Correction"), 0, Qt::AlignCenter);
+        layout->addWidget(d->combo_phaseCorrection_);
         tb->addWidget(widget);
     }
 
@@ -321,7 +328,8 @@ void WaveformSink1DWidget::Private::postProcessData()
     const auto dtSample = spin_dtSample_->value();
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const size_t maxDepth = spin_maxDepth_->value();
-    const bool doPhaseCorrection = cb_phaseCorrection_->isChecked();
+    auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
+        combo_phaseCorrection_->currentData().toInt());
     const bool selectedTraceIndex = traceSelect_->value();
 
     // Note: this potentially removes Traces still referenced by underlying
@@ -338,7 +346,7 @@ void WaveformSink1DWidget::Private::postProcessData()
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
             dtSample, interpolationFactor,
-            maxDepth, doPhaseCorrection);
+            maxDepth, phaseCorrection);
         break;
 
     case RefreshMode_EventSnapshot:
@@ -348,7 +356,7 @@ void WaveformSink1DWidget::Private::postProcessData()
             interpolatedDisplayTraces_,
             dtSample, interpolationFactor,
             selectedTraceIndex, maxDepth,
-            doPhaseCorrection);
+            phaseCorrection);
         break;
     }
 }
@@ -360,7 +368,8 @@ void WaveformSink1DWidget::Private::reprocessData()
     const auto dtSample = spin_dtSample_->value();
     const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const size_t maxDepth = spin_maxDepth_->value();
-    const bool doPhaseCorrection = cb_phaseCorrection_->isChecked();
+    auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
+        combo_phaseCorrection_->currentData().toInt());
     const bool selectedTraceIndex = traceSelect_->value();
 
     switch (refreshMode_)
@@ -370,7 +379,7 @@ void WaveformSink1DWidget::Private::reprocessData()
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
             dtSample, interpolationFactor,
-            doPhaseCorrection);
+            phaseCorrection);
         break;
 
     case RefreshMode_EventSnapshot:
@@ -380,7 +389,7 @@ void WaveformSink1DWidget::Private::reprocessData()
             interpolatedDisplayTraces_,
             dtSample, interpolationFactor,
             selectedTraceIndex, maxDepth,
-            doPhaseCorrection);
+            phaseCorrection);
         break;
     }
 }

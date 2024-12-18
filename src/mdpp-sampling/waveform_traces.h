@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <mesytec-mvlc/cpp_compat.h>
+#include <mesytec-mvlc/util/int_types.h>
 
 namespace mesytec::mvme::waveforms
 {
@@ -15,10 +16,12 @@ namespace mesytec::mvme::waveforms
 using Sample = std::pair<double, double>;
 
 using mvlc::util::span;
+using mvlc::s32;
+using mvlc::u32;
 
 struct Trace
 {
-    using MetaValue = std::variant<int, double, std::string>;
+    using MetaValue = std::variant<s32, u32, double, std::string>;
     using MetaMap = std::unordered_map<std::string, MetaValue>;
 
     std::vector<double> xs;

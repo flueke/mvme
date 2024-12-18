@@ -1,6 +1,8 @@
 #include "waveform_plotting.h"
 #include <qwt_symbol.h>
 
+#include "mdpp-sampling/mdpp_decode.h"
+
 namespace mesytec::mvme::waveforms
 {
 
@@ -238,7 +240,7 @@ size_t post_process_waveforms(
     double dtSample,
     int interpolationFactor,
     size_t maxDepth,
-    bool doPhaseCorrection)
+    PhaseCorrectionMode phaseCorrection)
 {
     rawDisplayTraces.resize(analysisTraceData.size());
     interpolatedDisplayTraces.resize(analysisTraceData.size());
@@ -273,10 +275,23 @@ size_t post_process_waveforms(
             ipolDestTrace.clear();
 
             double phase = 1.0;
-            if (doPhaseCorrection)
+            u32 traceConfig = 0;
+
+            if (phaseCorrection != PhaseCorrection_Off)
             {
+                if (auto it = inputTrace.meta.find("config"); it != std::end(inputTrace.meta))
+                    traceConfig = std::get<u32>(it->second);
+
                 if (auto it = inputTrace.meta.find("phase"); it != std::end(inputTrace.meta))
                     phase = std::get<double>(it->second);
+            }
+
+            if (phaseCorrection == PhaseCorrection_Auto)
+            {
+                if (!(traceConfig & mdpp_sampling::SamplingSettings::NoResampling))
+                {
+                    phase = 1.0; // was done in the FPGA, turn it off here
+                }
             }
 
             rawDestTrace.meta = inputTrace.meta;
@@ -305,7 +320,7 @@ size_t post_process_waveform_snapshot(
     int interpolationFactor,
     size_t startingTraceIndex,  // <- first "column"
     size_t maxTraceCount,       // <- amount of "columns" to process and store in the display traces
-    bool doPhaseCorrection)
+    PhaseCorrectionMode phaseCorrection)
 {
     rawDisplayTraces.resize(analysisTraceData.size());
     interpolatedDisplayTraces.resize(analysisTraceData.size());
@@ -335,10 +350,23 @@ size_t post_process_waveform_snapshot(
             ipolDestTrace.clear();
 
             double phase = 1.0;
-            if (doPhaseCorrection)
+            u32 traceConfig = 0;
+
+            if (phaseCorrection != PhaseCorrection_Off)
             {
+                if (auto it = inputTrace.meta.find("config"); it != std::end(inputTrace.meta))
+                    traceConfig = std::get<u32>(it->second);
+
                 if (auto it = inputTrace.meta.find("phase"); it != std::end(inputTrace.meta))
                     phase = std::get<double>(it->second);
+            }
+
+            if (phaseCorrection == PhaseCorrection_Auto)
+            {
+                if (!(traceConfig & mdpp_sampling::SamplingSettings::NoResampling))
+                {
+                    phase = 1.0; // was done in the FPGA, turn it off here
+                }
             }
 
             rawDestTrace.meta = inputTrace.meta;
@@ -358,7 +386,7 @@ size_t reprocess_waveforms(
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
     int interpolationFactor,
-    bool doPhaseCorrection)
+    PhaseCorrectionMode phaseCorrection)
 {
     interpolatedDisplayTraces.resize(rawDisplayTraces.size());
     size_t tracesProcessed = 0;
@@ -375,10 +403,23 @@ size_t reprocess_waveforms(
             auto &ipolTrace = ipolTraces[traceIndex];
 
             double phase = 1.0;
-            if (doPhaseCorrection)
+            u32 traceConfig = 0;
+
+            if (phaseCorrection != PhaseCorrection_Off)
             {
+                if (auto it = rawTrace.meta.find("config"); it != std::end(rawTrace.meta))
+                    traceConfig = std::get<u32>(it->second);
+
                 if (auto it = rawTrace.meta.find("phase"); it != std::end(rawTrace.meta))
                     phase = std::get<double>(it->second);
+            }
+
+            if (phaseCorrection == PhaseCorrection_Auto)
+            {
+                if (!(traceConfig & mdpp_sampling::SamplingSettings::NoResampling))
+                {
+                    phase = 1.0; // was done in the FPGA, turn it off here
+                }
             }
 
             waveforms::rescale_x_values(rawTrace, dtSample, phase);
