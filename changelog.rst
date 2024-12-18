@@ -4,6 +4,14 @@
 Changelog
 ##################################################
 
+Version 1.15.1
+--------------------------------------------------
+
+* analysis: implement auto phase correction in the  EventHistory data sink.
+
+Note: breaking change, users of 1.15.0 need to recreate the MDPP sample decoder
+or reconnect the EventHistory sink.
+
 Version 1.15.0
 --------------------------------------------------
 
