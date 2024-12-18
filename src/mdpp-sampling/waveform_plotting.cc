@@ -264,9 +264,12 @@ size_t post_process_waveforms(
         assert(ipolDestTraces.size() <= maxDepth);
         assert(rawDestTraces.size() == ipolDestTraces.size());
 
-        if (!inputTraces.empty())
+        auto pred = [] (const waveforms::Trace &trace) { return !trace.empty(); };
+
+        if (auto it = std::find_if(std::begin(inputTraces), std::end(inputTraces), pred);
+            it != std::end(inputTraces))
         {
-            auto &inputTrace = inputTraces.front();
+            auto &inputTrace = *it;
 
             auto rawDestTrace = maybe_recycle_trace(rawDestTraces, maxDepth);
             auto ipolDestTrace = maybe_recycle_trace(ipolDestTraces, maxDepth);
