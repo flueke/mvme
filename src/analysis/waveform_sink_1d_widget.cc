@@ -480,6 +480,9 @@ void WaveformSink1DWidget::replot()
         || d->selectedTraceChanged_
         || (d->prevRefreshMode_ != d->refreshMode_));
 
+    if (d->prevRefreshMode_ != d->refreshMode_)
+        d->analysisTraceData_.clear();
+
     d->selectedChannelChanged_ = d->dtSampleChanged_ =
     d->interpolationFactorChanged_ = d->selectedTraceChanged_ = false;
     d->prevRefreshMode_ = d->refreshMode_;
@@ -521,7 +524,9 @@ void WaveformSink1DWidget::replot()
     for (size_t chanIndex = chanMin; chanIndex < chanMax; ++chanIndex)
     {
         auto &ipolTraces = d->interpolatedDisplayTraces_.at(chanIndex);
-        const auto traceCount = d->refreshMode_ == RefreshMode_LatestData ? ipolTraces.size() : d->spin_maxDepth_->value();
+        const size_t traceCount = (d->refreshMode_ == RefreshMode_LatestData
+            ? ipolTraces.size()
+            : std::min(static_cast<int>(ipolTraces.size()), d->spin_maxDepth_->value()));
         totalTraceEntriesNeeded += traceCount;
     }
 
@@ -560,7 +565,7 @@ void WaveformSink1DWidget::replot()
 
         size_t traceIndex = (d->refreshMode_ == RefreshMode_LatestData
             ? 0
-            : std::min(static_cast<int>(ipolTraces.size()), d->traceSelect_->value()));
+            : std::min(ipolTraces.size(), static_cast<size_t>(d->traceSelect_->value())));
 
         const size_t traceCount = (d->refreshMode_ == RefreshMode_LatestData
             ? ipolTraces.size()
@@ -644,6 +649,15 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     size_t historyDepth = !rawTraces.empty() ? rawTraces[0].size() : 0u;
     auto selectedChannel = spin_chanSelect->value();
 
+    const size_t totalTraces = std::accumulate(std::begin(rawTraces), std::end(rawTraces), 0u,
+        [](size_t sum, const auto &traces) { return sum + traces.size(); });
+
+    const size_t totalSamples = std::accumulate(std::begin(rawTraces), std::end(rawTraces), 0u,
+        [](size_t sum, const auto &traces) {
+            return sum + std::accumulate(std::begin(traces), std::end(traces), 0u,
+                [](size_t sum, const auto &trace) { return sum + trace.size(); });
+        });
+
     size_t chanMin = 0;
     size_t chanMax = channelCount;
 
@@ -659,25 +673,32 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     out << fmt::format("  Total memory used: {:} B / {:.2f} MiB\n", totalMemory, static_cast<double>(totalMemory) / Megabytes(1));
     out << fmt::format("  Number of channels: {}\n", channelCount);
     out << fmt::format("  History depth: {}\n", historyDepth);
+    out << fmt::format("  Total traces: {}\n", totalTraces);
+    out << fmt::format("  Total samples: {}\n", totalSamples);
     out << fmt::format("  Selected channel: {}\n", cb_showAllChannels_->isChecked() ? "All" : std::to_string(selectedChannel));
     out << "\n";
 
+    // row wise: walk the channels
     for (size_t chan = chanMin; chan < chanMax; ++chan)
     {
-        if (!rawTraces[chan].empty() && !rawTraces[chan].front().empty())
-        {
-            auto &rawTrace = rawTraces[chan].front();
-            out << fmt::format("Channel{} trace meta: {}\n", chan, mesytec::mvme::waveforms::trace_meta_to_string(rawTrace.meta));
-            out << fmt::format("Channel{} sample input ({} samples): ", chan, rawTrace.size());
-            mesytec::mvme::waveforms::print_trace_compact(out, rawTrace);
-        }
+        auto &rawChanTraces = rawTraces[chan];
+        auto &ipolChanTraces = ipolTraces[chan];
+        const size_t traceIndexMax = std::min(rawChanTraces.size(), ipolChanTraces.size());
 
-        if (!ipolTraces[chan].empty() && !ipolTraces[chan].front().empty())
+        // column wise, walk backwards in time through the traces
+        for (size_t traceIndex = 0; traceIndex < traceIndexMax; ++traceIndex)
         {
-            auto &ipolTrace = ipolTraces[chan].front();
-            out << fmt::format("Channel{} interpolated ({} samples): ", chan, ipolTrace.size());
+            auto &rawTrace = rawChanTraces[traceIndex];
+            auto &ipolTrace = ipolChanTraces[traceIndex];
+
+            out << fmt::format("Channel{}, Trace#{} meta: {}\n", chan, traceIndex, mesytec::mvme::waveforms::trace_meta_to_string(rawTrace.meta));
+            out << fmt::format("Channel{}, Trace#{} sample input ({} samples): ", chan, traceIndex, rawTrace.size());
+            mesytec::mvme::waveforms::print_trace_compact(out, rawTrace);
+            out << fmt::format("Channel{}, Trace#{} interpolated ({} samples): ", chan, traceIndex, ipolTrace.size());
             mesytec::mvme::waveforms::print_trace_compact(out, ipolTrace);
         }
+
+        out << "\n";
     }
 }
 
