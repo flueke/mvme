@@ -4080,6 +4080,7 @@ struct WaveformSinkData
     // Trace histories by input array index.
     mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> *traceHistories_;
     size_t traceHistoryMaxDepth_;
+    size_t linearEventNumber_;
 };
 
 Operator make_waveform_sink(
@@ -4104,8 +4105,9 @@ Operator make_waveform_sink(
     }
 
     d->traceHistories_ = &traceHistories;
-    d->traceHistories_->access()->resize(inputCount-1);
+    d->traceHistories_->access()->resize(inputCount-2);
     d->traceHistoryMaxDepth_ = traceHistoryMaxDepth;
+    d->linearEventNumber_ = 0;
 
     return result;
 }
@@ -4121,14 +4123,15 @@ void waveform_sink_step(Operator *op, A2 *)
     auto access = d->traceHistories_->access();
     auto &traceHistories = access.ref();
 
-    assert(op->inputCount == static_cast<s32>(traceHistories.size()) + 1);
+    assert(op->inputCount == static_cast<s32>(traceHistories.size()) + 2);
 
     const auto &phases = op->inputs[0];
+    const auto &configs = op->inputs[1];
 
-    for (s32 idx = 1; idx < op->inputCount; ++idx)
+    for (s32 idx = 2; idx < op->inputCount; ++idx)
     {
         const auto &input = op->inputs[idx];
-        const s32 channelIdx = idx - 1;
+        const s32 channelIdx = idx - 2;
         auto &traceHistory = traceHistories[channelIdx];
 
         mesytec::mvme::waveforms::Trace trace;
@@ -4161,12 +4164,21 @@ void waveform_sink_step(Operator *op, A2 *)
         {
             phase = phases[channelIdx];
         }
-        trace.meta["phase"] = phase;
 
-        //spdlog::warn("waveform_sink_step: trace.meta={}", mesytec::mvme::waveforms::trace_meta_to_string(trace.meta));
+        u32 config = 0;
+        if (channelIdx < configs.size && is_param_valid(configs[channelIdx]))
+        {
+            config = static_cast<u32>(configs[channelIdx]);
+        }
+
+        trace.meta["phase"] = phase;
+        trace.meta["config"] = config;
+        trace.meta["event_number"] = static_cast<u32>(d->linearEventNumber_);
 
         traceHistory.push_front(std::move(trace));
     }
+
+    ++d->linearEventNumber_;
 }
 
 //

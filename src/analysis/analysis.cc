@@ -3708,6 +3708,9 @@ struct WaveformSink::Private
     QVector<std::shared_ptr<Slot>> inputs_;
     size_t traceHistoryMaxDepth_ = WaveformSink::DefaultTraceHistoryMaxDepth;
     mutable mesytec::mvlc::Protected<mesytec::mvme::waveforms::TraceHistories> traceHistories_;
+
+    static const int PhaseInput = 0;
+    static const int ConfigInput = 1;
 };
 
 WaveformSink::WaveformSink(QObject *parent)
@@ -3715,6 +3718,7 @@ WaveformSink::WaveformSink(QObject *parent)
     , d(std::make_unique<Private>())
 {
     addSlot(); // phase input
+    addSlot(); // config input
     addSlot(); // first channel input
 }
 
@@ -3728,16 +3732,17 @@ bool WaveformSink::addSlot()
 
     QString slotName;
 
-    if (getNumberOfSlots() == 0)
-    {
+    if (getNumberOfSlots() == Private::PhaseInput)
         slotName = QSL("Phase Input");
-    }
+    else if (getNumberOfSlots() == Private::ConfigInput)
+        slotName = QSL("Config Input");
     else
-    {
         slotName = QSL("Channel #") + QString::number(getNumberOfSlots()-1);
-    }
 
     auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), slotName, inputType);
+
+    if (getNumberOfSlots() == Private::ConfigInput)
+        slot->isOptional = true;
 
     d->inputs_.push_back(slot);
 
@@ -3746,7 +3751,7 @@ bool WaveformSink::addSlot()
 
 bool WaveformSink::removeLastSlot()
 {
-    if (d->inputs_.size() > 2)
+    if (d->inputs_.size() > 3)
     {
         d->inputs_.back()->disconnectPipe();
         d->inputs_.pop_back();
@@ -3858,17 +3863,26 @@ void connect_mdpp_sample_decoder_to_waveform_sink(DataSourceMdppSampleDecoder *d
         return;
     }
 
+    auto configOutputIndex = decoder->getStatsOutputIndex("config");
+
+    if (configOutputIndex < 0)
+    {
+        assert("!config output not found in decoder");
+        return;
+    }
+
     sink->connectArrayToInputSlot(0, decoder->getOutput(phaseOutputIndex));
+    sink->connectArrayToInputSlot(1, decoder->getOutput(configOutputIndex));
 
     // now connect all trace outputs to the trace inputs
     const auto samplesOutputCount = decoder->getMaxChannels();
 
-    while (sink->getNumberOfSlots() < static_cast<s32>(samplesOutputCount) + 1)
+    while (sink->getNumberOfSlots() < static_cast<s32>(samplesOutputCount) + 2)
         sink->addSlot();
 
     for (unsigned i=0; i<samplesOutputCount; ++i)
     {
-        sink->connectArrayToInputSlot(i+1, decoder->getOutput(i));
+        sink->connectArrayToInputSlot(i+2, decoder->getOutput(i));
     }
 }
 

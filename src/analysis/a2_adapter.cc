@@ -815,7 +815,10 @@ DEF_OP_MAGIC(waveform_sink_magic)
 
     for (s32 si = 0; si < inputSlots.size(); si++)
     {
-        a2_inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]).first);
+        if (inputSlots[si] && inputSlots[si]->isConnected())
+            a2_inputs.emplace_back(find_output_pipe(adapterState, inputSlots[si]).first);
+        else
+            a2_inputs.emplace_back(a2::PipeVectors{});
     }
 
     a2::Operator result = a2::make_waveform_sink(

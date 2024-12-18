@@ -30,8 +30,23 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
     {
         u32 pad: 4;
         u32 debug: 1;
-        u32 config: 8; // bit 7: not offset correction, bit 6: not resampled -> if it's set do phase correction is software
+
+        // The contents of 0x614A:
+        // 0x614A 0b1100'0000		# sampling settings [3:0]
+        // # 0 = directly from ADC
+        // # 1 = after deconvolution of pre-differentiation
+        // # 2 = output shaper of timing path
+        // # 3 = output shaper of amplitude path
+        // # sampling settings [7:4]
+        // # bit 7 set: no offset correction1
+        // # bit 6 set: no resampling
+        u32 config: 8;
+
+        // Phase correction factor. [0, 512] normalized to [0, 1) in the analysis
         u32 phase: 9;
+
+        // Length of the trace in words. Sample count is 2 x length. Currently
+        // not used by the decoder.
         u32 length: 10;
     } parts;
     u32 value = 0;
@@ -46,6 +61,17 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
 
     static const LIBMVME_MDPP_DECODE_EXPORT std::array<const char *, 4> PartNames;
     static const LIBMVME_MDPP_DECODE_EXPORT std::array<unsigned, 4> PartBits;
+};
+
+// Register 0x614A / the 'config' field in the trace header.
+struct LIBMVME_MDPP_DECODE_EXPORT SamplingSettings
+{
+    static const u32 DirectFromAdc          = 1u << 0;
+    static const u32 AfterDeconvolution     = 1u << 1;
+    static const u32 TimingPathShaper       = 1u << 2;
+    static const u32 AmplitudePathShaper    = 1u << 3;
+    static const u32 NoResampling           = 1u << 6; // if set do phase correction in software
+    static const u32 NoOffsetCorrection     = 1u << 7;
 };
 
 struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
