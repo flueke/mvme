@@ -17,8 +17,7 @@
 
 #include "analysis_service_provider.h"
 #include "analysis/waveform_sink_widget_common.h"
-#include "mdpp-sampling/mdpp_sampling_p.h"
-#include "mdpp-sampling/mdpp_sampling.h"
+#include "mdpp-sampling/waveform_plotting.h"
 #include "util/qt_logview.h"
 
 using namespace mesytec::mvme;

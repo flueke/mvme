@@ -89,7 +89,7 @@ void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, dou
     output.clear();
 
     std::transform(std::begin(input.xs), std::end(input.xs), std::back_inserter(output.xs),
-        [dtSample, phase](double x) { return x * dtSample + dtSample * -phase; });
+        [dtSample, phase](double x) { return x * dtSample + dtSample * (1.0 - phase); });
 
     output.ys = input.ys;
     output.meta = input.meta;
@@ -98,7 +98,7 @@ void scale_x_values(const waveforms::Trace &input, waveforms::Trace &output, dou
 void rescale_x_values(waveforms::Trace &input, double dtSample, double phase)
 {
     std::for_each(std::begin(input.xs), std::end(input.xs),
-        [dtSample, phase, index=0](double &x) mutable { x = index++ * dtSample + dtSample * -phase; });
+        [dtSample, phase, index=0](double &x) mutable { x = index++ * dtSample + dtSample * (1.0 - phase); });
 }
 
 std::vector<const Trace *> get_trace_column(const TraceHistories &history, size_t traceIndex)

@@ -42,7 +42,6 @@
 #include "file_autosaver.h"
 #include "listfile_filtering.h"
 #include "logfile_helper.h"
-#include "mdpp-sampling/mdpp_sampling.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc/mvlc_vme_controller.h"
 #include "mvlc_readout_worker.h"
@@ -175,8 +174,6 @@ struct MVMEContextPrivate
 #ifdef MVME_ENABLE_PROMETHEUS
     std::shared_ptr<StreamProcCountersPromExporter> m_streamCountersPromExporter;
 #endif
-    std::shared_ptr<mdpp_sampling::MdppSamplingConsumer> m_mdppSamplingConsumer;
-
     using StreamConsumer = std::variant<std::shared_ptr<IStreamModuleConsumer>, std::shared_ptr<IStreamBufferConsumer>>;
     std::vector<StreamConsumer> streamConsumers_;
 
@@ -558,9 +555,6 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     m_d->m_streamCountersPromExporter = std::make_shared<StreamProcCountersPromExporter>();
     m_d->streamConsumers_.push_back(m_d->m_streamCountersPromExporter);
 #endif
-
-    m_d->m_mdppSamplingConsumer = std::make_shared<mdpp_sampling::MdppSamplingConsumer>();
-    m_d->streamConsumers_.push_back(m_d->m_mdppSamplingConsumer);
 
     {
         auto logger = [this](const QString &msg) { this->logMessage(msg); };

@@ -59,7 +59,6 @@
 #include "graphviz_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
-#include "mdpp-sampling/mdpp_sampling.h"
 #include "multiplot_widget.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
@@ -3110,52 +3109,6 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                             moduleConfig->getId(), dialog.getSettings());
                     }
                 });
-
-            if (auto moduleType = moduleConfig->getModuleMeta().typeName;
-                moduleType.startsWith("mdpp"))
-            {
-                #ifndef NDEBUG
-                menu.addAction("MDPP Sampling Mode UI", &menu, [this, moduleConfig] {
-                    auto analysis = m_serviceProvider->getAnalysis();
-
-                    if (auto indexes = analysis->getVMEIdToIndexMapping().value(moduleConfig->getId());
-                        indexes.isValid())
-                    {
-                        auto samplingConsumer = m_serviceProvider->getMVMEStreamWorker()
-                            ->getFirstModuleConsumerOfType<mesytec::mvme::mdpp_sampling::MdppSamplingConsumer>();
-                        assert(samplingConsumer);
-                        if (!samplingConsumer)
-                            return;
-
-                        auto widgetRegistry = m_serviceProvider->getWidgetRegistry();
-                        auto samplingUi = widgetRegistry->getFirstWidgetOfType<mesytec::mvme::mdpp_sampling::MdppSamplingUi>();
-
-
-                        if (!samplingUi || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
-                        {
-                            samplingUi = new mesytec::mvme::mdpp_sampling::MdppSamplingUi(m_serviceProvider);
-                            samplingUi->setAttribute(Qt::WA_DeleteOnClose);
-                            widgetRegistry->addWidget(samplingUi, "MdppSamplingUi");
-
-                            QObject::connect(samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::moduleInterestAdded,
-                                    samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::addModuleInterest);
-
-                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::moduleDataReady,
-                                             samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::handleModuleData);
-                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::sigBeginRun,
-                                             samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::beginRun);
-                            QObject::connect(samplingConsumer.get(), &mesytec::mvme::mdpp_sampling::MdppSamplingConsumer::sigEndRun,
-                                             samplingUi, &mesytec::mvme::mdpp_sampling::MdppSamplingUi::endRun);
-                        }
-
-                        assert(samplingUi);
-                        samplingUi->addModuleInterest(moduleConfig->getId());
-                        samplingUi->show();
-                        samplingUi->raise();
-                    }
-                });
-                #endif
-            }
 
             auto actionNew = menu.addAction(QSL("New"));
             actionNew->setMenu(menuNew);

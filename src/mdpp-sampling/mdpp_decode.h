@@ -28,7 +28,10 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
 {
     struct Parts
     {
-        u32 pad: 4;
+        // Padding bits.
+        u32 pad_: 4;
+
+        // Internal firmware debug flag. Unused.
         u32 debug: 1;
 
         // The contents of 0x614A:
@@ -38,7 +41,7 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
         // # 2 = output shaper of timing path
         // # 3 = output shaper of amplitude path
         // # sampling settings [7:4]
-        // # bit 7 set: no offset correction1
+        // # bit 7 set: no offset correction
         // # bit 6 set: no resampling
         u32 config: 8;
 
@@ -48,8 +51,7 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
         // Length of the trace in words. Sample count is 2 x length. Currently
         // not used by the decoder.
         u32 length: 10;
-    } parts;
-    u32 value = 0;
+    };
 
     enum PartIndex
     {
@@ -61,6 +63,9 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
 
     static const LIBMVME_MDPP_DECODE_EXPORT std::array<const char *, 4> PartNames;
     static const LIBMVME_MDPP_DECODE_EXPORT std::array<unsigned, 4> PartBits;
+
+    Parts parts;
+    u32 value = 0;
 };
 
 // Register 0x614A / the 'config' field in the trace header.
@@ -76,20 +81,15 @@ struct LIBMVME_MDPP_DECODE_EXPORT SamplingSettings
 
 struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
 {
+    // mvme moduleId
+    QUuid moduleId;
     // linear event number incremented on each event from the source module
     size_t eventNumber = 0;
-    QUuid moduleId;
+    // source channel number
     s32 channel = -1;
-
-    u32 moduleHeader = 0; // raw module header word
-    double dtSample = MdppDefaultSamplePeriod;
-
-    // Store both, the unmodified raw samples and the interpolated curve data.
-
+    // raw module header word
+    u32 moduleHeader = 0;
     QVector<s16> samples; // samples are 14 bit signed, converted to and stored as 16 bit signed
-
-    // Store (x, y) values here to allow interpolation of raw traces.
-    QVector<std::pair<double, double>> interpolated;
     TraceHeader traceHeader;
 };
 
@@ -98,19 +98,9 @@ inline bool has_raw_samples(const ChannelTrace &trace)
     return !trace.samples.isEmpty();
 }
 
-inline bool has_interpolated_samples(const ChannelTrace &trace)
-{
-    return !trace.interpolated.isEmpty();
-}
-
 inline size_t get_raw_sample_count(const ChannelTrace &trace)
 {
     return trace.samples.size();
-}
-
-inline size_t get_interpolated_sample_count(const ChannelTrace &trace)
-{
-    return trace.interpolated.size();
 }
 
 // Clear the sample memory and reset all other fields to default values.

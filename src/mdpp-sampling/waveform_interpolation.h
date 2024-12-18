@@ -20,9 +20,13 @@ using EmitterFun = std::function<void (double x, double y)>;
 void interpolate(const span<const double> &xs, const span<const double> &ys, u32 factor, EmitterFun emitter);
 
 // Reserves temporary memory to construct the xs and ys vectors from the input
-void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter);
+void interpolate(const span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter);
 
+// Writes into the output trace. The output trace is cleared before writing.
 void interpolate(const waveforms::Trace &input, waveforms::Trace &output, u32 factor);
+
+// From raw samples to interpolated trace. The output trace is cleared before writing.
+void interpolate(const span<const s16> &samples, double dtSample, u32 factor, waveforms::Trace &output);
 
 }
 

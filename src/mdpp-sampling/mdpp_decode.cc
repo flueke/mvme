@@ -119,8 +119,9 @@ void default_logger_fun(const std::string &level, const std::string &message)
 
 void reset_trace(ChannelTrace &trace)
 {
-    trace.eventNumber = 0;
     trace.moduleId = QUuid();
+    trace.eventNumber = 0;
+    trace.channel = -1;
     trace.moduleHeader = 0;
     trace.samples.clear();
     trace.traceHeader = {};

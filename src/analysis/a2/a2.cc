@@ -22,7 +22,7 @@
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
 #include "a2_support.h"
-#include "mdpp-sampling/mdpp_sampling.h"
+#include "mdpp-sampling/mdpp_decode.h"
 #include "util/assert.h"
 #include "util/perf.h"
 #include <boost/dynamic_bitset/dynamic_bitset.hpp>
@@ -751,7 +751,8 @@ namespace mdpp_sampling = mesytec::mvme::mdpp_sampling;
 
 struct MdppSampleDecoder
 {
-    using DecoderFunction = std::function<mdpp_sampling::DecodedMdppSampleEvent (const u32 *data, const size_t size, mdpp_sampling::logger_function logger_fun)>;
+    using DecoderFunction = std::function<mdpp_sampling::DecodedMdppSampleEvent (
+        const u32 *data, const size_t size, mdpp_sampling::logger_function logger_fun)>;
 
     DecoderFunction decoder;
     // Max channels in this module.
@@ -895,7 +896,7 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
         }
     }
 
-    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size();
+    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size(); (void) statsCount;
     size_t firstStatsIndex = ex->maxChannels;
     assert(firstStatsIndex + statsCount == ds->outputCount);
 

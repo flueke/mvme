@@ -30,6 +30,14 @@ struct Trace
 
     explicit Trace() = default;
 
+    template<typename T> Trace(const T &xs_, const T &ys_, const MetaMap &meta_ = {})
+        : Trace()
+    {
+        std::copy(std::begin(xs_), std::end(xs_), std::back_inserter(xs));
+        std::copy(std::begin(ys_), std::end(ys_), std::back_inserter(ys));
+        meta = meta_;
+    }
+
     Trace(const Trace &) = default;
     Trace &operator=(const Trace &) = default;
 

@@ -201,7 +201,6 @@ add_library(libmvme SHARED
     listfile_replay.cc
     listfile_replay_worker.cc
     logfile_helper.cc
-    mdpp-sampling/mdpp_sampling.cc
     mdpp-sampling/waveform_plotting.cc
     mdpp-sampling/waveform_interpolation.cc
     mdpp-sampling/waveform_traces.cc
@@ -489,7 +488,6 @@ add_mvme_dev_exe(dev_multi_crate_cli dev_multi_crate_cli.cc)
 add_mvme_dev_exe(decode_mesytec_vme_data decode_mesytec_vme_data.cc)
 add_mvme_dev_exe(dev_vme_config_model_view dev_vme_config_model_view.cc)
 add_mvme_dev_exe(dev_histo_ui dev_histo_ui.cc)
-add_mvme_dev_exe(dev_mdpp_sampling mdpp-sampling/dev_mdpp_sampling.cc)
 add_mvme_dev_exe(dev_replay_ui dev_replay_ui_main.cc)
 if (Qt5WebEngineWidgets_FOUND)
     add_mvme_dev_exe(dev_mvme_qwebengine dev_mvme_qwebengine.cc)

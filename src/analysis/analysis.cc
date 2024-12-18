@@ -37,7 +37,7 @@
 #include "analysis/exportsink_codegen.h"
 #include "analysis/object_visitor.h"
 #include "analysis/analysis_json_util.h"
-#include "mdpp-sampling/mdpp_sampling.h"
+#include "mdpp-sampling/mdpp_decode.h"
 #include "util/algo.h"
 #include "util/qt_metaobject.h"
 #include "util/qt_json.h"

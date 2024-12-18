@@ -143,5 +143,15 @@ void interpolate(const waveforms::Trace &input, waveforms::Trace &output, u32 fa
     output.meta = input.meta;
 }
 
+void interpolate(const span<const s16> &samples, double dtSample, u32 factor, waveforms::Trace &output)
+{
+    auto emitter = [&output] (double x, double y)
+    {
+        output.push_back(x, y);
+    };
+
+    output.clear();
+    waveforms::interpolate(samples, dtSample, factor, emitter);
+}
 
 }
