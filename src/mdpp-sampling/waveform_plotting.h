@@ -170,24 +170,7 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 
             if (auto trace = getTraceForY(y); trace && !trace->empty())
             {
-                #if 0 // TODO: use this once interpolation yields equidistant x values
-                const ssize_t sampleIndex = x / xStep_;
-
-                qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): x={}, y={}, xstep={}, sampleIndex(x)={}, trace.size()={}",
-                    x, y, xStep_, sampleIndex, trace->size()).c_str();
-
-                if (0 <= sampleIndex && sampleIndex < static_cast<ssize_t>(trace->size()))
-                {
-                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): input x={}, sampleIndex={}, trace x={}",
-                        x, sampleIndex, trace->xs[sampleIndex]).c_str();
-                    return trace->ys[sampleIndex];
-                }
-                else
-                {
-                    qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): sampleIndex out of bounds: x={}, sampleIndex={}", x, sampleIndex).c_str();
-                }
-                #else
-                // FIXME: such a hack because of non uniform x distances...
+                // Search for the first x value that is greater or equal to the input x.
                 if (auto it = std::lower_bound(std::begin(trace->xs), std::end(trace->xs), x); it != std::end(trace->xs))
                 {
                     const auto index = std::distance(std::begin(trace->xs), it);
@@ -201,11 +184,6 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
                     //    x, trace->xs.back(), trace->ys.back()).c_str();
                     return trace->ys.back();
                 }
-                #endif
-            }
-            else
-            {
-                //qDebug() << fmt::format("WaveformCollectionVerticalRasterData::value(): no trace for y={}", y).c_str();
             }
 
             return mesytec::mvme::util::make_quiet_nan();
