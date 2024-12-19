@@ -226,7 +226,7 @@ inline std::error_code module_data(State &state, int ei, int mi, const ModuleDat
     return {};
 }
 
-#if 1
+#if 0
 std::error_code end_event1_(State &state, Callbacks &callbacks, void *userContext,
     const int ei, const unsigned moduleCount)
 {

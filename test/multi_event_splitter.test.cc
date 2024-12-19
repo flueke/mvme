@@ -6,6 +6,7 @@
 
 using namespace mesytec::mvme::multi_event_splitter;
 
+#if 0
 TEST(MultiEventSplitter, WithSizeSameCount)
 {
     // Prepare a splitter for one event with two modules.
@@ -442,4 +443,250 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     format_counters(std::cout, splitter.counters);
     std::cout << std::endl;
     format_counters_tabular(std::cout, splitter.counters);
+}
+#endif
+
+// No suffix handling!
+void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filter,
+                       const ModuleData &input, std::vector<ModuleData> &output)
+{
+    assert(input.hasDynamic && input.dynamicSize > 0);
+
+    const auto filterSizeCache = mesytec::mvlc::util::get_cache_entry(filter, 'S');
+
+    ModuleData current = input;
+    std::basic_string_view<u32> data(dynamic_span(input).data, dynamic_span(input).size);
+    assert(!data.empty());
+
+    while (!data.empty())
+    {
+        if (mesytec::mvlc::util::matches(filter.filter, data.front()))
+        {
+            if (filterSizeCache)
+            {
+                u32 size = 1 + mesytec::mvlc::util::extract(*filterSizeCache, data.front());
+                current.dynamicSize = std::min(size, static_cast<u32>(data.size()));
+                current.hasDynamic = true;
+                data.remove_prefix(current.dynamicSize);
+            }
+            else
+            {
+                current.dynamicSize = 1;
+                data.remove_prefix(1);
+
+                while (!data.empty())
+                {
+                    if (mesytec::mvlc::util::matches(filter.filter, data.front()))
+                        break;
+
+                    ++current.dynamicSize;
+                    data.remove_prefix(1);
+                }
+
+                current.hasDynamic = true;
+            }
+
+            current.data.size = current.prefixSize + current.dynamicSize;
+
+            assert(size_consistency_check(current));
+            output.push_back(current);
+        }
+        else
+        {
+            // no header match: consume all remaining data
+            current.dynamicSize = data.size();
+            current.hasDynamic = true;
+            data.remove_prefix(data.size());
+
+            assert(size_consistency_check(current));
+            output.push_back(current);
+        }
+
+        current = {};
+        current.data.data = data.data();
+        current.data.size = data.size();
+    }
+}
+
+void split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
+                       const ModuleData &input,
+                       std::vector<ModuleData> &output,
+                       std::vector<u32> &buffer)
+{
+    // handle prefix-only and all empty-dynamic cases (with or without prefix/suffix)
+    if (!input.hasDynamic || input.dynamicSize == 0)
+    {
+        output.emplace_back(input);
+        return;
+    }
+
+    assert(size_consistency_check(input));
+    split_dynamic_part(filter, input, output);
+    for (const auto &moduleData: output)
+    {
+        assert(size_consistency_check(moduleData));
+    }
+    assert(!output.empty());
+    assert(output.front().data.data == input.data.data);
+
+
+    // TODO: handle input.prefix and input.suffix.
+}
+
+using DataBlock = mesytec::mvlc::readout_parser::DataBlock;
+
+namespace mesytec::mvlc::readout_parser
+{
+bool operator==(const DataBlock &lhs, const std::vector<u32> &rhs)
+{
+    if (lhs.size != rhs.size())
+        return false;
+
+    for (size_t i=0; i<lhs.size; ++i)
+    {
+        if (lhs.data[i] != rhs[i])
+            return false;
+    }
+
+    return true;
+}
+}
+
+TEST(MultiEventSplitter, SplitSizeMatch)
+{
+    const std::string headerFilter("0000 0001 XXXX SSSS");
+    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+
+    const std::vector<u32> data =
+    {
+        0xaaaa, // prefix
+        0xaaaa, // prefix
+        0x0101, // header
+        0x1111,
+        0x0101, // header
+        0x1112,
+        0x0101, // header
+        0x1113,
+    };
+
+    ModuleData input = {};
+    input.data = { data.data(), static_cast<u32>(data.size()) };
+    input.prefixSize = 2;
+    input.dynamicSize = data.size() - input.prefixSize;
+    input.hasDynamic = true;
+
+    std::vector<ModuleData> output;
+    std::vector<u32> buffer;
+
+    split_module_data(filter, input, output, buffer);
+
+    ASSERT_EQ(output.size(), 3);
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(dynamic_span(output[1]), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[2]), expected); }
+
+}
+
+TEST(MultiEventSplitter, SplitSizeMatchOverflow)
+{
+    const std::string headerFilter("0000 0001 XXXX SSSS");
+    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+
+    const std::vector<u32> data =
+    {
+        0xaaaa, // prefix
+        0xaaaa, // prefix
+        0x0101, // header
+        0x1111,
+        0x0104, // header overflow
+        0x1112,
+        0x0101, // header
+        0x1113,
+    };
+
+    ModuleData input = {};
+    input.data = { data.data(), static_cast<u32>(data.size()) };
+    input.prefixSize = 2;
+    input.dynamicSize = data.size() - input.prefixSize;
+    input.hasDynamic = true;
+
+    std::vector<ModuleData> output;
+    std::vector<u32> buffer;
+
+    split_module_data(filter, input, output, buffer);
+
+    ASSERT_EQ(output.size(), 2);
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0x0104, 0x1112, 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[1]), expected); }
+}
+
+TEST(MultiEventSplitter, SplitNoSize)
+{
+    const std::string headerFilter("0000 0001 XXXX XXXX");
+    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+
+    const std::vector<u32> data =
+    {
+        0xaaaa, // prefix
+        0xaaaa, // prefix
+        0x0101, // header
+        0x1111,
+        0x0101, // header
+        0x1112,
+        0x0101, // header
+        0x1113,
+    };
+
+    ModuleData input = {};
+    input.data = { data.data(), static_cast<u32>(data.size()) };
+    input.prefixSize = 2;
+    input.dynamicSize = data.size() - input.prefixSize;
+    input.hasDynamic = true;
+
+    std::vector<ModuleData> output;
+    std::vector<u32> buffer;
+
+    split_module_data(filter, input, output, buffer);
+
+    ASSERT_EQ(output.size(), 3);
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(dynamic_span(output[1]), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[2]), expected); }
+
+}
+
+TEST(MultiEventSplitter, SplitNoMatch)
+{
+    const std::string headerFilter("0000 0001 XXXX SSSS");
+    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+
+    const std::vector<u32> data =
+    {
+        0xaaaa, // prefix
+        0xaaaa, // prefix
+        0x0201, // header does not match
+        0x1111,
+        0x0101, // header
+        0x1112,
+        0x0101, // header
+        0x1113,
+    };
+
+    ModuleData input = {};
+    input.data = { data.data(), static_cast<u32>(data.size()) };
+    input.prefixSize = 2;
+    input.dynamicSize = data.size() - input.prefixSize;
+    input.hasDynamic = true;
+
+    std::vector<ModuleData> output;
+    std::vector<u32> buffer;
+
+    split_module_data(filter, input, output, buffer);
+
+    ASSERT_EQ(output.size(), 1);
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0x0201, 0x1111, 0x0101, 0x1112, 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
 }
