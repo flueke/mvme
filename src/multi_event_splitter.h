@@ -103,8 +103,7 @@ using ModuleData = mesytec::mvlc::readout_parser::ModuleData;
 struct Callbacks
 {
     // Required event data callback.
-    std::function<void (void *userContext, int crateIndex, int eventIndex, const ModuleData *moduleDataList, unsigned moduleCount)>
-        eventData = [] (void *, int, int, const ModuleData *, unsigned) {};
+    mvlc::readout_parser::ReadoutParserCallbacks::EventData eventData;
 
     // Optional logger callback.
     std::function<void (void *userContext, const std::string &msg)>
