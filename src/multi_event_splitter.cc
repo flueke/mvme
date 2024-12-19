@@ -90,11 +90,7 @@ const TheMultiEventSplitterErrorCategory theMultiEventSplitterErrorCategory {};
 
 } // end anon namespace
 
-namespace mesytec
-{
-namespace mvme
-{
-namespace multi_event_splitter
+namespace mesytec::mvme::multi_event_splitter
 {
 
 namespace
@@ -187,16 +183,6 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
 namespace
 {
 
-// Returns the number of words in the span or 0 in case any of the pointers is
-// null or begin >= end.
-inline size_t words_in_span(const State::DataSpan &span)
-{
-    if (span.begin && span.end && span.begin < span.end)
-        return static_cast<size_t>(span.end - span.begin);
-
-    return 0u;
-}
-
 inline std::error_code begin_event(State &state, int ei)
 {
     LOG_TRACE("state=%p, ei=%d", &state, ei);
@@ -206,7 +192,7 @@ inline std::error_code begin_event(State &state, int ei)
 
     auto &spans = state.dataSpans;
 
-    std::fill(spans.begin(), spans.end(), State::ModuleDataSpans{});
+    std::fill(spans.begin(), spans.end(), State::ModuleData{});
     ++state.counters.inputEvents[ei];
 
     return {};
@@ -214,7 +200,7 @@ inline std::error_code begin_event(State &state, int ei)
 
 // The module_data() function records the data pointer and size in the
 // splitters state structure for later use in the end_event function.
-inline std::error_code module_data(State &state, int ei, int mi, const u32 *data, u32 size)
+inline std::error_code module_data(State &state, int ei, int mi, const ModuleData &moduleData)
 {
     if (ei >= static_cast<int>(state.splitFilters.size()))
     {
@@ -230,17 +216,19 @@ inline std::error_code module_data(State &state, int ei, int mi, const u32 *data
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
     }
 
-    spans[mi].dataSpan = { data, data + size };
+    spans[mi] = moduleData;
 
     LOG_TRACE("state=%p, ei=%d, mi=%d, data=%p, dataSize=%u",
-              &state, ei, mi, data, size);
+              &state, ei, mi, moduleData.data.data, moduleData.data.size);
 
     ++state.counters.inputModules[ei][mi];
 
     return {};
 }
 
-std::error_code end_event(State &state, Callbacks &callbacks, void *userContext, const int ei, const unsigned moduleCount)
+#if 1
+std::error_code end_event1_(State &state, Callbacks &callbacks, void *userContext,
+    const int ei, const unsigned moduleCount)
 {
     // This is called after prefix, suffix and the dynamic part of all modules for
     // the given event have been recorded in the ModuleDataSpans. Now walk the data
@@ -269,29 +257,12 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
         LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
                   &state, ei);
 
-        ++state.counters.outputEvents[ei];
-
-        std::array<ModuleData, MaxVMEModules+1> moduleDataList;
+        const int crateIndex = 0; // FIXME: do not hardcode this. pass it along at least. make it an arg to end_event() or keep it in the state.
+        callbacks.eventData(userContext, crateIndex, ei, state.dataSpans.data(), moduleCount);
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
-        {
-            auto &spans = moduleSpans[mi];
-            auto &moduleData = moduleDataList[mi];
-
-            moduleData = {};
-            moduleData.data = {
-                spans.dataSpan.begin, static_cast<u32>(words_in_span(spans.dataSpan))
-            };
-            // Note: this can move input module "prefix" data to module
-            // "dynamic" data!
-            moduleData.dynamicSize = words_in_span(spans.dataSpan);
-            moduleData.hasDynamic = true;
-
             ++state.counters.outputModules[ei][mi];
-        }
-
-        const int crateIndex = 0;
-        callbacks.eventData(userContext, crateIndex, ei, moduleDataList.data(), moduleCount);
+        ++state.counters.outputEvents[ei];
 
         return {};
     }
@@ -484,7 +455,59 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
     return {};
 }
+#endif
+
+std::error_code end_event2_(State &state, Callbacks &callbacks, void *userContext,
+    const int ei, const unsigned moduleCount)
+{
+    // This is called after module data for the given event has been recorded.
+    // Now walk the data and yield split events.
+
+    LOG_TRACE("state=%p, ei=%d", &state, ei);
+
+    if (ei > MaxVMEEvents)
+        return make_error_code(ErrorCode::MaxVMEEventsExceeded);
+
+    if (moduleCount > MaxVMEModules)
+        return make_error_code(ErrorCode::MaxVMEModulesExceeded);
+
+    if (ei >= static_cast<int>(state.splitFilters.size()))
+        return make_error_code(ErrorCode::EventIndexOutOfRange);
+
+    LOG_TRACE("state=%p, ei=%d, moduleCount=%u", &state, ei, moduleCount);
+
+    // If splitting is not enabled for this event yield the collected data in
+    // one go.
+    if (!state.enabledForEvent[ei])
+    {
+        LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
+                  &state, ei);
+
+        const int crateIndex = 0; // FIXME: do not hardcode this. pass it along at least. make it an arg to end_event() or keep it in the state.
+        callbacks.eventData(userContext, crateIndex, ei, state.dataSpans.data(), moduleCount);
+
+        for (size_t mi = 0; mi < moduleCount; ++mi)
+            ++state.counters.outputModules[ei][mi];
+        ++state.counters.outputEvents[ei];
+
+        return {};
+    }
+
+    auto &moduleFilters = state.splitFilters[ei];
+    auto &moduleData = state.dataSpans;
+
+    assert(moduleFilters.size() <= moduleData.size());
+
+    return {};
 }
+
+std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
+    const int ei, const unsigned moduleCount)
+{
+    return end_event2_(state, callbacks, userContext, ei, moduleCount);
+}
+
+} // end anon namespace
 
 std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
@@ -497,7 +520,7 @@ std::error_code LIBMVME_EXPORT event_data(
     {
         auto &moduleData = moduleDataList[mi];
 
-        if (auto ec = module_data(state, ei, mi, moduleData.data.data, moduleData.data.size))
+        if (auto ec = module_data(state, ei, mi, moduleData))
             return ec;
     }
 
@@ -602,5 +625,3 @@ std::ostream &format_counters_tabular(std::ostream &out, const Counters &counter
 }
 
 } // end namespace multi_event_splitter
-} // end namespace mvme
-} // end namespace mesytec

@@ -127,16 +127,7 @@ struct Counters
 
 struct State
 {
-    struct DataSpan
-    {
-        const u32 *begin;
-        const u32 *end;
-    };
-
-    struct ModuleDataSpans
-    {
-        DataSpan dataSpan;
-    };
+    using ModuleData = mesytec::mvlc::readout_parser::ModuleData;
 
     struct ProcessingFlags
     {
@@ -154,7 +145,7 @@ struct State
     std::vector<std::vector<mvlc::util::FilterWithCaches>> splitFilters;
 
     // Storage to record pointers into the incoming (multievent) module data.
-    std::vector<ModuleDataSpans> dataSpans;
+    std::vector<ModuleData> dataSpans;
 
     // Bit N is set if splitting is enabled for corresponding event index.
     std::bitset<MaxVMEEvents+1> enabledForEvent;
