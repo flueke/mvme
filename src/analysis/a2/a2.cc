@@ -1169,8 +1169,8 @@ Operator make_calibration(
 
     assert(input.data.size == input.lowerLimits.size);
     assert(input.data.size == input.upperLimits.size);
-    assert(calibMinimums.size == input.data.size);
-    assert(calibMaximums.size == input.data.size);
+    assert(calibMinimums.size >= input.data.size);
+    assert(calibMaximums.size >= input.data.size);
 
     auto result = make_operator(arena, Operator_Calibration, 1, 1);
 
