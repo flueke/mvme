@@ -30,13 +30,13 @@
 #include <utility>
 #include <vector>
 #include <mesytec-mvlc/mvlc_readout_parser.h>
+#include <mesytec-mvlc/util/data_filter.h>
 #include <mesytec-mvlc/util/fmt.h>
 
 
 #include "libmvme_export.h"
 
 #include "typedefs.h"
-#include "analysis/a2/a2_data_filter.h"
 #include "vme_config_limits.h"
 
 namespace mesytec::mvme::multi_event_splitter
@@ -127,14 +127,6 @@ struct Counters
 
 struct State
 {
-    struct FilterWithSizeCache
-    {
-        // Filter used for header matching and optional size extraction
-        a2::data_filter::DataFilter filter;
-        // Cache for the 'S' filter character.
-        a2::data_filter::CacheEntry cache;
-    };
-
     struct DataSpan
     {
         const u32 *begin;
@@ -159,7 +151,7 @@ struct State
 
     // DataFilters used for module header matching and size extraction grouped
     // by event and module indexes.
-    std::vector<std::vector<FilterWithSizeCache>> splitFilters;
+    std::vector<std::vector<mvlc::util::FilterWithCaches>> splitFilters;
 
     // Storage to record pointers into the incoming (multievent) module data.
     std::vector<ModuleDataSpans> dataSpans;

@@ -41,7 +41,7 @@ do\
 {\
     if (LOG_LEVEL_SETTING >= level)\
     {\
-        fprintf(stderr, prefix "%s(): " fmt "\n", __FUNCTION__, ##__VA_ARGS__);\
+        fprintf(stderr, prefix "%s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);\
     }\
 } while (0);
 
@@ -149,21 +149,14 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
 
     for (const auto &moduleStrings: splitFilterStrings)
     {
-        std::vector<State::FilterWithSizeCache> moduleFilters;
+        eventMaxModules = std::max(moduleStrings.size(), eventMaxModules);
+
+        std::vector<mvlc::util::FilterWithCaches> moduleFilters;
 
         for (auto moduleString: moduleStrings)
-        {
-            State::FilterWithSizeCache fc;
-
-            fc.filter = a2::data_filter::make_filter(moduleString);
-            fc.cache = a2::data_filter::make_cache_entry(fc.filter, 'S');
-
-            moduleFilters.emplace_back(fc);
-        }
+            moduleFilters.emplace_back(mvlc::util::make_filter_with_caches(moduleString));
 
         state.splitFilters.emplace_back(moduleFilters);
-
-        eventMaxModules = std::max(moduleStrings.size(), eventMaxModules);
     }
 
     // Allocate space for the module data spans for each event
@@ -176,7 +169,7 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
     {
         bool hasNonZeroFilter = std::any_of(
             filters.begin(), filters.end(),
-            [] (const State::FilterWithSizeCache &fc)
+            [] (const auto &fc)
             {
                 return fc.filter.matchMask != 0;
             });
@@ -332,48 +325,51 @@ std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
 
             if (words_in_span(dynamicSpan))
             {
-                bool hasMatch = a2::data_filter::matches(
+                bool hasMatch = mvlc::util::matches(
                     moduleFilters[mi].filter, *dynamicSpan.begin);
 
                 moduleFilterMatches[mi] = hasMatch;
 
                 // The filter contains 'S' placeholders to directly extract the
                 // number of following words from the header.
-                if (hasMatch && moduleFilters[mi].cache.extractMask)
+                if (hasMatch)
                 {
-                    // Add one to the extracted module event size to account for
-                    // the header word itself (the extracted size is the number of
-                    // words following the header word).
-                    u32 moduleEventSize = 1 + a2::data_filter::extract(
-                        moduleFilters[mi].cache, *dynamicSpan.begin);
-
-                    moduleSubeventSizes[mi] = moduleEventSize;
-
-                    LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=true, extractedSize+1=%u",
-                              &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize);
-                }
-                else if (hasMatch)
-                {
-                    // Determine the subevent size by checking when the module
-                    // header filter matches again.
-                    const u32 *moduleWord = dynamicSpan.begin + 1;
-
-                    while (moduleWord < dynamicSpan.end)
+                    if (auto cache = mvlc::util::get_cache_entry(moduleFilters[mi], 'S'))
                     {
-                        if (a2::data_filter::matches(moduleFilters[mi].filter, *moduleWord))
-                            break;
-                        ++moduleWord;
+                        // Add one to the extracted module event size to account for
+                        // the header word itself (the extracted size is the number of
+                        // words following the header word).
+                        u32 moduleEventSize = 1 + mvlc::util::extract(*cache, *dynamicSpan.begin);
+
+                        moduleSubeventSizes[mi] = moduleEventSize;
+
+                        LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=true, extractedSize+1=%u",
+                                &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize);
                     }
+                    else
+                    {
+                        // Determine the subevent size by checking when the module
+                        // header filter matches again.
+                        const u32 *moduleWord = dynamicSpan.begin + 1;
 
-                    u32 moduleEventSize = moduleWord - dynamicSpan.begin;
-                    moduleSubeventSizes[mi] = moduleEventSize;
+                        while (moduleWord < dynamicSpan.end)
+                        {
+                            if (mvlc::util::matches(moduleFilters[mi].filter, *moduleWord))
+                                break;
+                            ++moduleWord;
+                        }
 
-                    LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=false, searchedSize=%u",
-                              &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize)
+                        u32 moduleEventSize = moduleWord - dynamicSpan.begin;
+                        moduleSubeventSizes[mi] = moduleEventSize;
+
+                        LOG_TRACE("state=%p, ei=%d, mi=%lu, checked header '0x%08x', match=%s, hasSize=false, searchedSize=%u",
+                                &state, ei, mi, *dynamicSpan.begin, hasMatch ? "true" : "false", moduleEventSize)
+                    }
                 }
                 else
                 {
-                    auto hasSizeMask = moduleFilters[mi].cache.extractMask != 0;
+                    bool hasSizeMask = mvlc::util::get_cache_entry(moduleFilters[mi], 'S') != std::nullopt;
+
                     LOG_WARN("state=%p, ei=%d, mi=%lu, checked header '0x%08x', no match!, hasSizeMask=%s",
                              &state, ei, mi, *dynamicSpan.begin, hasSizeMask ? "true" : "false");
                     ++state.counters.moduleHeaderMismatches[ei][mi];
