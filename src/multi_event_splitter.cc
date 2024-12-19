@@ -513,6 +513,98 @@ std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)
     return { static_cast<int>(error), theMultiEventSplitterErrorCategory };
 }
 
+template<typename Out>
+Out &format_counters_(Out &out, const Counters &counters)
+{
+    for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
+    {
+        auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
+        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}, out/in={:.2f}\n",
+            ei, counters.inputEvents[ei], counters.outputEvents[ei], eventRatio);
+
+        for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
+        {
+            auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
+            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}, out/in={:.2f}\n",
+                mi, counters.inputModules[ei][mi], counters.outputModules[ei][mi], moduleRatio);
+        }
+    }
+
+    out << fmt::format("* Error Counts: eventIndexOutOfRange={}, moduleIndexOutOfRange={}\n",
+        counters.eventIndexOutOfRange, counters.moduleIndexOutOfRange);
+
+    return out;
+}
+
+std::ostream &format_counters(std::ostream &out, const Counters &counters)
+{
+    return format_counters_(out, counters);
+}
+
+template<typename Out>
+Out &format_counters_tabular_(Out &out, const Counters &counters)
+{
+    out << fmt::format("{: <12} {: >12} {: >12} {: >12}\n", "Type", "InputCount", "OutputCount", "Out/In");
+
+    for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
+    {
+        auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
+
+        out << fmt::format("{: <12} {: >12L} {: >12L} {: >12.2Lf}\n",
+            fmt::format("event{}", ei),
+            counters.inputEvents[ei],
+            counters.outputEvents[ei],
+            eventRatio
+            );
+
+        for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
+        {
+            auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
+            out << fmt::format("{: <12} {: >12L} {: >12L} {: >12.2Lf}\n",
+                fmt::format("module{}", mi),
+                counters.inputModules[ei][mi],
+                counters.outputModules[ei][mi],
+                moduleRatio
+                );
+        }
+    }
+
+    out << fmt::format("\n{: <22} {: >12}\n", "ErrorType", "ErrorCount");
+    out << fmt::format("{: <22} {: >12}\n", "eventIndexOutOfRange", counters.eventIndexOutOfRange);
+    out << fmt::format("{: <22} {: >12}\n", "moduleIndexOutOfRange", counters.moduleIndexOutOfRange);
+
+    out << "\nModule header mismatches:\n";
+    for (size_t ei=0; ei<counters.moduleHeaderMismatches.size(); ++ei)
+    {
+        const auto &mismatches = counters.moduleHeaderMismatches[ei];
+        for (size_t mi=0; mi<mismatches.size(); ++mi)
+        {
+            out << fmt::format("  {} {}\n",
+                               fmt::format("event{}, module{}", ei, mi),
+                               mismatches[mi]);
+        }
+    }
+
+    out << "\nModule size exceeds input event size:\n";
+    for (size_t ei=0; ei<counters.moduleEventSizeExceedsBuffer.size(); ++ei)
+    {
+        const auto &exceeds = counters.moduleEventSizeExceedsBuffer[ei];
+        for (size_t mi=0; mi<exceeds.size(); ++mi)
+        {
+            out << fmt::format("  {} {}\n",
+                               fmt::format("event{}, module{}", ei, mi),
+                               exceeds[mi]);
+        }
+    }
+
+    return out;
+}
+
+std::ostream &format_counters_tabular(std::ostream &out, const Counters &counters)
+{
+    return format_counters_tabular_(out, counters);
+}
+
 } // end namespace multi_event_splitter
 } // end namespace mvme
 } // end namespace mesytec
