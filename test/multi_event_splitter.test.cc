@@ -4,9 +4,12 @@
 #include "multi_event_splitter.h"
 #include "typedefs.h"
 
+using namespace mesytec;
 using namespace mesytec::mvme::multi_event_splitter;
 
-#if 0
+using DataBlock = mvlc::readout_parser::DataBlock;
+using ModuleData = State::ModuleData;
+
 TEST(MultiEventSplitter, WithSizeSameCount)
 {
     // Prepare a splitter for one event with two modules.
@@ -67,8 +70,13 @@ TEST(MultiEventSplitter, WithSizeSameCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
+    std::fill(std::begin(moduleDataList), std::end(moduleDataList), ModuleData{});
     moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[0].dynamicSize = data[0].size();
+    moduleDataList[0].hasDynamic = true;
     moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[1].dynamicSize = data[1].size();
+    moduleDataList[1].hasDynamic = true;
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -150,8 +158,13 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList;
+    std::fill(std::begin(moduleDataList), std::end(moduleDataList), ModuleData{});
     moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[0].dynamicSize = data[0].size();
+    moduleDataList[0].hasDynamic = true;
     moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[1].dynamicSize = data[1].size();
+    moduleDataList[1].hasDynamic = true;
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -234,8 +247,13 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
+    std::fill(std::begin(moduleDataList), std::end(moduleDataList), ModuleData{});
     moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[0].dynamicSize = data[0].size();
+    moduleDataList[0].hasDynamic = true;
     moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[1].dynamicSize = data[1].size();
+    moduleDataList[1].hasDynamic = true;
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -329,8 +347,13 @@ TEST(MultiEventSplitter, NoSizeSameCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
+    std::fill(std::begin(moduleDataList), std::end(moduleDataList), ModuleData{});
     moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[0].dynamicSize = data[0].size();
+    moduleDataList[0].hasDynamic = true;
     moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[1].dynamicSize = data[1].size();
+    moduleDataList[1].hasDynamic = true;
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -420,8 +443,13 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     // Feed data to the splitter. These methods return std::error_codes.
     int eventIndex = 0;
     std::array<ModuleData, 2> moduleDataList = {};
+    std::fill(std::begin(moduleDataList), std::end(moduleDataList), ModuleData{});
     moduleDataList[0].data = { data[0].data(), static_cast<u32>(data[0].size()) };
+    moduleDataList[0].dynamicSize = data[0].size();
+    moduleDataList[0].hasDynamic = true;
     moduleDataList[1].data = { data[1].data(), static_cast<u32>(data[1].size()) };
+    moduleDataList[1].dynamicSize = data[1].size();
+    moduleDataList[1].hasDynamic = true;
 
     ASSERT_TRUE(!event_data(
             splitter, callbacks, nullptr,
@@ -444,100 +472,10 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     std::cout << std::endl;
     format_counters_tabular(std::cout, splitter.counters);
 }
-#endif
-
-// No suffix handling!
-void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filter,
-                       const ModuleData &input, std::vector<ModuleData> &output)
-{
-    assert(input.hasDynamic && input.dynamicSize > 0);
-
-    const auto filterSizeCache = mesytec::mvlc::util::get_cache_entry(filter, 'S');
-
-    ModuleData current = input;
-    std::basic_string_view<u32> data(dynamic_span(input).data, dynamic_span(input).size);
-    assert(!data.empty());
-
-    while (!data.empty())
-    {
-        if (mesytec::mvlc::util::matches(filter.filter, data.front()))
-        {
-            if (filterSizeCache)
-            {
-                u32 size = 1 + mesytec::mvlc::util::extract(*filterSizeCache, data.front());
-                current.dynamicSize = std::min(size, static_cast<u32>(data.size()));
-                current.hasDynamic = true;
-                data.remove_prefix(current.dynamicSize);
-            }
-            else
-            {
-                current.dynamicSize = 1;
-                data.remove_prefix(1);
-
-                while (!data.empty())
-                {
-                    if (mesytec::mvlc::util::matches(filter.filter, data.front()))
-                        break;
-
-                    ++current.dynamicSize;
-                    data.remove_prefix(1);
-                }
-
-                current.hasDynamic = true;
-            }
-
-            current.data.size = current.prefixSize + current.dynamicSize;
-
-            assert(size_consistency_check(current));
-            output.push_back(current);
-        }
-        else
-        {
-            // no header match: consume all remaining data
-            current.dynamicSize = data.size();
-            current.hasDynamic = true;
-            data.remove_prefix(data.size());
-
-            assert(size_consistency_check(current));
-            output.push_back(current);
-        }
-
-        current = {};
-        current.data.data = data.data();
-        current.data.size = data.size();
-    }
-}
-
-void split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
-                       const ModuleData &input,
-                       std::vector<ModuleData> &output,
-                       std::vector<u32> &buffer)
-{
-    // handle prefix-only and all empty-dynamic cases (with or without prefix/suffix)
-    if (!input.hasDynamic || input.dynamicSize == 0)
-    {
-        output.emplace_back(input);
-        return;
-    }
-
-    assert(size_consistency_check(input));
-    split_dynamic_part(filter, input, output);
-    for (const auto &moduleData: output)
-    {
-        assert(size_consistency_check(moduleData));
-    }
-    assert(!output.empty());
-    assert(output.front().data.data == input.data.data);
-
-
-    // TODO: handle input.prefix and input.suffix.
-}
-
-using DataBlock = mesytec::mvlc::readout_parser::DataBlock;
 
 namespace mesytec::mvlc::readout_parser
 {
-bool operator==(const DataBlock &lhs, const std::vector<u32> &rhs)
+inline bool operator==(const DataBlock &lhs, const std::vector<u32> &rhs)
 {
     if (lhs.size != rhs.size())
         return false;
@@ -576,9 +514,7 @@ TEST(MultiEventSplitter, SplitSizeMatch)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    std::vector<u32> buffer;
-
-    split_module_data(filter, input, output, buffer);
+    split_module_data(filter, input, output);
 
     ASSERT_EQ(output.size(), 3);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
@@ -612,9 +548,7 @@ TEST(MultiEventSplitter, SplitSizeMatchOverflow)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    std::vector<u32> buffer;
-
-    split_module_data(filter, input, output, buffer);
+    split_module_data(filter, input, output);
 
     ASSERT_EQ(output.size(), 2);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
@@ -646,9 +580,7 @@ TEST(MultiEventSplitter, SplitNoSize)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    std::vector<u32> buffer;
-
-    split_module_data(filter, input, output, buffer);
+    split_module_data(filter, input, output);
 
     ASSERT_EQ(output.size(), 3);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
@@ -682,9 +614,7 @@ TEST(MultiEventSplitter, SplitNoMatch)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    std::vector<u32> buffer;
-
-    split_module_data(filter, input, output, buffer);
+    split_module_data(filter, input, output);
 
     ASSERT_EQ(output.size(), 1);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }

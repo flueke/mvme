@@ -93,9 +93,6 @@ namespace mesytec::mvme::multi_event_splitter
  *   +-----------+
  */
 
-
-using ModuleData = mesytec::mvlc::readout_parser::ModuleData;
-
 struct Callbacks
 {
     // Required event data callback.
@@ -127,7 +124,7 @@ struct Counters
 
 struct State
 {
-    using ModuleData = mesytec::mvlc::readout_parser::ModuleData;
+    using ModuleData = mvlc::readout_parser::ModuleData;
 
     struct ProcessingFlags
     {
@@ -145,7 +142,8 @@ struct State
     std::vector<std::vector<mvlc::util::FilterWithCaches>> splitFilters;
 
     // Storage to record pointers into the incoming (multievent) module data.
-    std::vector<ModuleData> dataSpans;
+    std::vector<mvlc::readout_parser::ModuleData> dataSpans;
+    std::vector<std::vector<mvlc::readout_parser::ModuleData>> splitModuleData;
 
     // Bit N is set if splitting is enabled for corresponding event index.
     std::bitset<MaxVMEEvents+1> enabledForEvent;
@@ -184,8 +182,11 @@ enum class ErrorCode : u8
 // The main multi_event_splitter entry point taking a parsed module data list.
 std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
-    void *userContext, int ei, const ModuleData *moduleDataList, unsigned moduleCount);
+    void *userContext, int ei, const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
 
+void split_module_data(const mvlc::util::FilterWithCaches &filter,
+                       const State::ModuleData &input,
+                       std::vector<State::ModuleData> &output);
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 

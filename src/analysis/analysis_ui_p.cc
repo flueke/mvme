@@ -4368,7 +4368,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         out << "</pre></body></html>";
     }
 
-    using ModuleData = mesytec::mvme::multi_event_splitter::ModuleData;
+    using ModuleData = mesytec::mvme::multi_event_splitter::State::ModuleData;
     bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
     std::error_code multiEventSplitterError;
     mesytec::mvme::multi_event_splitter::State multiEventSplitter;

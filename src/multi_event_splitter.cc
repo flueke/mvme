@@ -180,9 +180,6 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
     return std::make_pair(std::move(state), ec);
 }
 
-namespace
-{
-
 inline std::error_code begin_event(State &state, int ei)
 {
     LOG_TRACE("state=%p, ei=%d", &state, ei);
@@ -200,7 +197,7 @@ inline std::error_code begin_event(State &state, int ei)
 
 // The module_data() function records the data pointer and size in the
 // splitters state structure for later use in the end_event function.
-inline std::error_code module_data(State &state, int ei, int mi, const ModuleData &moduleData)
+inline std::error_code module_data(State &state, int ei, int mi, const State::ModuleData &moduleData)
 {
     if (ei >= static_cast<int>(state.splitFilters.size()))
     {
@@ -227,7 +224,7 @@ inline std::error_code module_data(State &state, int ei, int mi, const ModuleDat
 }
 
 #if 0
-std::error_code end_event1_(State &state, Callbacks &callbacks, void *userContext,
+inline std::error_code end_event1_(State &state, Callbacks &callbacks, void *userContext,
     const int ei, const unsigned moduleCount)
 {
     // This is called after prefix, suffix and the dynamic part of all modules for
@@ -457,7 +454,91 @@ std::error_code end_event1_(State &state, Callbacks &callbacks, void *userContex
 }
 #endif
 
-std::error_code end_event2_(State &state, Callbacks &callbacks, void *userContext,
+// No suffix handling!
+inline void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filter,
+                       const mvlc::readout_parser::ModuleData &input, std::vector<mvlc::readout_parser::ModuleData> &output)
+{
+    assert(input.hasDynamic && input.dynamicSize > 0);
+
+    const auto filterSizeCache = mesytec::mvlc::util::get_cache_entry(filter, 'S');
+
+    auto current = input;
+    std::basic_string_view<u32> data(dynamic_span(input).data, dynamic_span(input).size);
+    assert(!data.empty());
+
+    while (!data.empty())
+    {
+        if (mesytec::mvlc::util::matches(filter.filter, data.front()))
+        {
+            if (filterSizeCache)
+            {
+                u32 size = 1 + mesytec::mvlc::util::extract(*filterSizeCache, data.front());
+                current.dynamicSize = std::min(size, static_cast<u32>(data.size()));
+                current.hasDynamic = true;
+                data.remove_prefix(current.dynamicSize);
+            }
+            else
+            {
+                current.dynamicSize = 1;
+                data.remove_prefix(1);
+
+                while (!data.empty())
+                {
+                    if (mesytec::mvlc::util::matches(filter.filter, data.front()))
+                        break;
+
+                    ++current.dynamicSize;
+                    data.remove_prefix(1);
+                }
+
+                current.hasDynamic = true;
+            }
+
+            current.data.size = current.prefixSize + current.dynamicSize;
+
+            assert(size_consistency_check(current));
+            output.push_back(current);
+        }
+        else
+        {
+            // no header match: consume all remaining data
+            current.dynamicSize = data.size();
+            current.hasDynamic = true;
+            data.remove_prefix(data.size());
+
+            assert(size_consistency_check(current));
+            output.push_back(current);
+        }
+
+        current = {};
+        current.data.data = data.data();
+        current.data.size = data.size();
+    }
+}
+
+void split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
+                       const State::ModuleData &input,
+                       std::vector<State::ModuleData> &output)
+{
+    // handle prefix-only and all empty-dynamic cases (with or without prefix/suffix)
+    if (!input.hasDynamic || input.dynamicSize == 0)
+    {
+        output.emplace_back(input);
+        return;
+    }
+
+    assert(size_consistency_check(input));
+    split_dynamic_part(filter, input, output);
+    for (const auto &moduleData: output)
+    {
+        assert(size_consistency_check(moduleData));
+    }
+    assert(!output.empty());
+    assert(output.front().data.data == input.data.data);
+    // TODO: handle input.suffix or warn + status?
+}
+
+inline std::error_code end_event2_(State &state, Callbacks &callbacks, void *userContext,
     const int ei, const unsigned moduleCount)
 {
     // This is called after module data for the given event has been recorded.
@@ -501,17 +582,16 @@ std::error_code end_event2_(State &state, Callbacks &callbacks, void *userContex
     return {};
 }
 
-std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
+inline std::error_code end_event(State &state, Callbacks &callbacks, void *userContext,
     const int ei, const unsigned moduleCount)
 {
     return end_event2_(state, callbacks, userContext, ei, moduleCount);
 }
 
-} // end anon namespace
-
+#if 0
 std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
-    void *userContext, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
+    void *userContext, int ei, const State::ModuleData *moduleDataList, unsigned moduleCount)
 {
     if (auto ec = begin_event(state, ei))
         return ec;
@@ -526,6 +606,74 @@ std::error_code LIBMVME_EXPORT event_data(
 
     return end_event(state, callbacks, userContext, ei, moduleCount);
 }
+#else
+std::error_code LIBMVME_EXPORT event_data(
+    State &state, Callbacks &callbacks,
+    void *userContext, int ei, const State::ModuleData *moduleDataList, unsigned moduleCount)
+{
+    const int crateIndex = 0; // FIXME: do not hardcode this. pass it along at least. make it an arg to end_event() or keep it in the state.
+
+    if (auto ec = begin_event(state, ei))
+        return ec;
+
+    // if out of range or not enabled for this event pass the data through
+    if (static_cast<size_t>(ei) >= state.enabledForEvent.size() || !state.enabledForEvent[ei])
+    {
+        LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
+                  &state, ei);
+
+        callbacks.eventData(userContext, crateIndex, ei, moduleDataList, moduleCount);
+
+        for (size_t mi = 0; mi < moduleCount; ++mi)
+            ++state.counters.outputModules[ei][mi];
+        ++state.counters.outputEvents[ei];
+
+        return {};
+    }
+
+    if (moduleCount > state.splitFilters[ei].size())
+        return make_error_code(ErrorCode::ModuleIndexOutOfRange);
+
+    state.splitModuleData.resize(moduleCount);
+    std::for_each(state.splitModuleData.begin(), state.splitModuleData.end(),
+                  [] (auto &v) { v.clear(); });
+
+    for (unsigned mi=0; mi<moduleCount; ++mi)
+    {
+        split_module_data(state.splitFilters[ei][mi], moduleDataList[mi], state.splitModuleData[mi]);
+        for (const auto &moduleData: state.splitModuleData[mi])
+        {
+            assert(size_consistency_check(moduleData));
+        }
+    }
+
+    size_t maxEventCount = 0;
+
+    for (unsigned mi=0; mi<moduleCount; ++mi)
+        maxEventCount = std::max(maxEventCount, state.splitModuleData[mi].size());
+
+    state.dataSpans.resize(moduleCount);
+
+    for (size_t outIdx = 0; outIdx < maxEventCount; ++outIdx)
+    {
+        std::fill(std::begin(state.dataSpans), std::end(state.dataSpans), State::ModuleData{});
+        for (unsigned mi=0; mi<moduleCount; ++mi)
+        {
+            if (outIdx < state.splitModuleData[mi].size())
+            {
+                state.dataSpans[mi] = state.splitModuleData[mi][outIdx];
+                ++state.counters.outputModules[ei][mi];
+                assert(size_consistency_check(state.dataSpans[mi]));
+            }
+        }
+
+        callbacks.eventData(userContext, crateIndex, ei, state.dataSpans.data(), state.dataSpans.size());
+        ++state.counters.outputEvents[ei];
+    }
+
+    return {};
+}
+#endif
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)
 {
