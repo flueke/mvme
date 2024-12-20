@@ -469,6 +469,7 @@ add_mvme_dev_exe(dev_histo2d_polygon_cuts "dev_histo2d_polygon_cuts.cc")
 add_mvme_dev_exe(dev_zip_write_test zip-write-test.cc)
 add_mvme_dev_exe(dev_make_default_module_analyses "dev_make_default_module_analyses.cc")
 add_mvme_dev_exe(dev_replay_bench dev_replay_bench.cc)
+add_mvme_dev_exe(dev_module_filters_to_simple_json dev_module_filters_to_simple_json.cc)
 #add_mvme_dev_exe(dev_qtconcurrent dev_qtconcurrent.cc) # disabled due to some tbb issues
 
 if (WIN32)
