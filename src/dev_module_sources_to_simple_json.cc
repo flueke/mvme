@@ -9,6 +9,8 @@
 #include "git_sha1.h"
 #include "template_system.h"
 
+// Writes out vme module default analysis filter strings and meta information in json format.
+
 int main(int argc, char *argv[])
 {
     spdlog::set_level(spdlog::level::warn);
@@ -85,4 +87,6 @@ int main(int argc, char *argv[])
 
     QJsonDocument doc(out);
     std::cout << doc.toJson().toStdString() << std::endl;
+
+    return 0;
 }

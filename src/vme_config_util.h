@@ -126,6 +126,8 @@ std::unique_ptr<ConfigObjectType> clone_config_object(const ConfigObjectType &so
 void LIBMVME_EXPORT move_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
 void LIBMVME_EXPORT copy_module(ModuleConfig *module, EventConfig *destEvent, int destIndex);
 
+vme_script::SymbolTable LIBMVME_EXPORT variable_symboltable_from_module_meta(const vats::VMEModuleMeta &moduleMeta);
+
 inline void store_configobject_expanded_state(const QUuid &objectId, bool isExpanded)
 {
     QSettings settings("vme_tree_ui_state.ini", QSettings::IniFormat);
