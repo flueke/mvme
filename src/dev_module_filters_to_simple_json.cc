@@ -52,7 +52,10 @@ int main(int argc, char *argv[])
                     {
                         spdlog::info("  name={}, filter={}", ex->objectName().toStdString(), to_string(first));
                         QJsonObject source_out;
-                        source_out["name"] = ex->objectName();
+                        auto name = ex->objectName();
+                        if (name.startsWith(mm.typeName + "."))
+                            name.remove(0, mm.typeName.size() + 1);
+                        source_out["name"] = name;
                         source_out["filter"] = to_string(first).c_str();
                         sources_out.append(source_out);
                     }
