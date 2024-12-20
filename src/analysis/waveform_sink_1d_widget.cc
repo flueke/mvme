@@ -340,6 +340,7 @@ void WaveformSink1DWidget::Private::postProcessData()
     switch (refreshMode_)
     {
     case RefreshMode_LatestData:
+        spdlog::debug("WaveformSink1DWidget::Private::postProcessData(): post_process_waveforms()");
         waveforms::post_process_waveforms(
             analysisTraceData_,
             rawDisplayTraces_,
@@ -349,6 +350,7 @@ void WaveformSink1DWidget::Private::postProcessData()
         break;
 
     case RefreshMode_EventSnapshot:
+        spdlog::debug("WaveformSink1DWidget::Private::postProcessData(): post_process_waveform_snapshot()");
         waveforms::post_process_waveform_snapshot(
             analysisTraceData_,
             rawDisplayTraces_,
@@ -473,22 +475,34 @@ void WaveformSink1DWidget::replot()
 {
     spdlog::trace("begin WaveformSink1DWidget::replot()");
 
+    const bool refreshModeChanged = d->prevRefreshMode_ != d->refreshMode_;
+    const bool holdEnabled = d->actionHold_->isChecked();
+    const bool showAllChannels = d->cb_showAllChannels_->isChecked();
+
     const bool forceProcessing = (
         d->selectedChannelChanged_
         || d->dtSampleChanged_
         || d->interpolationFactorChanged_
         || d->selectedTraceChanged_
-        || (d->prevRefreshMode_ != d->refreshMode_));
+        || refreshModeChanged);
 
-    if (d->prevRefreshMode_ != d->refreshMode_)
+    spdlog::debug("WaveformSink1DWidget::replot(): forceProcessing={}, refreshModeChanged={}, selectedChannelChanged_={}, dtSampleChanged_={}, interpolationFactorChanged_={}, selectedTraceChanged_={}",
+        forceProcessing, refreshModeChanged, d->selectedChannelChanged_, d->dtSampleChanged_, d->interpolationFactorChanged_, d->selectedTraceChanged_);
+    spdlog::debug("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", d->refreshMode_, holdEnabled, showAllChannels);
+
+    if (refreshModeChanged)
+    {
+        spdlog::debug("WaveformSink1DWidget::replot(): refreshMode changed from {} to {}, clearing trace data",
+            d->prevRefreshMode_, d->refreshMode_);
         d->analysisTraceData_.clear();
+    }
 
-    d->selectedChannelChanged_ = d->dtSampleChanged_ =
-    d->interpolationFactorChanged_ = d->selectedTraceChanged_ = false;
+    d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = d->selectedTraceChanged_ = false;
     d->prevRefreshMode_ = d->refreshMode_;
 
     if (d->actionHold_->isChecked() && forceProcessing)
     {
+        spdlog::debug("WaveformSink1DWidget::replot(): hold enabled, forceProcessing is true -> reprocessData()");
         d->reprocessData();
     }
     else if (!d->actionHold_->isChecked())
@@ -496,9 +510,19 @@ void WaveformSink1DWidget::replot()
         const bool updated = d->updateDataFromAnalysis();
 
         if (updated)
+        {
+            spdlog::debug("WaveformSink1DWidget::replot(): new data from analysis -> postProcessData()");
             d->postProcessData();
+        }
         else if (forceProcessing)
+        {
+            spdlog::debug("WaveformSink1DWidget::replot(): no new analysis but forceProcessing is true -> reprocessData()");
             d->reprocessData();
+        }
+        else
+        {
+            spdlog::debug("WaveformSink1DWidget::replot(): no new analysis data, no forceProcessing -> return");
+        }
     }
 
     d->updateUi(); // update, selection boxes, buttons, etc.
@@ -511,13 +535,15 @@ void WaveformSink1DWidget::replot()
     size_t chanMin = 0;
     size_t chanMax = channelCount;
 
-    if (!d->cb_showAllChannels_->isChecked())
+    if (!showAllChannels)
     {
         auto selectedChannel = d->spin_chanSelect->value();
         selectedChannel = std::clamp(selectedChannel, 0, static_cast<int>(channelCount) - 1);
         chanMin = selectedChannel;
         chanMax = selectedChannel + 1;
     }
+
+    spdlog::debug("WaveformSink1DWidget::replot(): channelCount={}, chanMin={}, chanMax={}", channelCount, chanMin, chanMax);
 
     size_t totalTraceEntriesNeeded = 0;
 
@@ -529,6 +555,8 @@ void WaveformSink1DWidget::replot()
             : std::min(static_cast<int>(ipolTraces.size()), d->spin_maxDepth_->value()));
         totalTraceEntriesNeeded += traceCount;
     }
+
+    spdlog::debug("WaveformSink1DWidget::replot(): totalTraceEntriesNeeded={}", totalTraceEntriesNeeded);
 
     assert(d->waveformHandles_.size() == d->curveHelper_.size());
 
