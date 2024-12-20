@@ -645,6 +645,7 @@ std::error_code LIBMVME_EXPORT event_data(
         {
             assert(size_consistency_check(moduleData));
         }
+        ++state.counters.inputModules[ei][mi];
     }
 
     size_t maxEventCount = 0;
