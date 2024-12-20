@@ -477,7 +477,7 @@ void VMEScriptEditor::saveToFile()
 
 void VMEScriptEditor::exportToFile()
 {
-    static const QString FileFilters = QSL("YAML Files (*.yaml);; JSON Files (*.json);; Text Files (*.txt);; All Files (*.*)");
+    static const QString FileFilters = QSL("YAML Files (*.yaml);; JSON Files (*.json);; MVLC Text Files (*.txt);; All Files (*.*)");
 
     auto basename = m_d->m_script->objectName();
     auto path = QSettings().value("LastObjectSaveDirectory").toString();
@@ -582,7 +582,7 @@ void VMEScriptEditor::exportToFile()
 
 void VMEScriptEditor::importFromFile()
 {
-    static const QString FileFilters = QSL("YAML Files (*.yaml);; JSON Files (*.json);; Text Files (*.txt);; All Files (*.*)");
+    static const QString FileFilters = QSL("YAML Files (*.yaml);; JSON Files (*.json);; MVLC Text Files (*.txt);; All Files (*.*)");
 
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     QSettings settings;
