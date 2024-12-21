@@ -40,3 +40,8 @@ const char *mvme_git_describe_version()
 {
     return GIT_VERSION;
 }
+
+const char *mvme_git_hash()
+{
+    return GIT_SHA1;
+}

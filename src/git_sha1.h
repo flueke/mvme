@@ -33,4 +33,6 @@ LIBMVME_EXPORT const char * mvme_git_version();
 // Includes the abbreviated git hash, e.g. "v1.8.0-1-g42663342".
 LIBMVME_EXPORT const char * mvme_git_describe_version();
 
+LIBMVME_EXPORT const char *mvme_git_hash();
+
 #endif
