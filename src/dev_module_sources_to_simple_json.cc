@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
 
     QJsonObject out;
     out["mvme_version"] = mvme_git_version();
+    out["mvme_commit"] = mvme_git_hash();
     out["modules"] = modules_out;
 
     QJsonDocument doc(out);
