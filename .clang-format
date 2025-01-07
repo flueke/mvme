@@ -118,7 +118,7 @@ IncludeIsMainSourceRegex: ''
 IndentAccessModifiers: false
 IndentCaseBlocks: false
 IndentCaseLabels: false
-IndentExternBlock: AfterExternBlock
+IndentExternBlock: NoIndent
 IndentGotoLabels: true
 IndentPPDirectives: None
 IndentRequiresClause: true
@@ -170,7 +170,7 @@ RequiresClausePosition: OwnLine
 RequiresExpressionIndentation: OuterScope
 SeparateDefinitionBlocks: Leave
 ShortNamespaceLines: 1
-SortIncludes:    Never
+SortIncludes:    CaseSensitive
 SortJavaStaticImport: Before
 SortUsingDeclarations: LexicographicNumeric
 SpaceAfterCStyleCast: false
