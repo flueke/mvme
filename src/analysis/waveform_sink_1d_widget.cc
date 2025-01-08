@@ -346,7 +346,7 @@ void WaveformSink1DWidget::Private::postProcessData()
     const size_t maxDepth = spin_maxDepth_->value();
     auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
         combo_phaseCorrection_->currentData().toInt());
-    const bool selectedTraceIndex = traceSelect_->value();
+    const auto selectedTraceIndex = traceSelect_->value();
 
     // Note: this potentially removes Traces still referenced by underlying
     // QwtPlotCurves. Have to update/delete superfluous curves before calling
@@ -388,7 +388,7 @@ void WaveformSink1DWidget::Private::reprocessData()
     const size_t maxDepth = spin_maxDepth_->value();
     auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
         combo_phaseCorrection_->currentData().toInt());
-    const bool selectedTraceIndex = traceSelect_->value();
+    const auto selectedTraceIndex = traceSelect_->value();
 
     switch (refreshMode_)
     {
@@ -505,7 +505,7 @@ void WaveformSink1DWidget::replot()
 
     spdlog::debug("WaveformSink1DWidget::replot(): forceProcessing={}, refreshModeChanged={}, selectedChannelChanged_={}, dtSampleChanged_={}, interpolationFactorChanged_={}, selectedTraceChanged_={}",
         forceProcessing, refreshModeChanged, d->selectedChannelChanged_, d->dtSampleChanged_, d->interpolationFactorChanged_, d->selectedTraceChanged_);
-    spdlog::debug("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", static_cast<int>(d->refreshMode_), holdEnabled, showAllChannels);
+    spdlog::debug("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", d->refreshMode_, holdEnabled, showAllChannels);
 
     if (refreshModeChanged)
     {
