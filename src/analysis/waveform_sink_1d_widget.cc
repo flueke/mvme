@@ -35,6 +35,23 @@ enum RefreshMode
     RefreshMode_EventSnapshot
 };
 
+template<>
+struct fmt::formatter<RefreshMode>: fmt::formatter<string_view>
+{
+    auto format(RefreshMode mode, fmt::format_context &ctx) const
+    {
+        switch (mode)
+        {
+        case RefreshMode_LatestData:
+            return format_to(ctx.out(), "Latest Data");
+        case RefreshMode_EventSnapshot:
+            return format_to(ctx.out(), "Event Snapshot");
+        default:
+            return format_to(ctx.out(), "Unknown RefreshMode");
+        }
+    }
+};
+
 inline QComboBox *add_mode_selector(QToolBar *toolbar)
 {
     auto result = new QComboBox;
@@ -488,7 +505,7 @@ void WaveformSink1DWidget::replot()
 
     spdlog::debug("WaveformSink1DWidget::replot(): forceProcessing={}, refreshModeChanged={}, selectedChannelChanged_={}, dtSampleChanged_={}, interpolationFactorChanged_={}, selectedTraceChanged_={}",
         forceProcessing, refreshModeChanged, d->selectedChannelChanged_, d->dtSampleChanged_, d->interpolationFactorChanged_, d->selectedTraceChanged_);
-    spdlog::debug("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", d->refreshMode_, holdEnabled, showAllChannels);
+    spdlog::debug("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", static_cast<int>(d->refreshMode_), holdEnabled, showAllChannels);
 
     if (refreshModeChanged)
     {
