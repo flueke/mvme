@@ -749,11 +749,22 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
 
 void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
 {
-    auto selectedChannel = spin_chanSelect->value();
+    auto selectedChannel = std::to_string(spin_chanSelect->value());
+    if (cb_showAllChannels_->isChecked())
+        selectedChannel = "All";
     auto visibleTraceCount = waveformHandles_.size();
+    size_t sampleCount = 0;
 
-    out << fmt::format("Channel: {}, #Traces: {}", selectedChannel, visibleTraceCount);
-    out << fmt::format(", Frame time: {} ms", static_cast<int>(dtFrame.count()));
+    for (const auto &traceHistory: rawDisplayTraces_)
+    {
+        if (!traceHistory.empty())
+        {
+            sampleCount = traceHistory.front().size();
+            break;
+        }
+    }
+
+    out << fmt::format("Channel: {}, #Traces: {}, #Samples: {}", selectedChannel, visibleTraceCount, sampleCount);
 }
 
 void WaveformSink1DWidget::Private::printInfo()
