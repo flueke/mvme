@@ -337,8 +337,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
         logger->trace("f={}, ei={}, moduleData={}, moduleCount={}", lambdaName, ei,
                       reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
-        m_eventBuilder.recordEventData(crateIndex, ei, moduleDataList, moduleCount);
-        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, alwaysFlushEventBuilder);
+        m_eventBuilder.recordModuleData(ei, moduleDataList, moduleCount);
+        size_t eventsFlushed = m_eventBuilder.flush(); // TODO: count things
     };
 
     // Potential middle part of the systemEvent chain. Calls into to event builder.
@@ -354,10 +354,9 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
         // Note: we could directly call systemEvent_analysis here as we are in
         // the same thread as the analysis. Otherwise the analysis would live
-        // in the builder/analysis thread and buildEvents() would be called in
+        // in the builder/analysis thread and flush() would be called in
         // that thread.
-        m_eventBuilder.recordSystemEvent(crateIndex, header, size);
-        m_eventBuilder.buildEvents(m_eventBuilderCallbacks, alwaysFlushEventBuilder);
+        m_eventBuilder.handleSystemEvent(header, size);
     };
 
     // event builder setup
@@ -365,6 +364,52 @@ void MVLC_StreamWorker::setupParserCallbacks(
     if (uses_event_builder(*vmeConfig, *analysis))
     {
         auto eventConfigs = vmeConfig->getEventConfigs();
+        mesytec::mvlc::event_builder2::EventBuilderConfig ebCfg;
+        ebCfg.outputCrateIndex = 0;
+
+        for (auto eventIndex = 0; eventIndex < eventConfigs.size(); ++eventIndex)
+        {
+            auto eventConfig = eventConfigs.at(eventIndex);
+            auto eventSettings = analysis->getVMEObjectSettings(eventConfig->getId());
+            bool enabledForEvent = eventSettings["EventBuilderEnabled"].toBool();
+            auto ebSettings = eventSettings["EventBuilderSettings"].toMap();
+
+            mesytec::mvlc::event_builder2::EventConfig evCfg = {};
+            evCfg.enabled = enabledForEvent;
+
+            if (enabledForEvent)
+            {
+                auto moduleConfigs = eventConfig->getModuleConfigs();
+                auto matchWindows = ebSettings["MatchWindows"].toMap();
+
+                for (int moduleIndex = 0; moduleIndex < moduleConfigs.size(); ++moduleIndex)
+                {
+                    auto moduleConfig = moduleConfigs.at(moduleIndex);
+                    auto windowSettings = matchWindows[moduleConfig->getId().toString()].toMap();
+
+                    mesytec::mvlc::event_builder2::ModuleConfig modCfg = {};
+                    modCfg.offset = windowSettings.value("offset", mesytec::mvlc::event_builder2::DefaultMatchOffset).toInt();
+                    modCfg.window = windowSettings.value("width", mesytec::mvlc::event_builder2::DefaultMatchWindow).toInt();
+                    modCfg.ignored = !windowSettings.value("enableModule", false).toBool();
+
+                    if (!modCfg.ignored)
+                        modCfg.tsExtractor = mesytec::mvlc::event_builder2::make_mesytec_default_timestamp_extractor();
+                    else
+                        modCfg.tsExtractor = mesytec::mvlc::event_builder2::InvalidTimestampExtractor();
+
+                    evCfg.moduleConfigs.push_back(modCfg);
+                }
+            }
+
+            ebCfg.eventConfigs.push_back(evCfg);
+        }
+
+        // event builder -> analysis
+        m_eventBuilderCallbacks.eventData = eventData_analysis;
+        m_eventBuilderCallbacks.systemEvent = systemEvent_analysis;
+        m_eventBuilder = mesytec::mvlc::event_builder2::EventBuilder2(ebCfg, m_eventBuilderCallbacks);
+
+        #if 0
         std::vector<mesytec::mvlc::EventSetup> eventSetups;
 
         for (auto eventIndex = 0; eventIndex < eventConfigs.size(); ++eventIndex)
@@ -430,10 +475,11 @@ void MVLC_StreamWorker::setupParserCallbacks(
         // event builder -> analysis
         m_eventBuilderCallbacks.eventData = eventData_analysis;
         m_eventBuilderCallbacks.systemEvent = systemEvent_analysis;
+        #endif
     }
     else
     {
-        m_eventBuilder = mesytec::mvlc::EventBuilder({});
+        m_eventBuilder = mesytec::mvlc::event_builder2::EventBuilder2();
     }
 
     bool multiEventSplitterEnabled = false;
@@ -672,7 +718,7 @@ void MVLC_StreamWorker::start()
                 {
                     auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
                     logger->info("flushing event builder");
-                    m_eventBuilder.buildEvents(m_eventBuilderCallbacks, true);
+                    m_eventBuilder.flush(true);
                 }
             };
 

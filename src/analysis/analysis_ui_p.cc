@@ -3824,20 +3824,9 @@ EventSettingsDialog::EventSettingsDialog(
             // module in the current event.
 
             auto moduleConfigs = eventConfig->getModuleConfigs();
-            auto combo_mainModule = new QComboBox();
-
-            for (auto moduleConfig: moduleConfigs)
-                combo_mainModule->addItem(moduleConfig->objectName(), moduleConfig->getId());
 
             auto ebSettings = (this->d->settings_.value(eventConfig->getId())
                                .value("EventBuilderSettings").toMap());
-
-            auto mainModuleId = ebSettings.value("MainModule").toUuid();
-
-            if (!mainModuleId.isNull())
-                combo_mainModule->setCurrentIndex(combo_mainModule->findData(mainModuleId));
-            else
-                combo_mainModule->setCurrentIndex(combo_mainModule->count() - 1);
 
             auto eventSettings = d->settings_.value(eventConfig->getId());
 
@@ -3846,12 +3835,12 @@ EventSettingsDialog::EventSettingsDialog(
 
             auto matchWindows = ebSettings.value("MatchWindows").toMap();
 
-            QVector<QSpinBox *> spins_lowerLimits;
-            QVector<QSpinBox *> spins_upperLimits;
-            QVector<QCheckBox *> checks_ignoredModules;
+            QVector<QSpinBox *> spins_offsets;
+            QVector<QSpinBox *> spins_widths;
+            QVector<QCheckBox *> checks_enabledModules;
             // TODO: add a column for the module type name, e.g. mdpp16_scp
             auto tableMatchWindows = new QTableWidget(moduleConfigs.size(), 3);
-            tableMatchWindows->setHorizontalHeaderLabels({"Lower", "Upper", "Ignore Module"});
+            tableMatchWindows->setHorizontalHeaderLabels({"Offset", "Window Width", "Enable for event building"});
 
             for (int mi=0; mi<moduleConfigs.size(); ++mi)
             {
@@ -3864,24 +3853,27 @@ EventSettingsDialog::EventSettingsDialog(
                 }
                 auto moduleConfig = moduleConfigs.at(mi);
                 auto matchWindow = matchWindows.value(moduleConfig->getId().toString()).toMap();
-                spin_lower->setValue(matchWindow.value("lower", mesytec::mvlc::event_builder::DefaultMatchWindow.first).toInt());
-                spin_upper->setValue(matchWindow.value("upper", mesytec::mvlc::event_builder::DefaultMatchWindow.second).toInt());
+                spin_lower->setValue(matchWindow.value("offset", mesytec::mvlc::event_builder2::DefaultMatchOffset).toInt());
+                spin_upper->setValue(matchWindow.value("width", mesytec::mvlc::event_builder2::DefaultMatchWindow).toInt());
 
-                spins_lowerLimits.push_back(spin_lower);
-                spins_upperLimits.push_back(spin_upper);
+                spins_offsets.push_back(spin_lower);
+                spins_widths.push_back(spin_upper);
 
-                auto cb_ignoreModule = new QCheckBox;
-                cb_ignoreModule->setChecked(matchWindow.value("ignoreModule", false).toBool());
+                auto cb_enableModule = new QCheckBox;
+                cb_enableModule->setChecked(matchWindow.value("enableModule", false).toBool());
 
-                checks_ignoredModules.push_back(cb_ignoreModule);
+                checks_enabledModules.push_back(cb_enableModule);
 
                 tableMatchWindows->setVerticalHeaderItem(mi, new QTableWidgetItem(moduleConfig->objectName()));
                 tableMatchWindows->setCellWidget(mi, 0, spin_lower);
                 tableMatchWindows->setCellWidget(mi, 1, spin_upper);
-                tableMatchWindows->setCellWidget(mi, 2, make_centered(cb_ignoreModule));
+                tableMatchWindows->setCellWidget(mi, 2, make_centered(cb_enableModule));
             }
 
-            auto gbMatchWindows = new QGroupBox("Module timestamp match settings");
+            tableMatchWindows->resizeColumnsToContents();
+            tableMatchWindows->resizeRowsToContents();
+
+            auto gbMatchWindows = new QGroupBox("Module timestamp match settings ");
             auto gbl = make_hbox(gbMatchWindows);
             gbl->addWidget(tableMatchWindows);
 
@@ -3897,7 +3889,6 @@ EventSettingsDialog::EventSettingsDialog(
 
             auto fl = new QFormLayout;
             fl->addRow("Enable Event Builder", cb_enableEventBuilder);
-            fl->addRow("Main/Reference Module", combo_mainModule);
             fl->addRow(gbMatchWindows);
             //fl->addRow("Memory Limit", spin_memoryLimit);
 
@@ -3931,16 +3922,15 @@ EventSettingsDialog::EventSettingsDialog(
                 {
                     auto id = moduleConfigs[mi]->getId();
                     QVariantMap matchWindow;
-                    matchWindow["lower"] = spins_lowerLimits[mi]->value();
-                    matchWindow["upper"] = spins_upperLimits[mi]->value();
-                    matchWindow["ignoreModule"] = checks_ignoredModules[mi]->isChecked();
+                    matchWindow["offset"] = spins_offsets[mi]->value();
+                    matchWindow["width"] = spins_widths[mi]->value();
+                    matchWindow["enableModule"] = checks_enabledModules[mi]->isChecked();
                     matchWindows[id.toString()] = matchWindow;
                 }
 
                 QVariantMap ebSettings;
 
                 // Stores the uuid of the main module
-                ebSettings["MainModule"] = combo_mainModule->currentData();
                 ebSettings["MatchWindows"] = matchWindows;
                 //ebSettings["MemoryLimit"] = spin_memoryLimit->value() * Gigabytes(1);
 

@@ -25,6 +25,7 @@
 #include "stream_worker_base.h"
 
 #include <mesytec-mvlc/mesytec-mvlc.h>
+#include <mesytec-mvlc/event_builder2.hpp>
 
 #include "libmvme_export.h"
 
@@ -104,7 +105,9 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         mesytec::mvlc::EventBuilder::EventBuilderCounters getEventBuilderCounters() const
         {
-            return m_eventBuilder.getCounters();
+            #warning "getEventBuilderCounters() not implemented"
+            return {};
+            //return m_eventBuilder.getCounters();
         }
 
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag) { m_diag = diag; }
@@ -211,7 +214,7 @@ class MVLC_StreamWorker: public StreamWorkerBase
         mesytec::mvme::multi_event_splitter::State m_multiEventSplitter;
         mutable mesytec::mvlc::Protected<mesytec::mvme::multi_event_splitter::Counters> m_multiEventSplitterCounters;
         mesytec::mvme::multi_event_splitter::Callbacks m_multiEventSplitterCallbacks;
-        mesytec::mvlc::EventBuilder m_eventBuilder;
+        mesytec::mvlc::event_builder2::EventBuilder2 m_eventBuilder;
         mesytec::mvlc::Callbacks m_eventBuilderCallbacks;
 
         EventRecord m_singleStepEventRecord = {};
