@@ -4486,6 +4486,15 @@ void MVLCParserDebugHandler::handleDebugInfo(
             }
         };
 
+        parserCallbacks.systemEvent = [&] (void *, int ci, const u32 *header, u32 size)
+        {
+            if (size > 0)
+            {
+                parserOut << QSL("systemEvent (size=%1, header=%2)")
+                    .arg(size).arg(header[0], 8, 16, QLatin1Char('0')) << endl;
+            }
+        };
+
         parserOut << "Running readout parser..." << endl;
 
         readout_parser::ParseResult pr = {};
