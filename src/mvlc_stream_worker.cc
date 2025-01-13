@@ -395,7 +395,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     if (!modCfg.ignored)
                         modCfg.tsExtractor = mesytec::mvlc::event_builder2::make_mesytec_default_timestamp_extractor();
                     else
-                        modCfg.tsExtractor = mesytec::mvlc::event_builder2::InvalidTimestampExtractor();
+                        modCfg.tsExtractor = mesytec::mvlc::event_builder2::EmptyTimestampExtractor();
 
                     evCfg.moduleConfigs.push_back(modCfg);
                 }
