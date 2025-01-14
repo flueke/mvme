@@ -3873,7 +3873,7 @@ EventSettingsDialog::EventSettingsDialog(
             tableMatchWindows->resizeColumnsToContents();
             tableMatchWindows->resizeRowsToContents();
 
-            auto gbMatchWindows = new QGroupBox("Module timestamp match settings ");
+            auto gbMatchWindows = new QGroupBox("Module timestamp match settings   "); // spaces to widen the layout space a bit. weird issue with qt-5.15 under linux
             auto gbl = make_hbox(gbMatchWindows);
             gbl->addWidget(tableMatchWindows);
 
