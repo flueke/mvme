@@ -108,7 +108,7 @@ MVLC_StreamWorker::MVLC_StreamWorker(mesytec::mvlc::ReadoutBufferQueues &snoopQu
     , m_startPaused(false)
     , m_stopFlag(StopWhenQueueEmpty)
     , m_debugInfoRequest(DebugInfoRequest::None)
-    , m_eventBuilder({})
+    , m_eventBuilder(mesytec::mvlc::event_builder2::EventBuilder2())
 {
     qRegisterMetaType<mesytec::mvlc::readout_parser::ReadoutParserState>(
         "mesytec::mvlc::readout_parser::ReadoutParserState");
