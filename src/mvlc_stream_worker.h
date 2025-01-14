@@ -105,9 +105,14 @@ class MVLC_StreamWorker: public StreamWorkerBase
 
         mesytec::mvlc::EventBuilder::EventBuilderCounters getEventBuilderCounters() const
         {
-            #warning "getEventBuilderCounters() not implemented"
+            //#warning "getEventBuilderCounters() not implemented"
             return {};
             //return m_eventBuilder.getCounters();
+        }
+
+        mesytec::mvlc::event_builder2::BuilderCounters getEventBuilder2Counters() const
+        {
+            return m_eventBuilder.getCounters();
         }
 
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag) { m_diag = diag; }

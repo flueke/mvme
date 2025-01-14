@@ -31,6 +31,7 @@
 #include <QTimer>
 
 #include "util/qt_font.h"
+#include "util/qt_monospace_textedit.h"
 #include "util/strings.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_stream_worker.h"
@@ -89,13 +90,20 @@ struct AnalysisInfoWidgetPrivate
 
     QWidget *eventBuilderWidget;
     QVector<QLabel *> eventBuilderLabels;
+    QPlainTextEdit *eventBuilder2Widget;
     mesytec::mvlc::EventBuilder::EventBuilderCounters prevEventBuilderCounters;
+    mesytec::mvlc::event_builder2::BuilderCounters prevEventBuilder2Counters;
 
     void updateMVLCWidget(
         const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters,
         double dt);
     void updateEventBuilderWidget(
         const EventBuilder::EventBuilderCounters &counters,
+        double dt);
+
+    void updateEventBuilder2Widget(
+        const mesytec::mvlc::event_builder2::BuilderCounters &counters,
+        const mesytec::mvlc::event_builder2::BuilderCounters &prevCounters,
         double dt);
 };
 
@@ -239,12 +247,15 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
         l->addStretch(1);
     }
 
+    m_d->eventBuilder2Widget = mvme::util::make_monospace_plain_textedit().release();
+
     // tabwidget for mvlc and event builder counters
     m_d->tabbedWidget = new QTabWidget;
     auto tabWidget = m_d->tabbedWidget;
     tabWidget->addTab(m_d->mvlcInfoWidget, "MVLC Readout Parser Counters");
     tabWidget->addTab(m_d->multiEventSplitterInfoWidget, "Multi Event Splitter Counters");
     tabWidget->addTab(m_d->eventBuilderWidget, "Event Builder Counters");
+    tabWidget->addTab(m_d->eventBuilder2Widget, "Event Builder2 Counters");
 
     // outer widget layout
     auto outerLayout = new QVBoxLayout(this);
@@ -518,6 +529,12 @@ void AnalysisInfoWidget::update()
             m_d->updateEventBuilderWidget(counters, dt);
             m_d->prevEventBuilderCounters = counters;
         }
+
+        {
+            auto counters = mvlcWorker->getEventBuilder2Counters();
+            m_d->updateEventBuilder2Widget(counters, m_d->prevEventBuilder2Counters, dt);
+            m_d->prevEventBuilder2Counters = counters;
+        }
     }
     else
     {
@@ -721,4 +738,31 @@ void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
         eventBuilderLabels[ii++]->setText(line);
     }
 
+}
+
+void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
+    const mesytec::mvlc::event_builder2::BuilderCounters &counters,
+    const mesytec::mvlc::event_builder2::BuilderCounters &/*prevCounters*/,
+    double /*dt*/)
+{
+    eventBuilder2Widget->clear();
+
+    for (auto eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
+    {
+        auto &eventCounters = counters.eventCounters.at(eventIndex);
+        if (std::any_of(std::begin(eventCounters.inputHits), std::end(eventCounters.inputHits),
+                        [](auto count) { return count > 0; }))
+        {
+            std::stringstream oss;
+            oss << mvlc::event_builder2::dump_counters(eventCounters) << "\n";
+
+            eventBuilder2Widget->appendPlainText(fmt::format("Event {}:", eventIndex).c_str());
+
+            std::string line;
+            while (std::getline(oss, line))
+            {
+                eventBuilder2Widget->appendPlainText(QSL("   %1").arg(line.c_str()));
+            }
+        }
+    }
 }
