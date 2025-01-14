@@ -747,7 +747,7 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
 {
     eventBuilder2Widget->clear();
 
-    for (auto eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
+    for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
     {
         auto &eventCounters = counters.eventCounters.at(eventIndex);
         if (std::any_of(std::begin(eventCounters.inputHits), std::end(eventCounters.inputHits),
@@ -756,7 +756,7 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
             std::stringstream oss;
             oss << mvlc::event_builder2::dump_counters(eventCounters) << "\n";
 
-            eventBuilder2Widget->appendPlainText(fmt::format("Event {}:", eventIndex).c_str());
+            eventBuilder2Widget->appendPlainText(fmt::format("Event {} per module counters:", eventIndex).c_str());
 
             std::string line;
             while (std::getline(oss, line))
