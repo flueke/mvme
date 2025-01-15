@@ -79,7 +79,7 @@ struct AnalysisInfoWidgetPrivate
     QPushButton *mvlcRequestNextBuffer;
     QPushButton *mvlcRequestNextNonTimetickBuffer;
 
-    // Holds mvlcInfoWidget and eventBuilderWidget
+    // Holds info widgets (parser, splitter, event builder)
     QTabWidget *tabbedWidget;
 
     QWidget *mvlcInfoWidget;
@@ -88,17 +88,11 @@ struct AnalysisInfoWidgetPrivate
 
     QPlainTextEdit *multiEventSplitterInfoWidget;
 
-    QWidget *eventBuilderWidget;
-    QVector<QLabel *> eventBuilderLabels;
     QPlainTextEdit *eventBuilder2Widget;
-    mesytec::mvlc::EventBuilder::EventBuilderCounters prevEventBuilderCounters;
     mesytec::mvlc::event_builder2::BuilderCounters prevEventBuilder2Counters;
 
     void updateMVLCWidget(
         const mesytec::mvlc::readout_parser::ReadoutParserCounters &counters,
-        double dt);
-    void updateEventBuilderWidget(
-        const EventBuilder::EventBuilderCounters &counters,
         double dt);
 
     void updateEventBuilder2Widget(
@@ -210,43 +204,6 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
         w->setFont(make_monospace_font());
     }
 
-    //m_d->eventBuilderWidget = new QGroupBox("Event Builder");
-    m_d->eventBuilderWidget = new QWidget;
-    {
-        auto make_label = [] ()
-        {
-            auto label = std::make_unique<QLabel>();
-            label->setSizePolicy({QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding});
-            return label;
-        };
-
-        auto fl = make_layout<QFormLayout, 0, 2>();
-
-        auto label = make_label();
-        fl->addRow("Empty Module Data", label.get());
-        m_d->eventBuilderLabels.push_back(label.release());
-
-        label = make_label();
-        fl->addRow("Discarded Events", label.get());
-        m_d->eventBuilderLabels.push_back(label.release());
-
-        label = make_label();
-        fl->addRow("Inverse Match Scores", label.get());
-        m_d->eventBuilderLabels.push_back(label.release());
-
-        label = make_label();
-        fl->addRow("Module Hits", label.get());
-        m_d->eventBuilderLabels.push_back(label.release());
-
-        label = make_label();
-        fl->addRow("Max Mem Usage", label.get());
-        m_d->eventBuilderLabels.push_back(label.release());
-
-        auto l = make_vbox(m_d->eventBuilderWidget);
-        l->addLayout(fl);
-        l->addStretch(1);
-    }
-
     m_d->eventBuilder2Widget = mvme::util::make_monospace_plain_textedit().release();
 
     // tabwidget for mvlc and event builder counters
@@ -254,8 +211,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
     auto tabWidget = m_d->tabbedWidget;
     tabWidget->addTab(m_d->mvlcInfoWidget, "MVLC Readout Parser Counters");
     tabWidget->addTab(m_d->multiEventSplitterInfoWidget, "Multi Event Splitter Counters");
-    tabWidget->addTab(m_d->eventBuilderWidget, "Event Builder Counters");
-    tabWidget->addTab(m_d->eventBuilder2Widget, "Event Builder2 Counters");
+    tabWidget->addTab(m_d->eventBuilder2Widget, "Event Builder Counters");
 
     // outer widget layout
     auto outerLayout = new QVBoxLayout(this);
@@ -525,12 +481,6 @@ void AnalysisInfoWidget::update()
         }
 
         {
-            auto counters = mvlcWorker->getEventBuilderCounters();
-            m_d->updateEventBuilderWidget(counters, dt);
-            m_d->prevEventBuilderCounters = counters;
-        }
-
-        {
             auto counters = mvlcWorker->getEventBuilder2Counters();
             m_d->updateEventBuilder2Widget(counters, m_d->prevEventBuilder2Counters, dt);
             m_d->prevEventBuilder2Counters = counters;
@@ -655,89 +605,6 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     {
         mvlcLabels[i]->setText(texts[i]);
     }
-}
-
-void AnalysisInfoWidgetPrivate::updateEventBuilderWidget(
-    const EventBuilder::EventBuilderCounters &counters,
-    double /*dt*/)
-{
-    //auto &prevCounters = prevEventBuilderCounters;
-
-    int ii=0;
-    QStringList lines;
-
-    // empty events
-    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
-    {
-        for (size_t mi=0; mi<counters.eventCounters[ei].emptyEvents.size(); ++mi)
-        {
-            auto line = QSL("event=%1, module=%2, count=%3")
-                .arg(ei)
-                .arg(mi)
-                .arg(counters.eventCounters[ei].emptyEvents[mi]);
-            lines.push_back(line);
-        }
-    }
-
-    eventBuilderLabels[ii++]->setText(lines.join("\n"));
-    lines.clear();
-
-    // discarded events
-    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
-    {
-        for (size_t mi=0; mi<counters.eventCounters[ei].discardedEvents.size(); ++mi)
-        {
-            auto line = QSL("event=%1, module=%2, count=%3")
-                .arg(ei)
-                .arg(mi)
-                .arg(counters.eventCounters[ei].discardedEvents[mi]);
-            lines.push_back(line);
-        }
-    }
-
-    eventBuilderLabels[ii++]->setText(lines.join("\n"));
-    lines.clear();
-
-    // module inv score sums
-    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
-    {
-        for (size_t mi=0; mi<counters.eventCounters[ei].invScoreSums.size(); ++mi)
-        {
-            auto line = QSL("event=%1, module=%2, count=%3")
-                .arg(ei)
-                .arg(mi)
-                .arg(counters.eventCounters[ei].invScoreSums[mi]);
-            lines.push_back(line);
-        }
-    }
-
-    eventBuilderLabels[ii++]->setText(lines.join("\n"));
-    lines.clear();
-
-    // module total hits
-    for (size_t ei=0; ei<counters.eventCounters.size(); ++ei)
-    {
-        for (size_t mi=0; mi<counters.eventCounters[ei].inputHits.size(); ++mi)
-        {
-            auto line = QSL("event=%1, module=%2, inputCount=%3, outputCount=%4")
-                .arg(ei)
-                .arg(mi)
-                .arg(counters.eventCounters[ei].inputHits[mi])
-                .arg(counters.eventCounters[ei].outputHits[mi]);
-            lines.push_back(line);
-        }
-    }
-
-    eventBuilderLabels[ii++]->setText(lines.join("\n"));
-    lines.clear();
-
-    // max memory usage
-    {
-        auto line = QSL("%1").arg(
-            format_number(counters.maxMemoryUsage, "B", UnitScaling::Binary, 0, 'f', 2));
-        eventBuilderLabels[ii++]->setText(line);
-    }
-
 }
 
 void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
