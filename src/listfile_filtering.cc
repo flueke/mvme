@@ -137,7 +137,7 @@ ListfileFilterStreamConsumer::ListfileFilterStreamConsumer()
 {
     d->logger_ = get_logger("ListfileFilterStreamConsumer");
     d->logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] [tid%t] %v");
-    d->logger_->set_level(spdlog::level::debug);
+    d->logger_->set_level(spdlog::level::info);
 
     d->outputBuffer_ = ReadoutBuffer(Private::OutputBufferInitialCapacity);
     d->config_.outputInfo.enabled = false;
@@ -231,6 +231,9 @@ void ListfileFilterStreamConsumer::beginRun(
         listfile::BufferedWriteHandle bwh;
         listfile::listfile_write_magic(bwh, ConnectionType::USB);
         auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+        // Removes non-output-producing command groups from each of the readout
+        // stacks. Mirrors the setup done in MVLC_StreamWorker::start().
+        crateConfig.stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
         listfile::listfile_write_endian_marker(bwh, crateConfig.crateId);
         listfile::listfile_write_crate_config(bwh, crateConfig);
         static const u8 crateId = 0; // FIXME: single crate only!
