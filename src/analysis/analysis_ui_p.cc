@@ -3892,6 +3892,10 @@ EventSettingsDialog::EventSettingsDialog(
             fl->addRow(gbMatchWindows);
             //fl->addRow("Memory Limit", spin_memoryLimit);
 
+            connect(cb_enableEventBuilder, &QCheckBox::toggled, [gbMatchWindows] (bool checked) {
+                gbMatchWindows->setEnabled(checked);
+            });
+
             auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
             auto bbl = make_hbox();
             bbl->addStretch(1);
