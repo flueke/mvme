@@ -338,7 +338,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
                       reinterpret_cast<const void *>(moduleDataList), moduleCount);
 
         m_eventBuilder.recordModuleData(ei, moduleDataList, moduleCount);
-        size_t eventsFlushed = m_eventBuilder.flush(); // TODO: count things
+        size_t eventsFlushed = m_eventBuilder.flush(); (void) eventsFlushed; // count these somewhere?
     };
 
     // Potential middle part of the systemEvent chain. Calls into to event builder.
@@ -391,6 +391,7 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     modCfg.offset = windowSettings.value("offset", mesytec::mvlc::event_builder2::DefaultMatchOffset).toInt();
                     modCfg.window = windowSettings.value("width", mesytec::mvlc::event_builder2::DefaultMatchWindow).toInt();
                     modCfg.ignored = !windowSettings.value("enableModule", false).toBool();
+                    modCfg.hasDynamic = m_parser.readoutStructure.at(eventIndex).at(moduleIndex).hasDynamic;
 
                     if (!modCfg.ignored)
                         modCfg.tsExtractor = mesytec::mvlc::event_builder2::make_mesytec_default_timestamp_extractor();
@@ -518,15 +519,10 @@ void MVLC_StreamWorker::start()
 
     try
     {
-        fillModuleIndexMaps(vmeConfig);
-        setupParserCallbacks(runInfo, vmeConfig, analysis);
-
-        auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
-
         auto logger = mesytec::mvlc::get_logger("mvlc_stream_worker");
 
+        auto mvlcCrateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
         logger->trace("VmeConfig -> CrateConfig result:\n{}", to_yaml(mvlcCrateConfig));
-
         // Removes non-output-producing command groups from each of the readout
         // stacks. This is done because the converted CrateConfig contains
         // groups for the "Cycle Start" and "Cycle End" event scripts, which do
@@ -539,6 +535,9 @@ void MVLC_StreamWorker::start()
             mvlcCrateConfig.stacks);
 
         m_parser = mesytec::mvlc::readout_parser::make_readout_parser(sanitizedReadoutStacks);
+
+        fillModuleIndexMaps(vmeConfig);
+        setupParserCallbacks(runInfo, vmeConfig, analysis);
 
         if (logger->level() == spdlog::level::trace)
         {

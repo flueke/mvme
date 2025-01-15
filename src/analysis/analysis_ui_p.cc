@@ -3890,11 +3890,13 @@ EventSettingsDialog::EventSettingsDialog(
             auto fl = new QFormLayout;
             fl->addRow("Enable Event Builder", cb_enableEventBuilder);
             fl->addRow(gbMatchWindows);
-            //fl->addRow("Memory Limit", spin_memoryLimit);
 
             connect(cb_enableEventBuilder, &QCheckBox::toggled, [gbMatchWindows] (bool checked) {
                 gbMatchWindows->setEnabled(checked);
             });
+
+            cb_enableEventBuilder->setChecked(this->d->settings_[eventConfig->getId()]["EventBuilderEnabled"].toBool());
+            gbMatchWindows->setEnabled(cb_enableEventBuilder->isChecked());
 
             auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
             auto bbl = make_hbox();
