@@ -498,16 +498,17 @@ ListfileFilterDialog::ListfileFilterDialog(AnalysisServiceProvider *asp, QWidget
     // Listfile output options
     d->combo_outputFormat = new QComboBox;
     d->combo_outputFormat->addItem("ZIP", static_cast<int>(ListFileFormat::ZIP));
-    d->combo_outputFormat->addItem("LZ4", static_cast<int>(ListFileFormat::LZ4));
+    d->combo_outputFormat->addItem("LZ4 (in ZIP container)", static_cast<int>(ListFileFormat::LZ4));
 
     auto newFilename = d->config_.outputInfo.prefix;
 
     // Default value if no filter config was present in the analysis yet.
-    if (newFilename == QSL("mvmelst"))
-    {
+    //if (newFilename == QSL("mvmelst"))
+    //{
+        // XXX: never taken from the config, always "recalculated" on opening the dialog.
         QFileInfo fi(replayHandle.inputFilename);
         newFilename = QSL("%1_filtered").arg(fi.baseName());
-    }
+    //}
 
     d->le_outputFilename = new QLineEdit;
     d->le_outputFilename->setText(newFilename);
