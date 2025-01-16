@@ -392,6 +392,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     modCfg.window = windowSettings.value("width", mesytec::mvlc::event_builder2::DefaultMatchWindow).toInt();
                     modCfg.ignored = !windowSettings.value("enableModule", false).toBool();
                     modCfg.hasDynamic = m_parser.readoutStructure.at(eventIndex).at(moduleIndex).hasDynamic;
+                    modCfg.prefixSize = m_parser.readoutStructure.at(eventIndex).at(moduleIndex).prefixLen;
+                    modCfg.name = m_parser.readoutStructure.at(eventIndex).at(moduleIndex).name;
 
                     if (!modCfg.ignored)
                         modCfg.tsExtractor = mesytec::mvlc::event_builder2::make_mesytec_default_timestamp_extractor();
