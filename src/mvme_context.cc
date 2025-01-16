@@ -1756,7 +1756,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     if (!prepareStart())
     {
-        logMessage("Failed to start stream worker (analysis side). Aborting startup.");
+        logMessage("Failed to start analysis worker. Aborting startup.");
         return;
     }
 

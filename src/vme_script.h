@@ -288,7 +288,7 @@ struct ParseError: std::exception
 
     QString toString() const
     {
-        QString ret;
+        QString ret("VME Script ParseError: ");
 
         if (lineNumber >= 0)
             ret = QSL("%1 on line %2").arg(message).arg(lineNumber);

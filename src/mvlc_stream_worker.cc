@@ -567,14 +567,14 @@ void MVLC_StreamWorker::start()
     }
     catch (const vme_script::ParseError &e)
     {
-        logError(QSL("Error setting up MVLC stream worker: %1")
+        logError(QSL("Error: '%1'")
                  .arg(e.toString()));
         emit stopped();
         return;
     }
     catch (const std::exception &e)
     {
-        logError(QSL("Error setting up MVLC stream worker: %1")
+        logError(QSL("Error: '%1'")
                  .arg(e.what()));
         emit stopped();
         return;
