@@ -3860,7 +3860,7 @@ EventSettingsDialog::EventSettingsDialog(
                 spins_widths.push_back(spin_upper);
 
                 auto cb_enableModule = new QCheckBox;
-                cb_enableModule->setChecked(matchWindow.value("enableModule", false).toBool());
+                cb_enableModule->setChecked(matchWindow.value("enableModule", true).toBool());
 
                 checks_enabledModules.push_back(cb_enableModule);
 
