@@ -122,9 +122,9 @@ struct AnalysisWidgetPrivate
     // Statusbar labels.
     QLabel *m_labelSinkStorageSize;
     QLabel *m_labelTimetickCount;
-    QLabel *m_statusLabelA2;
     QLabel *m_labelEfficiency;
     QLabel *m_labelOriginalDataRate;
+    QLabel *m_labelPipelineSetup;
 
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
@@ -970,6 +970,9 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // statusbar
     m_d->m_statusBar = make_statusbar();
 
+    m_d->m_labelPipelineSetup = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelPipelineSetup);
+
     // efficiency
     m_d->m_labelEfficiency = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelEfficiency);
@@ -985,13 +988,6 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // histo storage label
     m_d->m_labelSinkStorageSize = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);
-
-    // a2 label
-    m_d->m_statusLabelA2 = new QLabel;
-    m_d->m_statusBar->addPermanentWidget(m_d->m_statusLabelA2);
-
-    m_d->m_statusLabelA2->setText(QSL("a2::"));
-
 
     auto centralWidget = new QWidget;
     auto centralLayout = new QVBoxLayout(centralWidget);
@@ -1134,7 +1130,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         }
         else
         {
-            m_d->m_labelEfficiency->setText(QSL("Replay  |"));
+            m_d->m_labelEfficiency->setText(QSL("Mode: Replay"));
             m_d->m_labelEfficiency->setToolTip(QSL(""));
         }
     });
@@ -1166,6 +1162,38 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // Run the periodic update
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout,
             this, [this]() { m_d->doPeriodicUpdate(); });
+
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]()
+    {
+        auto ana = m_d->m_serviceProvider->getAnalysis();
+        auto vme = m_d->m_serviceProvider->getVMEConfig();
+        QStringList parts;
+        if (uses_multi_event_splitting(*vme, *ana))
+        {
+            parts += "Multievent Splitter";
+        }
+
+        if (uses_event_builder(*vme, *ana))
+        {
+            parts += "Event Builder";
+        }
+
+        auto lfFilterConfig = listfile_filter_config_from_variant(ana->property("ListfileFilterConfig"));
+
+        if (lfFilterConfig.enabled)
+        {
+            parts += "Listfile Filter";
+        }
+
+        if (!parts.isEmpty())
+        {
+            m_d->m_labelPipelineSetup->setText(QSL("Pipeline: ") +  parts.join("|"));
+        }
+        else
+        {
+            m_d->m_labelPipelineSetup->clear();
+        }
+    });
 
     // Build the analysis to make sure everything is setup properly
     auto analysis = m_d->m_serviceProvider->getAnalysis();
