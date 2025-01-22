@@ -548,7 +548,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     m_d->m_eventServer = std::make_shared<EventServer>();
     m_d->streamConsumers_.push_back(m_d->m_eventServer);
 
-    m_d->m_listfileFilter = std::make_shared<ListfileFilterStreamConsumer>();
+    m_d->m_listfileFilter = std::make_shared<ListfileFilterStreamConsumer>(m_d->analysisServiceProvider);
     m_d->streamConsumers_.push_back(m_d->m_listfileFilter);
 
 #ifdef MVME_ENABLE_PROMETHEUS

@@ -121,18 +121,21 @@ struct ListfileFilterStreamConsumer::Private
 
     RunInfo runInfo_;
     // TODO: make this a shared_ptr or something at some point. It's passed in
-    // beginRun() and must stay valid during the run.
+    // beginRun() and must stay valid during the run. Usage is: get a2 runtime
+    // from analysis (bad design in itself) to figure out the state of analysis
+    // conditions after each event.
     analysis::Analysis *analysis_ = nullptr;
     std::unique_ptr<listfile::SplitZipCreator> mvlcZipCreator_;
     std::shared_ptr<listfile::WriteHandle> listfileWriteHandle_;
     ReadoutBuffer outputBuffer_;
     FilterCounters counters_;
     mesytec::mvlc::Protected<QString> runNotes_;
+    AnalysisServiceProvider *asp_ = nullptr;
 
     void maybeFlushOutputBuffer(size_t flushSize = OutputBufferFlushSize);
 };
 
-ListfileFilterStreamConsumer::ListfileFilterStreamConsumer()
+ListfileFilterStreamConsumer::ListfileFilterStreamConsumer(AnalysisServiceProvider *asp)
     : d(std::make_unique<Private>())
 {
     d->logger_ = get_logger("ListfileFilterStreamConsumer");
@@ -141,6 +144,7 @@ ListfileFilterStreamConsumer::ListfileFilterStreamConsumer()
 
     d->outputBuffer_ = ReadoutBuffer(Private::OutputBufferInitialCapacity);
     d->config_.outputInfo.enabled = false;
+    d->asp_ = asp;
 }
 
 ListfileFilterStreamConsumer::~ListfileFilterStreamConsumer()
@@ -160,6 +164,15 @@ StreamConsumerBase::Logger &ListfileFilterStreamConsumer::getLogger()
 void ListfileFilterStreamConsumer::beginRun(
     const RunInfo &runInfo, const VMEConfig *vmeConfig, analysis::Analysis *analysis)
 {
+    assert(d->asp_->getAnalysis() == analysis);
+
+    if (d->asp_->getAnalysis() != analysis)
+    {
+        getLogger()("Listfile Filter Error: analysis object mismatch. this should not happen!");
+        d->config_.enabled = false; // so we do not crash during the replay
+        return;
+    }
+
     auto theVariant = analysis->property("ListfileFilterConfig");
     auto theConfig = listfile_filter_config_from_variant(theVariant);
     d->config_ = theConfig;
@@ -187,7 +200,6 @@ void ListfileFilterStreamConsumer::beginRun(
 
     d->runInfo_ = runInfo;
     d->analysis_ = analysis;
-    //printMe(runInfo.infoDict);
 
     // Build the event -> condition bit index lookup table.
     {
@@ -233,7 +245,7 @@ void ListfileFilterStreamConsumer::beginRun(
         auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
         // Removes non-output-producing command groups from each of the readout
         // stacks. Mirrors the setup done in MVLC_StreamWorker::start().
-        crateConfig.stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
+        //crateConfig.stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
         listfile::listfile_write_endian_marker(bwh, crateConfig.crateId);
         listfile::listfile_write_crate_config(bwh, crateConfig);
         static const u8 crateId = 0; // FIXME: single crate only!
@@ -241,7 +253,13 @@ void ListfileFilterStreamConsumer::beginRun(
         return bwh.getBuffer();
     };
 
+    // The UI fills out the suffix string only. Prefix is dynamically created
+    // based on the input filename.
+    auto inputFilename = d->asp_->getReplayFileHandle().inputFilename;
     auto &outInfo = d->config_.outputInfo;
+    assert(outInfo.prefix.isEmpty());
+    outInfo.prefix = QFileInfo(inputFilename).baseName();
+
     auto lfSetup = mesytec::mvme_mvlc::make_listfile_setup(outInfo, make_listfile_preamble());
 
     lfSetup.closeArchiveCallback = [this] (listfile::SplitZipCreator *zipCreator)
@@ -297,6 +315,8 @@ void ListfileFilterStreamConsumer::endRun(const DAQStats &stats, const std::exce
     // FIXME: only works when using an analysis instance that's shared between
     // gui and this code. Not thread-safe right now. Bad! Think up a design that
     // would also work without a shared analysis instance.
+    // => Handle it all in the ui after the replay has ended. No need to do it
+    // in the worker.
     d->config_.enabled = false;
     d->analysis_->setProperty("ListfileFilterConfig", listfile_filter_config_to_variant(d->config_));
     d->listfileWriteHandle_.reset();
@@ -365,6 +385,14 @@ void ListfileFilterStreamConsumer::processModuleData(
         }
     }
 
+    #if 0
+    // TODO: implement these checks. it's too easy to mess up the output format.
+    if (!listfile::check_output_format(crateConfig, eventIndex, moduleDataList, moduleCount))
+    {
+        getLogger()(QSL("Listfile Filter Error: data for event=%1 does not match the output crate config format").arg(eventIndex));
+        return;
+    }
+    #endif
     listfile::write_event_data(d->outputBuffer_, crateIndex, eventIndex, moduleDataList, moduleCount);
     d->counters_.eventsWritten[eventIndex]++;
     d->maybeFlushOutputBuffer();
@@ -438,7 +466,7 @@ struct ListfileFilterDialog::Private
     QVector<Row> rows_;
 
     QComboBox *combo_outputFormat;
-    QLineEdit *le_outputFilename;
+    QLineEdit *le_outputFilenameSuffix;
     QCheckBox *cb_enableFiltering;
 };
 
@@ -500,25 +528,21 @@ ListfileFilterDialog::ListfileFilterDialog(AnalysisServiceProvider *asp, QWidget
     d->combo_outputFormat->addItem("ZIP", static_cast<int>(ListFileFormat::ZIP));
     d->combo_outputFormat->addItem("LZ4 (in ZIP container)", static_cast<int>(ListFileFormat::LZ4));
 
-    auto newFilename = d->config_.outputInfo.prefix;
+    auto suffix = d->config_.outputInfo.suffix;
+    if (suffix.isEmpty())
+    {
+        suffix = "_filtered";
+    }
 
-    // Default value if no filter config was present in the analysis yet.
-    //if (newFilename == QSL("mvmelst"))
-    //{
-        // XXX: never taken from the config, always "recalculated" on opening the dialog.
-        QFileInfo fi(replayHandle.inputFilename);
-        newFilename = QSL("%1_filtered").arg(fi.baseName());
-    //}
-
-    d->le_outputFilename = new QLineEdit;
-    d->le_outputFilename->setText(newFilename);
+    d->le_outputFilenameSuffix = new QLineEdit;
+    d->le_outputFilenameSuffix->setText(suffix);
     d->cb_enableFiltering = new QCheckBox("Enable Filtering for the next replay");
     d->cb_enableFiltering->setChecked(d->config_.enabled);
 
     auto gb_listfile = new QGroupBox("Listfile Output");
     auto l_listfile = new QFormLayout(gb_listfile);
     l_listfile->addRow("Output Format", d->combo_outputFormat);
-    l_listfile->addRow("Output Filename Prefix", d->le_outputFilename);
+    l_listfile->addRow("Output Filename Suffix", d->le_outputFilenameSuffix);
     l_listfile->addRow(d->cb_enableFiltering);
 
     // buttonbox: ok, cancel, help
@@ -553,8 +577,8 @@ void ListfileFilterDialog::accept()
         filterConfig.eventEntries.insert(row.eventId, row.combo_conditions->currentData().toUuid());
 
     filterConfig.outputInfo.format = static_cast<ListFileFormat>(d->combo_outputFormat->currentData().toInt());
-    filterConfig.outputInfo.prefix = d->le_outputFilename->text();
-    filterConfig.outputInfo.suffix.clear();
+    filterConfig.outputInfo.prefix.clear();
+    filterConfig.outputInfo.suffix = d->le_outputFilenameSuffix->text();
     filterConfig.enabled = d->cb_enableFiltering->isChecked();
 
     auto analysis = d->asp_->getAnalysis();

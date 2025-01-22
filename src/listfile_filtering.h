@@ -38,10 +38,13 @@ struct ListfileFilterConfig
 QVariant listfile_filter_config_to_variant(const ListfileFilterConfig &cfg);
 ListfileFilterConfig listfile_filter_config_from_variant(const QVariant &var);
 
+class AnalysisServiceProvider;
+
+
 class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
 {
     public:
-        ListfileFilterStreamConsumer();
+        explicit ListfileFilterStreamConsumer(AnalysisServiceProvider *asp);
         ~ListfileFilterStreamConsumer() override;
 
         void setLogger(Logger logger) override;
@@ -69,8 +72,6 @@ class LIBMVME_EXPORT ListfileFilterStreamConsumer: public IStreamModuleConsumer
         struct Private;
         std::unique_ptr<Private> d;
 };
-
-class AnalysisServiceProvider;
 
 class ListfileFilterDialog: public QDialog
 {
