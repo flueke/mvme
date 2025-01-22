@@ -59,6 +59,7 @@
 #include "graphviz_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "listfile_filtering.h"
 #include "multiplot_widget.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
@@ -1380,22 +1381,32 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
     QAction *actionListfileFilterSettings = new QAction(
         QIcon(QSL(":/data_filter.png")), "Listfile Filtering", this);
     actionListfileFilterSettings->setToolTip("Filter listfiles using conditions (replay mode only).");
+    actionListfileFilterSettings->setCheckable(true);
+    actionListfileFilterSettings->setChecked(false);
 
-    connect(actionListfileFilterSettings, &QAction::triggered, this, [this] {
-        ListfileFilterDialog dialog(m_d->m_serviceProvider, this);
-        dialog.exec();
-    });
-
-    auto update_listfile_filter_action = [actionListfileFilterSettings] (GlobalMode mode)
+    auto update_listfile_filter_action = [this, actionListfileFilterSettings] (GlobalMode mode)
     {
         actionListfileFilterSettings->setEnabled(mode == GlobalMode::Replay);
+        bool filteringEnabled = false;
+        if (auto ana = m_d->m_serviceProvider->getAnalysis())
+            filteringEnabled = listfile_filter_config_from_variant(ana->property("ListfileFilterConfig")).enabled;
+        actionListfileFilterSettings->setChecked(filteringEnabled);
     };
+
+    connect(actionListfileFilterSettings, &QAction::triggered, this, [this, update_listfile_filter_action] {
+        ListfileFilterDialog dialog(m_d->m_serviceProvider, this);
+        dialog.exec();
+        update_listfile_filter_action(m_d->m_serviceProvider->getGlobalMode());
+    });
 
     connect(m_d->m_serviceProvider, &AnalysisServiceProvider::modeChanged,
         actionListfileFilterSettings, update_listfile_filter_action);
 
-    update_listfile_filter_action(m_d->m_serviceProvider->getGlobalMode());
+    connect(m_d->m_displayRefreshTimer, &QTimer::timeout, this, [this, update_listfile_filter_action] {
+        update_listfile_filter_action(m_d->m_serviceProvider->getGlobalMode());
+    });
 
+    update_listfile_filter_action(m_d->m_serviceProvider->getGlobalMode());
 
     m_d->m_eventRateLabel = new QLabel;
 
