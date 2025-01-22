@@ -349,6 +349,26 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin, u3
     return result;
 }
 
+std::unique_ptr<Histo1D> Histo1D::clone() const
+{
+    auto result = std::make_unique<Histo1D>(getNumberOfBins(), getXMin(), getXMax());
+    result->m_xAxisInfo = m_xAxisInfo;
+    result->m_underflow = m_underflow;
+    result->m_overflow = m_overflow;
+    result->m_entryCount = m_entryCount;
+    result->m_maxValue = m_maxValue;
+    result->m_maxBin = m_maxBin;
+    result->m_title = m_title;
+    result->m_footer = m_footer;
+
+    for (size_t i=0; i<getNumberOfBins(); ++i)
+    {
+        result->setBinContent(i, getBinContent(i), getBinContent(i));
+    }
+
+    return result;
+}
+
 /* The Histo1D text format is
  * 1st line: bins xMin xMax underflow overflow entryCount
  * subsequent lines: one double per line representing the bin content starting at bin=0

@@ -289,6 +289,9 @@ class LIBMVME_EXPORT Histo1D: public QObject
             return m_footer;
         }
 
+        // Returns a copy of this histogram. The copy owns its memory.
+        std::unique_ptr<Histo1D> clone() const;
+
     private:
         AxisBinning m_xAxisBinning;
         AxisInfo m_xAxisInfo;
