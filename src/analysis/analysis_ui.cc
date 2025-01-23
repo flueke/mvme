@@ -1181,7 +1181,7 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
         if (lfFilterConfig.enabled)
         {
-            parts += "Listfile Filter";
+            parts += "Listfile Export";
         }
 
         if (!parts.isEmpty())
