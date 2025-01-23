@@ -4,6 +4,11 @@
 Changelog
 ##################################################
 
+Version 1.15.2
+--------------------------------------------------
+
+* Improved Event Builder module for timestamp based event building.
+
 Version 1.15.1
 --------------------------------------------------
 
