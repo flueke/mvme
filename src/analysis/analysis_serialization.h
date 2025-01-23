@@ -107,7 +107,7 @@ struct LIBMVME_EXPORT AnalysisObjectStore
 
 class ObjectFactory;
 
-QJsonObject convert_to_current_version(QJsonObject json, const VMEConfig *vmeConfig);
+QJsonObject LIBMVME_EXPORT convert_to_current_version(QJsonObject json, const VMEConfig *vmeConfig);
 
 AnalysisObjectStore LIBMVME_EXPORT deserialize_objects(
     QJsonObject data,

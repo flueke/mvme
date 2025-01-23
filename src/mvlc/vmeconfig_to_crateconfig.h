@@ -12,11 +12,11 @@ namespace mesytec
 namespace mvme
 {
 
-mvlc::StackCommand vme_script_command_to_mvlc_command(const vme_script::Command &srcCmd);
+mvlc::StackCommand LIBMVME_EXPORT vme_script_command_to_mvlc_command(const vme_script::Command &srcCmd);
 
-std::vector<mvlc::StackCommand> convert_script(const vme_script::VMEScript &script);
+std::vector<mvlc::StackCommand> LIBMVME_EXPORT convert_script(const vme_script::VMEScript &script);
 
-std::vector<mvlc::StackCommand> convert_script(const VMEScriptConfig *script, u32 vmeBaseAddress = 0);
+std::vector<mvlc::StackCommand> LIBMVME_EXPORT convert_script(const VMEScriptConfig *script, u32 vmeBaseAddress = 0);
 
 // Converts a mvme VMEConfig to a mesytec-mvlc CrateConfig.
 mvlc::CrateConfig LIBMVME_EXPORT vmeconfig_to_crateconfig(const VMEConfig *vmeConfig);
