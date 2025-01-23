@@ -963,7 +963,6 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
     // remove userlevel buttons.
     auto innerToolbarLayout = new QHBoxLayout;
     innerToolbarLayout->addWidget(m_d->m_eventWidgetEventSelectAreaToolBarStack);
-    innerToolbarLayout->addStretch();
     innerToolbarLayout->addWidget(m_d->m_removeUserLevelButton);
     innerToolbarLayout->addWidget(m_d->m_addUserLevelButton);
 

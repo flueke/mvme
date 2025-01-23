@@ -1336,7 +1336,7 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
     // Export
     {
-        auto action = new QAction(QIcon(QSL(":/folder_export.png")), QSL("Export"), this);
+        auto action = new QAction(QIcon(QSL(":/folder_export.png")), QSL("Export Objects"), this);
         action->setToolTip(QSL("Export selected objects to file."));
         action->setStatusTip(action->toolTip());
         m_d->m_actionExport = action;
@@ -1347,7 +1347,7 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
     // Import
     {
-        auto action = new QAction(QIcon(QSL(":/folder_import.png")), QSL("Import"), this);
+        auto action = new QAction(QIcon(QSL(":/folder_import.png")), QSL("Import Objects"), this);
         action->setToolTip(QSL("Import objects from file."));
         action->setStatusTip(action->toolTip());
         m_d->m_actionImport = action;
@@ -1379,8 +1379,8 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
     // Listfile Filtering Settings
     QAction *actionListfileFilterSettings = new QAction(
-        QIcon(QSL(":/data_filter.png")), "Listfile Filtering", this);
-    actionListfileFilterSettings->setToolTip("Filter listfiles using conditions (replay mode only).");
+        QIcon(QSL(":/data_filter.png")), "Listfile Export", this);
+    actionListfileFilterSettings->setToolTip("Create filtered listfiles using the event builder and/or conditions (replay mode only).");
     actionListfileFilterSettings->setCheckable(true);
     actionListfileFilterSettings->setChecked(false);
 
@@ -1408,8 +1408,6 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
     update_listfile_filter_action(m_d->m_serviceProvider->getGlobalMode());
 
-    m_d->m_eventRateLabel = new QLabel;
-
     // create the lower toolbar
     {
         m_d->m_eventSelectAreaToolBar = make_toolbar();
@@ -1418,11 +1416,6 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
         tb->setIconSize(QSize(16, 16));
         tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
-        tb->addWidget(m_d->m_eventRateLabel);
-
-        tb->addSeparator();
-
-        tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addAction(actionEventSettings);
         tb->addAction(actionListfileFilterSettings);
 
@@ -1433,7 +1426,13 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
         tb->addSeparator();
 
-#ifndef QT_NO_DEBUG
+        tb->addWidget(make_spacer_widget());
+
+        tb->addSeparator();
+
+        tb->addAction(m_d->m_actionSelectVisibleLevels);
+
+#if 0 //#ifndef QT_NO_DEBUG
         tb->addSeparator();
 
         tb->addAction(QSL("Repopulate"), this, [this]() { m_d->repopulate(); });
