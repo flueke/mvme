@@ -22,11 +22,16 @@ class MultiPlotWidget: public QWidget
         // For adding single sink elements (histograms, rate monitors, ...)
         void addSinkElement(const analysis::SinkPtr &sink, int elementIndex);
 
+        // Add a non-sink, single histogram entry.
+        void addHisto1D(const Histo1DPtr &histo);
+
         void setMaxVisibleResolution(size_t maxres);
         size_t getMaxVisibleResolution() const;
 
         // Replaces this widgets contents based on the data stored in view.
         void loadView(const std::shared_ptr<analysis::PlotGridView> &view);
+
+        void clear(); // removes all entries
 
     protected:
         void dragEnterEvent(QDragEnterEvent *ev) override;

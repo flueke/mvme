@@ -168,6 +168,13 @@ struct MultiPlotWidget::Private
         return {};
     }
 
+    std::shared_ptr<PlotEntry> addHisto1D(const Histo1DPtr &histo)
+    {
+        auto e = std::make_shared<Histo1DPlotEntry>(histo, q);
+        addEntry(e);
+        return e;
+    }
+
     // FIXME: cannot move a plot to the very end. This code always moves to
     // the left of the destination index.
     void moveEntry(int sourceIndex, int destIndex)
@@ -748,6 +755,11 @@ void MultiPlotWidget::addSinkElement(
     d->addSinkElement(sink, elementIndex);
     d->refresh();
 }
+void MultiPlotWidget::addHisto1D(const Histo1DPtr &histo)
+{
+    d->addHisto1D(histo);
+    d->refresh();
+}
 
 void MultiPlotWidget::setMaxVisibleResolution(size_t maxres)
 {
@@ -763,6 +775,13 @@ size_t MultiPlotWidget::getMaxVisibleResolution() const
 void MultiPlotWidget::loadView(const std::shared_ptr<analysis::PlotGridView> &view)
 {
     d->loadView(view);
+}
+
+void MultiPlotWidget::clear()
+{
+    d->entries_.clear();
+    d->relayout();
+    d->refresh();
 }
 
 void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)

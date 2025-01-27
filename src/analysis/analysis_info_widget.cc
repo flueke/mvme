@@ -33,6 +33,7 @@
 #include "util/qt_font.h"
 #include "util/qt_monospace_textedit.h"
 #include "util/strings.h"
+#include "multiplot_widget.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_stream_worker.h"
 
@@ -69,6 +70,7 @@ static const QVector<const char *> MVLC_LabelTexts =
 
 struct AnalysisInfoWidgetPrivate
 {
+    AnalysisInfoWidget *q;
     AnalysisServiceProvider *serviceProvider;
     MVMEStreamProcessorCounters prevCounters;
     QDateTime lastUpdateTime;
@@ -91,6 +93,12 @@ struct AnalysisInfoWidgetPrivate
     QWidget *eventBuilder2Widget;
     QPlainTextEdit *eventBuilder2StatsText;
     QPushButton *pb_showEventBuilder2Histos;
+    // FIXME: need an event seletion for the widget or show histos from all
+    // events in the same widget or open multiple grids. Edge case as usually
+    // event building will be done for the _single_ real readout event.
+    // for now all histos will be shown in the same widget...
+    MultiPlotWidget *eventBuilder2HistosWidget = nullptr;
+    std::vector<Histo1DPtr> eventBuilder2Histos;
 
     mesytec::mvlc::event_builder2::BuilderCounters prevEventBuilder2Counters;
 
@@ -102,6 +110,9 @@ struct AnalysisInfoWidgetPrivate
         const mesytec::mvlc::event_builder2::BuilderCounters &counters,
         const mesytec::mvlc::event_builder2::BuilderCounters &prevCounters,
         double dt);
+
+    void showEventBuilder2HistosWidget();
+    void updateEventBuilder2HistosWidget(const mesytec::mvlc::event_builder2::BuilderCounters &counters);
 };
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
@@ -114,6 +125,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
     : QWidget(parent)
     , m_d(new AnalysisInfoWidgetPrivate)
 {
+    m_d->q = this;
     setFocusPolicy(Qt::StrongFocus);
     m_d->serviceProvider = serviceProvider;
 
@@ -213,6 +225,11 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
     auto l = make_layout<QVBoxLayout, 0, 2>(m_d->eventBuilder2Widget);
     l->addWidget(m_d->eventBuilder2StatsText);
     l->addWidget(m_d->pb_showEventBuilder2Histos);
+
+    connect(m_d->pb_showEventBuilder2Histos, &QPushButton::clicked, this, [this]
+    {
+        m_d->showEventBuilder2HistosWidget();
+    });
 
     // tabwidget for mvlc and event builder counters
     m_d->tabbedWidget = new QTabWidget;
@@ -491,6 +508,7 @@ void AnalysisInfoWidget::update()
         {
             auto counters = mvlcWorker->getEventBuilder2Counters();
             m_d->updateEventBuilder2Widget(counters, m_d->prevEventBuilder2Counters, dt);
+            m_d->updateEventBuilder2HistosWidget(counters);
             m_d->prevEventBuilder2Counters = counters;
         }
     }
@@ -661,4 +679,68 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
     }
 
     append_lines(oss, eventBuilder2StatsText);
+}
+
+void AnalysisInfoWidgetPrivate::showEventBuilder2HistosWidget()
+{
+    if (auto worker = qobject_cast<MVLC_StreamWorker *>(serviceProvider->getMVMEStreamWorker()))
+    {
+        if (!eventBuilder2HistosWidget)
+        {
+            eventBuilder2HistosWidget = new MultiPlotWidget(serviceProvider);
+            eventBuilder2HistosWidget->setWindowTitle("Event Builder 2 Histograms");
+            eventBuilder2HistosWidget->setAttribute(Qt::WA_DeleteOnClose);
+            QObject::connect(eventBuilder2HistosWidget, &QWidget::destroyed, q,
+                    [this] { eventBuilder2HistosWidget = nullptr; });
+
+            add_widget_close_action(eventBuilder2HistosWidget);
+        }
+        assert(eventBuilder2HistosWidget);
+        show_and_activate(eventBuilder2HistosWidget);
+    }
+}
+
+void AnalysisInfoWidgetPrivate::updateEventBuilder2HistosWidget(
+    const mesytec::mvlc::event_builder2::BuilderCounters &counters)
+{
+    if (!eventBuilder2HistosWidget)
+        return;
+
+    // Note: super inefficient implementaton. Histo1D objects are recreated on
+    // every refresh. This way no logic is needed to ensure bin counts and axis
+    // limits are still equal to the values from the event builder.
+    // => This widget can stay open when loading another listmode file for
+    // replay. Histos will be automatically correct.
+
+    eventBuilder2Histos.clear();
+
+    for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
+    {
+        const auto &eventHistos = counters.eventCounters.at(eventIndex).dtHistograms;
+
+        for (const auto &dtHisto: eventHistos)
+        {
+            auto outHisto = std::make_shared<Histo1D>(
+                dtHisto.histo.bins.size(),
+                dtHisto.histo.binning.minValue,
+                dtHisto.histo.binning.maxValue);
+
+            outHisto->setObjectName(QSL("dt(%1, %2), %3")
+                .arg(dtHisto.moduleIndexes.first)
+                .arg(dtHisto.moduleIndexes.second)
+                .arg(dtHisto.histo.title.c_str()));
+
+            for (size_t bin=0; bin<dtHisto.histo.bins.size(); ++bin)
+            {
+                outHisto->setBinContent(bin, dtHisto.histo.bins[bin], dtHisto.histo.bins[bin]);
+            }
+
+            eventBuilder2Histos.emplace_back(outHisto);
+        }
+    }
+
+    // clear the widget and readd all histos
+    eventBuilder2HistosWidget->clear();
+    for (const auto &histo: eventBuilder2Histos)
+        eventBuilder2HistosWidget->addHisto1D(histo);
 }
