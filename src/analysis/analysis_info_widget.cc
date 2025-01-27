@@ -88,7 +88,10 @@ struct AnalysisInfoWidgetPrivate
 
     QPlainTextEdit *multiEventSplitterInfoWidget;
 
-    QPlainTextEdit *eventBuilder2Widget;
+    QWidget *eventBuilder2Widget;
+    QPlainTextEdit *eventBuilder2StatsText;
+    QPushButton *pb_showEventBuilder2Histos;
+
     mesytec::mvlc::event_builder2::BuilderCounters prevEventBuilder2Counters;
 
     void updateMVLCWidget(
@@ -204,7 +207,12 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
         w->setFont(make_monospace_font());
     }
 
-    m_d->eventBuilder2Widget = mvme::util::make_monospace_plain_textedit().release();
+    m_d->eventBuilder2Widget = new QWidget;
+    m_d->eventBuilder2StatsText = mvme::util::make_monospace_plain_textedit().release();
+    m_d->pb_showEventBuilder2Histos = new QPushButton(QIcon(":/hist1d.png"), "Show Event Builder 2 Histograms");
+    auto l = make_layout<QVBoxLayout, 0, 2>(m_d->eventBuilder2Widget);
+    l->addWidget(m_d->eventBuilder2StatsText);
+    l->addWidget(m_d->pb_showEventBuilder2Histos);
 
     // tabwidget for mvlc and event builder counters
     m_d->tabbedWidget = new QTabWidget;
@@ -607,12 +615,22 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     }
 }
 
+template<typename TextEdit>
+void append_lines(std::stringstream &oss, TextEdit *textEdit)
+{
+    std::string line;
+    while (std::getline(oss, line))
+    {
+        textEdit->appendPlainText(QSL("   %1").arg(line.c_str()));
+    }
+}
+
 void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
     const mesytec::mvlc::event_builder2::BuilderCounters &counters,
     const mesytec::mvlc::event_builder2::BuilderCounters &/*prevCounters*/,
     double /*dt*/)
 {
-    eventBuilder2Widget->clear();
+    eventBuilder2StatsText->clear();
 
     for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
     {
@@ -623,13 +641,24 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
             std::stringstream oss;
             oss << mvlc::event_builder2::dump_counters(eventCounters) << "\n";
 
-            eventBuilder2Widget->appendPlainText(fmt::format("Event {} per module counters:", eventIndex).c_str());
-
-            std::string line;
-            while (std::getline(oss, line))
-            {
-                eventBuilder2Widget->appendPlainText(QSL("   %1").arg(line.c_str()));
-            }
+            eventBuilder2StatsText->appendPlainText(fmt::format("Event {} per module counters:", eventIndex).c_str());
+            append_lines(oss, eventBuilder2StatsText);
         }
     }
+
+    std::stringstream oss;
+    for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
+    {
+        const auto &dtHistos = counters.eventCounters.at(eventIndex).dtHistograms;
+        oss << fmt::format("Event {} timestamp delta histograms", eventIndex) << "\n";
+
+        for (const auto &dtHisto: dtHistos)
+        {
+            oss << fmt::format("  dt({}, {}), {}: counts={}, underflows={}, overflows={}\n",
+                 dtHisto.moduleIndexes.first, dtHisto.moduleIndexes.second, dtHisto.histo.title,
+                 counts(dtHisto.histo), dtHisto.histo.underflows, dtHisto.histo.overflows);
+        }
+    }
+
+    append_lines(oss, eventBuilder2StatsText);
 }
