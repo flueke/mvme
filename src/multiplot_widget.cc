@@ -56,6 +56,13 @@ struct EntryConversionVisitor: public PlotEntryVisitor
         return ve;
     }
 
+    void visit(Histo1DPlotEntry *pe)
+    {
+        auto ve = createBasicEntry(pe);
+        ve.elementIndex = -1;
+        entries.emplace_back(std::move(ve));
+    }
+
     void visit(Histo1DSinkPlotEntry *pe)
     {
         auto ve = createBasicEntry(pe);
@@ -933,11 +940,19 @@ void MultiPlotWidget::wheelEvent(QWheelEvent *ev)
         QWidget::wheelEvent(ev);
 }
 
+// Opens the sink widget for the given PlotEntry. Does nothing if the PlotEntry
+// does not contain a sink.
 struct OpenSinkVisitor: public PlotEntryVisitor
 {
     explicit OpenSinkVisitor(AnalysisServiceProvider *asp)
        : asp_(asp)
     { }
+
+    void visit(Histo1DPlotEntry *e)
+    {
+        // Not a sink, so we cannot do anything here.
+        (void) e;
+    }
 
     void visit(Histo1DSinkPlotEntry *e)
     {

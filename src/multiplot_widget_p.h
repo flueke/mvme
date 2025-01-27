@@ -129,24 +129,33 @@ class PlotEntry
         QString title_;
 };
 
-struct Histo1DSinkPlotEntry: public PlotEntry
+struct Histo1DPlotEntry: public PlotEntry
 {
-    using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
-
-    Histo1DSinkPlotEntry(const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent);
+    Histo1DPlotEntry(const Histo1DPtr &histo, QWidget *plotParent);
     void refresh() override;
     u32 binCount(Qt::Axis axis) const override;
-    analysis::AnalysisObjectPtr analysisObject() const override { return sink; }
+    analysis::AnalysisObjectPtr analysisObject() const override { return nullptr; }
     void accept(PlotEntryVisitor &v) override;
 
-    SinkPtr sink;
-    Histo1DPtr histo; // to keep a copy of the histo alive
-    int histoIndex; // index of this entries histogram in the sink
+    Histo1DPtr histo;
     QwtPlotHistogram *plotItem;
     Histo1DIntervalData *histoData;
     QwtPlotCurve *gaussCurve;
     Histo1DGaussCurveData *gaussCurveData;
     TextLabelItem *statsTextItem;
+};
+
+struct Histo1DSinkPlotEntry: public Histo1DPlotEntry
+{
+    using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
+
+    Histo1DSinkPlotEntry(const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent);
+    void refresh() override;
+    analysis::AnalysisObjectPtr analysisObject() const override { return sink; }
+    void accept(PlotEntryVisitor &v) override;
+
+    SinkPtr sink;
+    int histoIndex; // index of this entries histogram in the sink
 };
 
 struct Histo2DSinkPlotEntry: public PlotEntry
@@ -176,6 +185,7 @@ struct PlotEntryVisitor
 {
     virtual void visit(Histo1DSinkPlotEntry *e) = 0;
     virtual void visit(Histo2DSinkPlotEntry *e) = 0;
+    virtual void visit(Histo1DPlotEntry *e) = 0;
     virtual ~PlotEntryVisitor() {}
 };
 

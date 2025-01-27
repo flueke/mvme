@@ -46,34 +46,24 @@ PlotEntry::PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis)
     zoomer_->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
 }
 
-Histo1DSinkPlotEntry::Histo1DSinkPlotEntry(
-    const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent)
-        : PlotEntry(plotParent)
-        , sink(sink_)
-        , histo(histo_)
-        , histoIndex(sink->getHistos().indexOf(histo))
-        , plotItem(new QwtPlotHistogram)
-        , histoData(new Histo1DIntervalData(histo.get()))
-        , gaussCurve(make_plot_curve(Qt::green))
-        , gaussCurveData(new Histo1DGaussCurveData)
-        , statsTextItem(new TextLabelItem)
+Histo1DPlotEntry::Histo1DPlotEntry(const Histo1DPtr &histo, QWidget *plotParent)
+    : PlotEntry(plotParent)
+    , histo(histo)
+    , plotItem(new QwtPlotHistogram)
+    , histoData(new Histo1DIntervalData(histo.get()))
+    , gaussCurve(make_plot_curve(Qt::green))
+    , gaussCurveData(new Histo1DGaussCurveData)
+    , statsTextItem(new TextLabelItem)
 {
-    histoIndex = sink->getHistos().indexOf(histo_);
-    assert(histoIndex >= 0); // the histo should be one of the sinks histograms
-
     plotItem->setStyle(QwtPlotHistogram::Outline);
     plotItem->setData(histoData); // ownership of histoData goes to qwt
     plotItem->attach(plot());
-
-    gaussCurve->setData(gaussCurveData);
-    gaussCurve->hide();
-    gaussCurve->attach(plot());
 
     statsTextItem->hide();
     statsTextItem->attach(plot());
 }
 
-void Histo1DSinkPlotEntry::refresh()
+void Histo1DPlotEntry::refresh()
 {
     histoData->setResolutionReductionFactor(rrf(Qt::XAxis));
 
@@ -159,7 +149,7 @@ void Histo1DSinkPlotEntry::refresh()
     if (!hasCustomTitle())
     {
         // Set plot title to sink[index]
-        auto plotTitle = QSL("%1[%2]").arg(sink->objectName()).arg(histoIndex);
+        auto plotTitle = histo->objectName();
         plot()->setTitle(make_qwt_text(plotTitle));
     }
 
@@ -195,11 +185,42 @@ void Histo1DSinkPlotEntry::refresh()
     zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
 }
 
-u32 Histo1DSinkPlotEntry::binCount(Qt::Axis axis) const
+u32 Histo1DPlotEntry::binCount(Qt::Axis axis) const
 {
     if (axis == Qt::XAxis)
         return histo->getNumberOfBins();
     return 0;
+}
+
+void Histo1DPlotEntry::accept(PlotEntryVisitor &v)
+{
+    v.visit(this);
+}
+
+Histo1DSinkPlotEntry::Histo1DSinkPlotEntry(
+    const SinkPtr &sink_, const Histo1DPtr &histo_, QWidget *plotParent)
+        : Histo1DPlotEntry(histo_, plotParent)
+        , sink(sink_)
+        , histoIndex(sink->getHistos().indexOf(histo))
+{
+    assert(histoIndex >= 0); // the histo should be one of the sinks histograms
+}
+
+void Histo1DSinkPlotEntry::refresh()
+{
+    Histo1DPlotEntry::refresh();
+
+    if (!hasCustomTitle())
+    {
+        // Set plot title to sink[index]
+        auto plotTitle = QSL("%1[%2]").arg(sink->objectName()).arg(histoIndex);
+        plot()->setTitle(make_qwt_text(plotTitle));
+    }
+
+    // Final plot and zoomer axes update
+    // ====================
+    plot()->updateAxes(); // let qwt recalculate the axes
+    zoomer()->setAxis(plot()->plotXAxis(), plot()->plotYAxis());
 }
 
 void Histo1DSinkPlotEntry::accept(PlotEntryVisitor &v)
