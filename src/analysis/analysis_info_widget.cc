@@ -683,7 +683,7 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
 
 void AnalysisInfoWidgetPrivate::showEventBuilder2HistosWidget()
 {
-    if (auto worker = qobject_cast<MVLC_StreamWorker *>(serviceProvider->getMVMEStreamWorker()))
+    if (qobject_cast<MVLC_StreamWorker *>(serviceProvider->getMVMEStreamWorker()))
     {
         if (!eventBuilder2HistosWidget)
         {
@@ -706,13 +706,15 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2HistosWidget(
     if (!eventBuilder2HistosWidget)
         return;
 
-    // Note: super inefficient implementaton. Histo1D objects are recreated on
-    // every refresh. This way no logic is needed to ensure bin counts and axis
-    // limits are still equal to the values from the event builder.
-    // => This widget can stay open when loading another listmode file for
-    // replay. Histos will be automatically correct.
+    const size_t histoCount = std::accumulate(
+        std::begin(counters.eventCounters), std::end(counters.eventCounters), static_cast<size_t>(0),
+        [](auto sum, const auto &eventCounters)
+        {
+            return sum + eventCounters.dtHistograms.size();
+        });
 
-    eventBuilder2Histos.clear();
+    eventBuilder2Histos.resize(histoCount);
+    size_t outHistoIndex = 0;
 
     for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
     {
@@ -720,27 +722,53 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2HistosWidget(
 
         for (const auto &dtHisto: eventHistos)
         {
-            auto outHisto = std::make_shared<Histo1D>(
+            assert(outHistoIndex < eventBuilder2Histos.size());
+
+            auto &outHisto = eventBuilder2Histos[outHistoIndex++];
+
+            if (!outHisto)
+            {
+                outHisto = std::make_shared<Histo1D>(
                 dtHisto.histo.bins.size(),
                 dtHisto.histo.binning.minValue,
                 dtHisto.histo.binning.maxValue);
+            }
+            else
+            {
+                auto ebBinning = dtHisto.histo.binning;
+                assert(ebBinning.binCount == dtHisto.histo.bins.size());
+                AxisBinning binning(ebBinning.binCount, ebBinning.minValue, ebBinning.maxValue);
+                outHisto->setAxisBinning(Qt::XAxis, binning);
+                outHisto->resize(ebBinning.binCount);
+            }
 
+            outHisto->clear();
             outHisto->setObjectName(QSL("dt(%1, %2), %3")
                 .arg(dtHisto.moduleIndexes.first)
                 .arg(dtHisto.moduleIndexes.second)
                 .arg(dtHisto.histo.title.c_str()));
+            outHisto->setTitle(outHisto->objectName());
 
             for (size_t bin=0; bin<dtHisto.histo.bins.size(); ++bin)
             {
                 outHisto->setBinContent(bin, dtHisto.histo.bins[bin], dtHisto.histo.bins[bin]);
             }
-
-            eventBuilder2Histos.emplace_back(outHisto);
         }
     }
 
-    // clear the widget and readd all histos
-    eventBuilder2HistosWidget->clear();
-    for (const auto &histo: eventBuilder2Histos)
-        eventBuilder2HistosWidget->addHisto1D(histo);
+    // add newly created histos, remove stale histos
+    size_t widgetEntryCount = eventBuilder2HistosWidget->getNumberOfEntries();
+
+    if (widgetEntryCount > eventBuilder2Histos.size())
+    {
+        eventBuilder2HistosWidget->clear();
+        widgetEntryCount = 0;
+    }
+
+    for (size_t i=widgetEntryCount; i<eventBuilder2Histos.size(); ++i)
+    {
+        eventBuilder2HistosWidget->addHisto1D(eventBuilder2Histos[i]);
+    }
+
+    eventBuilder2HistosWidget->replot();
 }
