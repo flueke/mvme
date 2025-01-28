@@ -46,9 +46,9 @@ PlotEntry::PlotEntry(TilePlot *tilePlot, QwtPlot::Axis scaleAxis)
     zoomer_->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
 }
 
-Histo1DPlotEntry::Histo1DPlotEntry(const Histo1DPtr &histo, QWidget *plotParent)
+Histo1DPlotEntry::Histo1DPlotEntry(const Histo1DPtr &histo_, QWidget *plotParent)
     : PlotEntry(plotParent)
-    , histo(histo)
+    , histo(histo_)
     , plotItem(new QwtPlotHistogram)
     , histoData(new Histo1DIntervalData(histo.get()))
     , gaussCurve(make_plot_curve(Qt::green))
@@ -58,6 +58,10 @@ Histo1DPlotEntry::Histo1DPlotEntry(const Histo1DPtr &histo, QWidget *plotParent)
     plotItem->setStyle(QwtPlotHistogram::Outline);
     plotItem->setData(histoData); // ownership of histoData goes to qwt
     plotItem->attach(plot());
+
+    gaussCurve->setData(gaussCurveData);
+    gaussCurve->hide();
+    gaussCurve->attach(plot());
 
     statsTextItem->hide();
     statsTextItem->attach(plot());

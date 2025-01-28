@@ -18,6 +18,7 @@
 #include <QLineEdit>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSignalBlocker>
@@ -45,6 +46,7 @@ static const QString PlotTileMimeType = QSL("mvme/x-multiplot-tile");
 
 // For each visited PlotEntry creates and fills an analysis::PlotGridView::Entry
 // object before appending it to the 'entries' member.
+// Used in saveView()
 struct EntryConversionVisitor: public PlotEntryVisitor
 {
     PlotGridView::Entry createBasicEntry(PlotEntry *pe)
@@ -83,7 +85,7 @@ struct EntryConversionVisitor: public PlotEntryVisitor
 
 struct MultiPlotWidget::Private
 {
-    static const int ReplotPeriod_ms = 1000;
+    static const int DefaultReplotPeriod_ms = 1000;
     static const int CanStartDragDistancePixels = 6;
 
     enum class State
@@ -117,6 +119,7 @@ struct MultiPlotWidget::Private
     QComboBox *combo_axisScaleType_ = {};
     QSpinBox *spin_columns_;
     QAction *actionGauss_ = {};
+    QTimer replotTimer_;
 
     void addEntry(std::shared_ptr<PlotEntry> &&e)
     {
@@ -149,6 +152,8 @@ struct MultiPlotWidget::Private
         relayout();
     }
 
+    // Note: does not call relayout as an optimization! It's called in a loop in
+    // addSink().
     std::shared_ptr<PlotEntry> addSinkElement(const SinkPtr &s, int index)
     {
         if (auto sink = std::dynamic_pointer_cast<Histo1DSink>(s);
@@ -170,8 +175,10 @@ struct MultiPlotWidget::Private
 
     std::shared_ptr<PlotEntry> addHisto1D(const Histo1DPtr &histo)
     {
+        //qDebug() << __PRETTY_FUNCTION__ << histo->objectName();
         auto e = std::make_shared<Histo1DPlotEntry>(histo, q);
         addEntry(e);
+        relayout();
         return e;
     }
 
@@ -191,6 +198,7 @@ struct MultiPlotWidget::Private
 
     void relayout()
     {
+        //qDebug() << __PRETTY_FUNCTION__ << "entering relayout()";
         std::pair<int, int> scrollPositions =
         {
             scrollArea_->horizontalScrollBar()->value(),
@@ -219,6 +227,7 @@ struct MultiPlotWidget::Private
 
         scrollArea_->horizontalScrollBar()->setValue(scrollPositions.first);
         scrollArea_->verticalScrollBar()->setValue(scrollPositions.second);
+        //qDebug() << __PRETTY_FUNCTION__ << "leaving relayout()";
     }
 
     void addToTileSize(int dx, int dy)
@@ -250,6 +259,8 @@ struct MultiPlotWidget::Private
 
         inRefresh_ = true;
 
+        //qDebug() << __PRETTY_FUNCTION__ << "entry count" << entries_.size();
+
         for (auto &e: entries_)
         {
             // Set resolution reductions based on the user selected maximum.
@@ -260,7 +271,7 @@ struct MultiPlotWidget::Private
                     e->setRRF(axis, bins / maxVisibleBins_);
                 else
                     e->setRRF(axis, 0);
-                //qDebug("e=%s, axis=%d, rrf=%lu", e->analysisObject()->objectName().toLatin1().data(), axis, e->rrf(axis));
+                //qDebug("e=%s, axis=%d, rrf=%lu", e->title().toLatin1().constData(), axis, e->rrf(axis));
             }
 
             e->refresh();
@@ -681,6 +692,12 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
         d->spin_columns_ = spinColumns;
     }
 
+    #ifndef NDEBUG
+    auto pb_replot = new QPushButton("Replot");
+    tb->addWidget(pb_replot);
+    connect(pb_replot, &QPushButton::clicked, this, &MultiPlotWidget::replot);
+    #endif
+
     auto plotInteractions = new QActionGroup(this);
     //plotInteractions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
     plotInteractions->addAction(actionPan);
@@ -708,7 +725,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             {
                 for (auto &e: d->entries_)
                 {
-                    if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DSinkPlotEntry>(e))
+                    if (auto h1dEntry = std::dynamic_pointer_cast<Histo1DPlotEntry>(e))
                         h1dEntry->gaussCurve->setVisible(checked);
                 }
                 d->refresh();
@@ -729,12 +746,10 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
 
     actionPan->setChecked(true);
 
-    auto refreshTimer = new QTimer(this);
-
-    connect(refreshTimer, &QTimer::timeout,
+    connect(&d->replotTimer_, &QTimer::timeout,
             this, [this] { d->refresh(); });
 
-    refreshTimer->start(Private::ReplotPeriod_ms);
+    d->replotTimer_.start(getReplotPeriod());
 }
 
 MultiPlotWidget::~MultiPlotWidget()
@@ -784,9 +799,33 @@ void MultiPlotWidget::clear()
     d->refresh();
 }
 
+int MultiPlotWidget::getReplotPeriod() const
+{
+    return d->replotTimer_.interval();
+}
+
+void MultiPlotWidget::setReplotPeriod(int ms)
+{
+    if (ms < 0)
+        d->replotTimer_.stop();
+    else
+        d->replotTimer_.start(ms);
+}
+
+void MultiPlotWidget::replot()
+{
+    //qDebug() << __PRETTY_FUNCTION__ << "entering replot()";
+    d->refresh();
+    //qDebug() << __PRETTY_FUNCTION__ << "leaving replot()";
+}
+
+size_t MultiPlotWidget::getNumberOfEntries() const
+{
+    return d->entries_.size();
+}
+
 void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
 {
-    #if 1
     if (ev->mimeData()->hasFormat(SinkIdListMIMEType))
     {
         qDebug() << __PRETTY_FUNCTION__ << ev << ev->mimeData();
@@ -798,7 +837,6 @@ void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
         ev->acceptProposedAction();
     }
     else
-    #endif
         QWidget::dragEnterEvent(ev);
 }
 

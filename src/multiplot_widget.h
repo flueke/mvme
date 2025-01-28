@@ -6,6 +6,10 @@
 #include "histo_ui.h"
 #include "mvme_qwt.h"
 
+// TODO: add a removeEnty() or popEntry() method to MultiPlotWidget. Note:
+// PlotEntry is not public. It's a detail and related to TilePlot.
+// Need some way to refer to entries. Must surive relayout operations, etc.
+
 class MultiPlotWidget: public QWidget
 {
     Q_OBJECT
@@ -14,6 +18,7 @@ class MultiPlotWidget: public QWidget
         ~MultiPlotWidget() override;
 
         bool eventFilter(QObject *watched, QEvent *event) override;
+        int getReplotPeriod() const; // in ms
 
     public slots:
         // Add all plots for the given sink
@@ -32,6 +37,10 @@ class MultiPlotWidget: public QWidget
         void loadView(const std::shared_ptr<analysis::PlotGridView> &view);
 
         void clear(); // removes all entries
+
+        void setReplotPeriod(int ms); // negative values disable automatic replotting
+        void replot();
+        size_t getNumberOfEntries() const;
 
     protected:
         void dragEnterEvent(QDragEnterEvent *ev) override;
