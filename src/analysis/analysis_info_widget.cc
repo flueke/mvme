@@ -146,7 +146,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
     //m_d->mvlcInfoWidget = new QGroupBox("MVLC Readout Parser Counters:");
     m_d->mvlcInfoWidget = new QWidget;
     {
-        auto mvlcLayout = make_layout<QFormLayout, 0, 2>(m_d->mvlcInfoWidget);
+        auto mvlcFormLayout = make_layout<QFormLayout, 0, 2>();
 
         auto note = QSL(
             "<br><b>Note</b>: Internal buffer loss is caused by the analysis side not "
@@ -168,7 +168,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
             auto label = new QLabel;
             label->setSizePolicy({
                 QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding});
-            mvlcLayout->addRow(text, label);
+            mvlcFormLayout->addRow(text, label);
             m_d->mvlcLabels.push_back(label);
         }
 
@@ -176,9 +176,9 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
         m_d->mvlcRequestNextBuffer = new QPushButton("Debug next buffer");
         m_d->mvlcRequestNextNonTimetickBuffer = new QPushButton("Debug next buffer (ignore timeticks)");
 
-        mvlcLayout->addRow(m_d->mvlcRequestBufferOnError);
-        mvlcLayout->addRow(m_d->mvlcRequestNextBuffer);
-        mvlcLayout->addRow(m_d->mvlcRequestNextNonTimetickBuffer);
+        mvlcFormLayout->addRow(m_d->mvlcRequestBufferOnError);
+        mvlcFormLayout->addRow(m_d->mvlcRequestNextBuffer);
+        mvlcFormLayout->addRow(m_d->mvlcRequestNextNonTimetickBuffer);
 
         connect(m_d->mvlcRequestBufferOnError, &QPushButton::clicked,
                 this, [this] ()
@@ -210,7 +210,11 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
             }
         });
 
-        mvlcLayout->addRow(noteLabel);
+        mvlcFormLayout->addRow(noteLabel);
+
+        auto infoLayout = make_vbox<2, 2>(m_d->mvlcInfoWidget);
+        infoLayout->addLayout(mvlcFormLayout);
+        infoLayout->addStretch(1);
     }
 
     m_d->multiEventSplitterInfoWidget = new QPlainTextEdit;
@@ -245,7 +249,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
     outerLayout->addLayout(layout);
     //outerLayout->addWidget(m_d->mvlcInfoWidget);
     outerLayout->addWidget(tabWidget);
-    outerLayout->addStretch(1);
+    //outerLayout->addStretch(1);
 
     update();
 
