@@ -402,6 +402,15 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
                     evCfg.moduleConfigs.push_back(modCfg);
                 }
+
+                // TODO/FIXME: these settings are no event specific but global to
+                // the event builder. Sadly the analysis currently stores them in
+                // vme object settings for each event. Bitrot is strong here.
+                using namespace mvlc::event_builder2;
+                auto histoSettings = ebSettings["Histograms"].toMap();
+                ebCfg.dtHistoBinning.binCount = histoSettings.value("binCount", EventBuilderConfig::DefaultHistoBins).toInt();
+                ebCfg.dtHistoBinning.minValue = histoSettings.value("minValue", EventBuilderConfig::DefaultHistoMin).toInt();
+                ebCfg.dtHistoBinning.maxValue = histoSettings.value("maxValue", EventBuilderConfig::DefaultHistoMax).toInt();
             }
 
             ebCfg.eventConfigs.push_back(evCfg);

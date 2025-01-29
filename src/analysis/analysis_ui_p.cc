@@ -3830,73 +3830,186 @@ EventSettingsDialog::EventSettingsDialog(
 
             auto eventSettings = d->settings_.value(eventConfig->getId());
 
-            auto cb_enableEventBuilder = new QCheckBox;
+            auto cb_enableEventBuilder = new QCheckBox("Enable Event Builder");
             cb_enableEventBuilder->setChecked(eventSettings.value("EventBuilderEnabled", false).toBool());
+
+            // Module timestamp/clock settings
+            // ------------------------------------------------------
+
+            static const double ClockMin = 10.0; // minimum that still makes sense
+            static const double ClockMax = 75.0; // max value for mdpp-16 sync input
+            static const double ClockDef = 16.0; // VME backplane frequency
+
+            auto spin_clockFrequency = new QDoubleSpinBox;
+            spin_clockFrequency->setSuffix(" MHz");
+            spin_clockFrequency->setMinimum(ClockMin);
+            spin_clockFrequency->setMaximum(ClockMax);
+            auto spin_clockPeriod = new QDoubleSpinBox;
+            spin_clockPeriod->setSuffix(" ns");
+            spin_clockPeriod->setSingleStep(0.5);
+            spin_clockPeriod->setMinimum(1000.0 / ClockMax);
+            spin_clockPeriod->setMaximum(1000.0 / ClockMin);
+            auto clockWidget = new QWidget;
+            auto clockLayout = make_hbox(clockWidget);
+            clockLayout->addWidget(new QLabel("Frequency"));
+            clockLayout->addWidget(spin_clockFrequency);
+            auto separatorLabel = new QLabel();
+            separatorLabel->setPixmap(QPixmap(":/arrow-resize.png"));
+            clockLayout->addWidget(separatorLabel);
+            clockLayout->addWidget(new QLabel("Period"));
+            clockLayout->addWidget(spin_clockPeriod);
+            clockLayout->addStretch(1);
+
+            auto on_frequency_changed = [spin_clockPeriod] (double frequency)
+            {
+                double period = 1000.0 / frequency;
+                //qDebug() << "on_frequency_changed" << frequency << period;
+                spin_clockPeriod->setValue(period);
+            };
+
+            auto on_period_changed = [spin_clockFrequency] (double period)
+            {
+                double freq = 1000.0 / period;
+                //qDebug() << "on_period_changed" << period << freq;
+                spin_clockFrequency->setValue(freq);
+            };
+
+            connect(spin_clockFrequency, qOverload<double>(&QDoubleSpinBox::valueChanged), on_frequency_changed);
+            connect(spin_clockPeriod, qOverload<double>(&QDoubleSpinBox::valueChanged), on_period_changed);
+
+            spin_clockFrequency->setValue(ebSettings.value("ClockFrequency", ClockDef).toDouble());
+
+            // Table for module enable state, offset and window width
+            // ------------------------------------------------------
 
             auto matchWindows = ebSettings.value("MatchWindows").toMap();
 
             QVector<QSpinBox *> spins_offsets;
             QVector<QSpinBox *> spins_widths;
+            QVector<QLabel *> labels_offsets;
+            QVector<QLabel *> labels_widths;
             QVector<QCheckBox *> checks_enabledModules;
-            // TODO: add a column for the module type name, e.g. mdpp16_scp
-            auto tableMatchWindows = new QTableWidget(moduleConfigs.size(), 3);
-            tableMatchWindows->setHorizontalHeaderLabels({"Offset", "Window Width", "Enable for event building"});
+
+            // TODO (maybe): add a column for the module type name, e.g. mdpp16_scp
+            auto tableMatchWindows = new QTableWidget(moduleConfigs.size(), 5);
+            tableMatchWindows->setHorizontalHeaderLabels({"Offset", "Offset [ns]", "Window Width", "Window Width [ns]", "Contributes Timestamps"});
+
+            static const int OffsetLabelColumn = 1;
+            static const int WidthLabelColumn = 3;
 
             for (int mi=0; mi<moduleConfigs.size(); ++mi)
             {
-                auto spin_lower = new QSpinBox();
-                auto spin_upper = new QSpinBox();
-                for (auto spin: { spin_lower, spin_upper })
-                {
-                    spin->setMinimum(std::numeric_limits<s32>::lowest());
-                    spin->setMaximum(std::numeric_limits<s32>::max());
-                }
-                auto moduleConfig = moduleConfigs.at(mi);
-                auto matchWindow = matchWindows.value(moduleConfig->getId().toString()).toMap();
-                spin_lower->setValue(matchWindow.value("offset", mesytec::mvlc::event_builder2::DefaultMatchOffset).toInt());
-                spin_upper->setValue(matchWindow.value("width", mesytec::mvlc::event_builder2::DefaultMatchWindow).toInt());
-
-                spins_offsets.push_back(spin_lower);
-                spins_widths.push_back(spin_upper);
-
+                auto spin_offset = new QSpinBox();
+                auto spin_width = new QSpinBox();
                 auto cb_enableModule = new QCheckBox;
-                cb_enableModule->setChecked(matchWindow.value("enableModule", true).toBool());
 
+                spin_offset->setMinimum(std::numeric_limits<s32>::lowest());
+                spin_offset->setMaximum(std::numeric_limits<s32>::max());
+                spin_width->setMinimum(0);
+                spin_width->setMaximum(std::numeric_limits<s32>::max());
+
+                spins_offsets.push_back(spin_offset);
+                spins_widths.push_back(spin_width);
                 checks_enabledModules.push_back(cb_enableModule);
 
+                auto update_offset_label = [spin_clockPeriod, tableMatchWindows, mi] (int value)
+                {
+                    auto clockPeriod = spin_clockPeriod->value();
+                    if (auto item = tableMatchWindows->item(mi, OffsetLabelColumn))
+                        item->setText(QSL("%1 ns").arg(value * clockPeriod));
+                };
+
+                auto update_width_label = [spin_clockPeriod, tableMatchWindows, mi] (int value)
+                {
+                    auto clockPeriod = spin_clockPeriod->value();
+                    if (auto item = tableMatchWindows->item(mi, WidthLabelColumn))
+                        item->setText(QSL("%1 ns").arg(value * clockPeriod));
+                };
+
+                connect(spin_offset, qOverload<int>(&QSpinBox::valueChanged), tableMatchWindows, update_offset_label);
+                connect(spin_width, qOverload<int>(&QSpinBox::valueChanged), tableMatchWindows, update_width_label);
+                connect(spin_clockPeriod, qOverload<double>(&QDoubleSpinBox::valueChanged), [=] (double) {
+                    update_offset_label(spins_offsets.at(mi)->value());
+                    update_width_label(spins_widths.at(mi)->value());
+                });
+
+                auto moduleConfig = moduleConfigs.at(mi);
+                auto matchWindow = matchWindows.value(moduleConfig->getId().toString()).toMap();
+                spin_offset->setValue(matchWindow.value("offset", mesytec::mvlc::event_builder2::DefaultMatchOffset).toInt());
+                spin_width->setValue(matchWindow.value("width", mesytec::mvlc::event_builder2::DefaultMatchWindow).toInt());
+                cb_enableModule->setChecked(matchWindow.value("enableModule", true).toBool());
+
                 tableMatchWindows->setVerticalHeaderItem(mi, new QTableWidgetItem(moduleConfig->objectName()));
-                tableMatchWindows->setCellWidget(mi, 0, spin_lower);
-                tableMatchWindows->setCellWidget(mi, 1, spin_upper);
-                tableMatchWindows->setCellWidget(mi, 2, make_centered(cb_enableModule));
+                tableMatchWindows->setCellWidget(mi, 0, spin_offset);
+                tableMatchWindows->setCellWidget(mi, 2, spin_width);
+                tableMatchWindows->setCellWidget(mi, 4, make_centered(cb_enableModule));
+
+                for (auto col: {WidthLabelColumn, OffsetLabelColumn})
+                {
+                    auto item = new QTableWidgetItem;
+                    item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+                    item->setBackground(QColor(QSL("#efebe7")));
+                    tableMatchWindows->setItem(mi, col, item);
+                }
+
+                // need to force an update for the case where offset=0. valueChanged does not fire in this case.
+                update_offset_label(spin_offset->value());
+                update_width_label(spin_width->value());
             }
 
             tableMatchWindows->resizeColumnsToContents();
             tableMatchWindows->resizeRowsToContents();
 
-            auto gbMatchWindows = new QGroupBox("Module timestamp match settings   "); // spaces to widen the layout space a bit. weird issue with qt-5.15 under linux
-            auto gbl = make_hbox(gbMatchWindows);
-            gbl->addWidget(tableMatchWindows);
+            // Histogram settings
+            // ------------------------------------------------------
 
-            // FIXME: memory limit is global to the event builder, not specific to an event...
-            //auto spin_memoryLimit = new QDoubleSpinBox;
-            //spin_memoryLimit->setMinimum(0.0);
-            //spin_memoryLimit->setMaximum(1000.0);
-            //spin_memoryLimit->setDecimals(1);
-            //spin_memoryLimit->setSingleStep(1.0);
-            //spin_memoryLimit->setSuffix(" GB");
-            //spin_memoryLimit->setValue(ebSettings.value(
-            //        "MemoryLimit", static_cast<qulonglong>(mesytec::mvlc::DefaultMemoryLimit)).toDouble() / Gigabytes(1));
+            auto histoSettingsWidget = new QWidget;
+            auto spin_histoBinCount = new QSpinBox;
+            auto spin_histoMinValue = new QSpinBox;
+            auto spin_histoMaxValue = new QSpinBox;
 
-            auto fl = new QFormLayout;
-            fl->addRow("Enable Event Builder", cb_enableEventBuilder);
-            fl->addRow(gbMatchWindows);
+            spin_histoBinCount->setMinimum(1);
+            spin_histoBinCount->setMaximum(1u << 16);
+            spin_histoMinValue->setMinimum(std::numeric_limits<s32>::lowest());
+            spin_histoMinValue->setMaximum(std::numeric_limits<s32>::max());
 
-            connect(cb_enableEventBuilder, &QCheckBox::toggled, [gbMatchWindows] (bool checked) {
-                gbMatchWindows->setEnabled(checked);
-            });
+            auto l = new QFormLayout(histoSettingsWidget);
+            l->addRow("Bin Count", spin_histoBinCount);
+            l->addRow("Min Value", spin_histoMinValue);
+            l->addRow("Max Value", spin_histoMaxValue);
+
+            using namespace mesytec::mvlc;
+            auto histoSettings = ebSettings.value("Histograms").toMap();
+            spin_histoBinCount->setValue(histoSettings.value("binCount", event_builder2::EventBuilderConfig::DefaultHistoBins).toInt());
+            spin_histoMinValue->setValue(histoSettings.value("minValue", event_builder2::EventBuilderConfig::DefaultHistoMin).toInt());
+            spin_histoMaxValue->setValue(histoSettings.value("maxValue", event_builder2::EventBuilderConfig::DefaultHistoMax).toInt());
+
+            auto gbClockSettings = new QGroupBox("Module timestamp settings");
+            make_hbox(gbClockSettings)->addWidget(clockWidget);
+
+            auto gbMatchWindows = new QGroupBox("Module timestamp match settings   "); // trailing spaces to widen the label a bit. weird issue with qt-5.15 under linux
+            make_hbox(gbMatchWindows)->addWidget(tableMatchWindows);
+
+            auto gbHistoSettings = new QGroupBox("Histogram settings");
+            make_hbox(gbHistoSettings)->addWidget(histoSettingsWidget);
+
+            auto fl = new QGridLayout;
+            fl->addWidget(cb_enableEventBuilder, 0, 0, 1, 2);
+            fl->addWidget(gbClockSettings, 1, 0);
+            fl->addWidget(gbMatchWindows, 2, 0);
+            fl->addWidget(gbHistoSettings, 2, 1);
+
+            auto on_eb_enable_changed = [gbMatchWindows, gbHistoSettings, gbClockSettings] (bool enabled)
+            {
+                gbMatchWindows->setEnabled(enabled);
+                gbHistoSettings->setEnabled(enabled);
+                gbClockSettings->setEnabled(enabled);
+            };
+
+            connect(cb_enableEventBuilder, &QCheckBox::toggled, this, on_eb_enable_changed);
 
             cb_enableEventBuilder->setChecked(this->d->settings_[eventConfig->getId()]["EventBuilderEnabled"].toBool());
-            gbMatchWindows->setEnabled(cb_enableEventBuilder->isChecked());
+            on_eb_enable_changed(cb_enableEventBuilder->isChecked());
 
             auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Help);
             auto bbl = make_hbox();
@@ -3910,7 +4023,7 @@ EventSettingsDialog::EventSettingsDialog(
 
             QDialog dia;
             dia.setLayout(dl);
-            dia.resize(500, 300);
+            dia.resize(900, 400);
             dia.setWindowTitle(QSL("Event Builder Settings for %1").arg(eventConfig->objectName()));
 
             QObject::connect(bb, &QDialogButtonBox::accepted, &dia, &QDialog::accept);
@@ -3934,11 +4047,16 @@ EventSettingsDialog::EventSettingsDialog(
                     matchWindows[id.toString()] = matchWindow;
                 }
 
+                QVariantMap histoSettings;
+                histoSettings["binCount"] = spin_histoBinCount->value();
+                histoSettings["minValue"] = spin_histoMinValue->value();
+                histoSettings["maxValue"] = spin_histoMaxValue->value();
+
                 QVariantMap ebSettings;
 
-                // Stores the uuid of the main module
                 ebSettings["MatchWindows"] = matchWindows;
-                //ebSettings["MemoryLimit"] = spin_memoryLimit->value() * Gigabytes(1);
+                ebSettings["Histograms"] = histoSettings;
+                ebSettings["ClockFrequency"] = spin_clockFrequency->value();
 
                 this->d->settings_[eventConfig->getId()]["EventBuilderSettings"] = ebSettings;
                 this->d->settings_[eventConfig->getId()]["EventBuilderEnabled"] = cb_enableEventBuilder->isChecked();
@@ -3976,7 +4094,7 @@ EventSettingsDialog::EventSettingsDialog(
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
     QObject::connect(bb, &QDialogButtonBox::helpRequested,
                      this, mesytec::mvme::make_help_keyword_handler("Analysis Processing Chain"));
-    resize(600, 300);
+    resize(800, 400);
 }
 
 EventSettingsDialog::~EventSettingsDialog()
