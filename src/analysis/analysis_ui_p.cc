@@ -3892,7 +3892,7 @@ EventSettingsDialog::EventSettingsDialog(
 
             // TODO (maybe): add a column for the module type name, e.g. mdpp16_scp
             auto tableMatchWindows = new QTableWidget(moduleConfigs.size(), 5);
-            tableMatchWindows->setHorizontalHeaderLabels({"Offset", "Offset [ns]", "Window Width", "Window Width [ns]", "Contributes Timestamps"});
+            tableMatchWindows->setHorizontalHeaderLabels({"Offset", "Offset [ns]", "Window Width", "Window Width [ns]", "Has Timestamps"});
 
             static const int OffsetLabelColumn = 1;
             static const int WidthLabelColumn = 3;
