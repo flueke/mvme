@@ -97,8 +97,10 @@ struct AnalysisInfoWidgetPrivate
     // events in the same widget or open multiple grids. Edge case as usually
     // event building will be done for the _single_ real readout event.
     // for now all histos will be shown in the same widget...
-    MultiPlotWidget *eventBuilder2HistosWidget = nullptr;
-    std::vector<Histo1DPtr> eventBuilder2Histos;
+    MultiPlotWidget *eb2InputHistosWidget = nullptr;
+    MultiPlotWidget *eb2OutputHistosWidget = nullptr;
+    std::vector<Histo1DPtr> eb2InputHistos;
+    std::vector<Histo1DPtr> eb2OutputHistos;
 
     mesytec::mvlc::event_builder2::BuilderCounters prevEventBuilder2Counters;
 
@@ -667,7 +669,7 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
     std::stringstream oss;
     for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
     {
-        const auto &dtHistos = counters.eventCounters.at(eventIndex).dtHistograms;
+        const auto &dtHistos = counters.eventCounters.at(eventIndex).dtInputHistos;
         oss << fmt::format("Event {} timestamp delta histograms", eventIndex) << "\n";
 
         for (const auto &dtHisto: dtHistos)
@@ -685,46 +687,56 @@ void AnalysisInfoWidgetPrivate::showEventBuilder2HistosWidget()
 {
     if (qobject_cast<MVLC_StreamWorker *>(serviceProvider->getMVMEStreamWorker()))
     {
-        if (!eventBuilder2HistosWidget)
+        if (!eb2InputHistosWidget)
         {
-            eventBuilder2HistosWidget = new MultiPlotWidget(serviceProvider);
-            eventBuilder2HistosWidget->setWindowTitle("Event Builder 2 Histograms");
-            eventBuilder2HistosWidget->setAttribute(Qt::WA_DeleteOnClose);
-            QObject::connect(eventBuilder2HistosWidget, &QWidget::destroyed, q,
-                    [this] { eventBuilder2HistosWidget = nullptr; });
+            eb2InputHistosWidget = new MultiPlotWidget(serviceProvider);
+            eb2InputHistosWidget->setWindowTitle("Event Builder input dt histograms");
+            eb2InputHistosWidget->setAttribute(Qt::WA_DeleteOnClose);
+            QObject::connect(eb2InputHistosWidget, &QWidget::destroyed, q,
+                    [this] { eb2InputHistosWidget = nullptr; });
 
-            add_widget_close_action(eventBuilder2HistosWidget);
+            add_widget_close_action(eb2InputHistosWidget);
         }
-        assert(eventBuilder2HistosWidget);
-        show_and_activate(eventBuilder2HistosWidget);
+        assert(eb2InputHistosWidget);
+        show_and_activate(eb2InputHistosWidget);
+
+        if (!eb2OutputHistosWidget)
+        {
+            eb2OutputHistosWidget = new MultiPlotWidget(serviceProvider);
+            eb2OutputHistosWidget->setWindowTitle("Event Builder output dt histograms");
+            eb2OutputHistosWidget->setAttribute(Qt::WA_DeleteOnClose);
+            QObject::connect(eb2OutputHistosWidget, &QWidget::destroyed, q,
+                    [this] { eb2OutputHistosWidget = nullptr; });
+
+            add_widget_close_action(eb2OutputHistosWidget);
+        }
+        assert(eb2OutputHistosWidget);
+        show_and_activate(eb2OutputHistosWidget);
     }
 }
 
-void AnalysisInfoWidgetPrivate::updateEventBuilder2HistosWidget(
-    const mesytec::mvlc::event_builder2::BuilderCounters &counters)
+void update_eb2_histos_widget(MultiPlotWidget *widget, std::vector<Histo1DPtr> &uiHistos,
+    const std::vector<std::vector<event_builder2::ModuleDeltaHisto>> &histos)
 {
-    if (!eventBuilder2HistosWidget)
-        return;
-
     const size_t histoCount = std::accumulate(
-        std::begin(counters.eventCounters), std::end(counters.eventCounters), static_cast<size_t>(0),
-        [](auto sum, const auto &eventCounters)
+        std::begin(histos), std::end(histos), static_cast<size_t>(0),
+        [](auto sum, const auto &eventHistos)
         {
-            return sum + eventCounters.dtHistograms.size();
+            return sum + eventHistos.size();
         });
 
-    eventBuilder2Histos.resize(histoCount);
+    uiHistos.resize(histoCount);
     size_t outHistoIndex = 0;
 
-    for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
+    for (size_t eventIndex=0; eventIndex<histos.size(); ++eventIndex)
     {
-        const auto &eventHistos = counters.eventCounters.at(eventIndex).dtHistograms;
+        const auto &eventHistos = histos.at(eventIndex);
 
         for (const auto &dtHisto: eventHistos)
         {
-            assert(outHistoIndex < eventBuilder2Histos.size());
+            assert(outHistoIndex < uiHistos.size());
 
-            auto &outHisto = eventBuilder2Histos[outHistoIndex++];
+            auto &outHisto = uiHistos[outHistoIndex++];
 
             if (!outHisto)
             {
@@ -757,18 +769,28 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2HistosWidget(
     }
 
     // add newly created histos, remove stale histos
-    size_t widgetEntryCount = eventBuilder2HistosWidget->getNumberOfEntries();
+    size_t widgetEntryCount = widget->getNumberOfEntries();
 
-    if (widgetEntryCount > eventBuilder2Histos.size())
+    if (widgetEntryCount > uiHistos.size())
     {
-        eventBuilder2HistosWidget->clear();
+        widget->clear();
         widgetEntryCount = 0;
     }
 
-    for (size_t i=widgetEntryCount; i<eventBuilder2Histos.size(); ++i)
+    for (size_t i=widgetEntryCount; i<uiHistos.size(); ++i)
     {
-        eventBuilder2HistosWidget->addHisto1D(eventBuilder2Histos[i]);
+        widget->addHisto1D(uiHistos[i]);
     }
 
-    eventBuilder2HistosWidget->replot();
+    widget->replot();
+}
+
+void AnalysisInfoWidgetPrivate::updateEventBuilder2HistosWidget(
+    const mesytec::mvlc::event_builder2::BuilderCounters &counters)
+{
+    if (eb2InputHistosWidget)
+        update_eb2_histos_widget(eb2InputHistosWidget, eb2InputHistos, counters.getInputDtHistograms());
+
+    if (eb2OutputHistosWidget)
+        update_eb2_histos_widget(eb2OutputHistosWidget, eb2OutputHistos, counters.getOutputDtHistograms());
 }

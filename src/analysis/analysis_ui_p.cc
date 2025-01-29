@@ -4482,7 +4482,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
             }
         };
 
-        parserCallbacks.systemEvent = [&] (void *, int ci, const u32 *header, u32 size)
+        parserCallbacks.systemEvent = [&] (void *, int /*ci*/, const u32 *header, u32 size)
         {
             if (size > 0)
             {
