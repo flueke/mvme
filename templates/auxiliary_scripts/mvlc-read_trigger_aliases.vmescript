@@ -1,0 +1,58 @@
+# MVLC base address
+setbase 0xffff0000
+
+# Mapping range 0
+
+read a32 d16 0x7000
+read a32 d16 0x7002
+
+read a32 d16 0x7004
+read a32 d16 0x7006
+
+read a32 d16 0x7008
+read a32 d16 0x700a
+
+read a32 d16 0x700c
+read a32 d16 0x700e
+
+read a32 d16 0x7010
+read a32 d16 0x7012
+
+read a32 d16 0x7014
+read a32 d16 0x7016
+
+read a32 d16 0x7018
+read a32 d16 0x701a
+
+read a32 d16 0x701c
+read a32 d16 0x701e
+
+# Mapping range 1
+
+read a32 d16 0x7030
+read a32 d16 0x7032
+
+read a32 d16 0x7034
+read a32 d16 0x7036
+
+read a32 d16 0x7038
+read a32 d16 0x703a
+
+read a32 d16 0x703c
+read a32 d16 0x703e
+
+read a32 d16 0x7040
+read a32 d16 0x7042
+
+read a32 d16 0x7044
+read a32 d16 0x7046
+
+read a32 d16 0x7048
+read a32 d16 0x704a
+
+read a32 d16 0x704c
+read a32 d16 0x704e
+
+# Catchall for signal aliases. Sets the mapped IRQ for all unassigned signal
+# aliases (unassigned means never set or set to 0). Available since FW0026.
+read a32 d16 0x7020

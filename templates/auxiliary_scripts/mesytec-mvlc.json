@@ -41,6 +41,18 @@
             "scriptName": "MVLC Require Firmware Version",
             "vendorName": "mesytec",
             "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-set_trigger_aliases.vmescript",
+            "scriptName": "MVLC Set Trigger Aliases",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-read_trigger_aliases.vmescript",
+            "scriptName": "MVLC Read Trigger Aliases",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
         }
     ]
 }

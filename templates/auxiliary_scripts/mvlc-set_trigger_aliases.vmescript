@@ -1,0 +1,78 @@
+################ MVLC Stack Accu Signal Alias Mappings ################
+#
+# 16 register pairs to map arbitrary trigger values to MVLC IRQs.
+#
+# Can be used to handle trigger values from a dedicated VME trigger module (e.g. TRIVA):
+# 'mvlc_read_to_accu' to read the trigger value into the MVLC stack accumulator.
+# 'mvlc_signal_accu' to generate a trigger signal and map it to an IRQ.
+#
+# For debugging 'mvlc_writespecial accu' can be used to output the raw trigger
+# value into the readout data stream.
+#
+# Mapping pair register format:
+#   0x7000: 16 bit trigger signal value to match
+#   0x7002: mapped IRQ value in [1, 16] or 0=off
+#
+# Unmapped trigger values are handled by a catchall register:
+#   0x7020: default IRQ value in [1, 16] or 0=off to ignore the trigger
+
+# MVLC base address
+setbase 0xffff0000
+
+# Mapping range 0 (since MVLC firmware FW0023)
+/*
+write a32 d16 0x7000 0  # signal number
+write a32 d16 0x7002 0  # mapped to mvlc irq
+
+write a32 d16 0x7004 0  # signal number
+write a32 d16 0x7006 0  # mapped to mvlc irq
+
+write a32 d16 0x7008 0  # signal number
+write a32 d16 0x700a 0  # mapped to mvlc irq
+
+write a32 d16 0x700c 0  # signal number
+write a32 d16 0x700e 0  # mapped to mvlc irq
+
+write a32 d16 0x7010 0  # signal number
+write a32 d16 0x7012 0  # mapped to mvlc irq
+
+write a32 d16 0x7014 0  # signal number
+write a32 d16 0x7016 0  # mapped to mvlc irq
+
+write a32 d16 0x7018 0  # signal number
+write a32 d16 0x701a 0  # mapped to mvlc irq
+
+write a32 d16 0x701c 0  # signal number
+write a32 d16 0x701e 0  # mapped to mvlc irq
+*/
+
+# Mapping range 1 (since MVLC firmware FW0041)
+/*
+write a32 d16 0x7030 0  # signal number
+write a32 d16 0x7032 0  # mapped to mvlc irq
+
+write a32 d16 0x7034 0  # signal number
+write a32 d16 0x7036 0  # mapped to mvlc irq
+
+write a32 d16 0x7038 0  # signal number
+write a32 d16 0x703a 0  # mapped to mvlc irq
+
+write a32 d16 0x703c 0  # signal number
+write a32 d16 0x703e 0  # mapped to mvlc irq
+
+write a32 d16 0x7040 0  # signal number
+write a32 d16 0x7042 0  # mapped to mvlc irq
+
+write a32 d16 0x7044 0  # signal number
+write a32 d16 0x7046 0  # mapped to mvlc irq
+
+write a32 d16 0x7048 0  # signal number
+write a32 d16 0x704a 0  # mapped to mvlc irq
+
+write a32 d16 0x704c 0  # signal number
+write a32 d16 0x704e 0  # mapped to mvlc irq
+*/
+
+# Catchall for signal aliases. Sets the mapped IRQ for all unassigned signal
+# aliases (unassigned means never set or set to 0). Available since FW0026.
+#write a32 d16 0x7020 0
