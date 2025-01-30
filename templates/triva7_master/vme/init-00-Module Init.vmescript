@@ -50,7 +50,8 @@ writeabs A32 D16 0xFFFF7020 14  # Map all other trigger values to the start even
 */
 
 /*
-# All available signal alias registers since MVLC firmware 0x0023.
+# All available signal alias registers:
+# Mapping range 0 (since MVLC firmware FW0023)
 
 writeabs A32 D16 0xFFFF7000 0      # triva trigger number
 writeabs A32 D16 0xFFFF7002 0      # mapped to mvlc irq
@@ -75,6 +76,32 @@ writeabs A32 D16 0xFFFF701A 0      # mapped to mvlc irq
 
 writeabs A32 D16 0xFFFF701C 0      # triva trigger number
 writeabs A32 D16 0xFFFF701E 0      # mapped to mvlc irq
+
+# Mapping range 1 (since MVLC firmware FW0041)
+
+write a32 d16 0xFFFF7030 0  # signal number
+write a32 d16 0xFFFF7032 0  # mapped to mvlc irq
+
+write a32 d16 0xFFFF7034 0  # signal number
+write a32 d16 0xFFFF7036 0  # mapped to mvlc irq
+
+write a32 d16 0xFFFF7038 0  # signal number
+write a32 d16 0xFFFF703a 0  # mapped to mvlc irq
+
+write a32 d16 0xFFFF703c 0  # signal number
+write a32 d16 0xFFFF703e 0  # mapped to mvlc irq
+
+write a32 d16 0xFFFF7040 0  # signal number
+write a32 d16 0xFFFF7042 0  # mapped to mvlc irq
+
+write a32 d16 0xFFFF7044 0  # signal number
+write a32 d16 0xFFFF7046 0  # mapped to mvlc irq
+
+write a32 d16 0xFFFF7048 0  # signal number
+write a32 d16 0xFFFF704a 0  # mapped to mvlc irq
+
+write a32 d16 0xFFFF704c 0  # signal number
+write a32 d16 0xFFFF704e 0  # mapped to mvlc irq
 
 # Catchall for signal aliases. Sets the mapped IRQ for all unassigned signal
 # aliases (unassigned means never set or set to 0). Available since FW0026.
