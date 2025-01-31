@@ -76,29 +76,29 @@ writeabs A32 D16 0xFFFF701E 0      # mapped to mvlc irq
 
 # Mapping range 1 (since MVLC firmware FW0041)
 
-write a32 d16 0xFFFF7030 0        # triva trigger number
-write a32 d16 0xFFFF7032 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF7030 0      # triva trigger number
+writeabs a32 d16 0xFFFF7032 0      # mapped to mvlc irq
 
-write a32 d16 0xFFFF7034 0        # triva trigger number
-write a32 d16 0xFFFF7036 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF7034 0      # triva trigger number
+writeabs a32 d16 0xFFFF7036 0      # mapped to mvlc irq
 
-write a32 d16 0xFFFF7038 0        # triva trigger number
-write a32 d16 0xFFFF703a 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF7038 0      # triva trigger number
+writeabs a32 d16 0xFFFF703a 0      # mapped to mvlc irq
 
-write a32 d16 0xFFFF703c 0        # triva trigger number
-write a32 d16 0xFFFF703e 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF703c 0      # triva trigger number
+writeabs a32 d16 0xFFFF703e 0      # mapped to mvlc irq
 
-write a32 d16 0xFFFF7040 0        # triva trigger number
-write a32 d16 0xFFFF7042 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF7040 0      # triva trigger number
+writeabs a32 d16 0xFFFF7042 0      # mapped to mvlc irq
 
-write a32 d16 0xFFFF7044 0        # triva trigger number
-write a32 d16 0xFFFF7046 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF7044 0      # triva trigger number
+writeabs a32 d16 0xFFFF7046 0      # mapped to mvlc irq
 
-write a32 d16 0xFFFF7048 0        # triva trigger number
-write a32 d16 0xFFFF704a 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF7048 0      # triva trigger number
+writeabs a32 d16 0xFFFF704a 0      # mapped to mvlc irq
 
-write a32 d16 0xFFFF704c 0        # triva trigger number
-write a32 d16 0xFFFF704e 0        # mapped to mvlc irq
+writeabs a32 d16 0xFFFF704c 0      # triva trigger number
+writeabs a32 d16 0xFFFF704e 0      # mapped to mvlc irq
 
 # Catchall for signal aliases. Sets the mapped IRQ for all unassigned signal
 # aliases (unassigned means never set or set to 0). Available since FW0026.
