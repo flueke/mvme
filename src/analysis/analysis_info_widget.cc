@@ -118,7 +118,7 @@ struct AnalysisInfoWidgetPrivate
 };
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
-static const std::chrono::milliseconds WidgetUpdatePeriod(1000);
+static const std::chrono::milliseconds WidgetUpdatePeriod(100);
 #else
 static const int WidgetUpdatePeriod = 1000;
 #endif
@@ -640,12 +640,13 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
 }
 
 template<typename TextEdit>
-void append_lines(std::stringstream &oss, TextEdit *textEdit)
+void append_lines(std::stringstream &oss, TextEdit *textEdit, unsigned indent = 0)
 {
     std::string line;
     while (std::getline(oss, line))
     {
-        textEdit->appendPlainText(QSL("   %1").arg(line.c_str()));
+        QString indentStr(indent, ' ');
+        textEdit->appendPlainText(QSL("%1%2").arg(indentStr).arg(line.c_str()));
     }
 }
 
@@ -665,23 +666,29 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
             std::stringstream oss;
             oss << mvlc::event_builder2::dump_counters(eventCounters) << "\n";
 
-            eventBuilder2StatsText->appendPlainText(fmt::format("Event {} per module counters:", eventIndex).c_str());
-            append_lines(oss, eventBuilder2StatsText);
+            eventBuilder2StatsText->appendPlainText(fmt::format("'{}' module counters:", eventCounters.eventName).c_str());
+            append_lines(oss, eventBuilder2StatsText, 2);
         }
     }
 
     std::stringstream oss;
     for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
     {
-        const auto &dtHistos = counters.eventCounters.at(eventIndex).dtInputHistos;
-        oss << fmt::format("Event {} timestamp delta histograms", eventIndex) << "\n";
+        const auto &eventCounters = counters.eventCounters.at(eventIndex);
+        const auto &dtHistos = eventCounters.dtInputHistos;
+        if (dtHistos.empty())
+            continue;
+
+        oss << fmt::format("'{}' timestamp delta histograms:", eventCounters.eventName) << "\n";
 
         for (const auto &dtHisto: dtHistos)
         {
-            oss << fmt::format("  dt({}, {}), {}: counts={}, underflows={}, overflows={}\n",
-                 dtHisto.moduleIndexes.first, dtHisto.moduleIndexes.second, dtHisto.histo.title,
-                 counts(dtHisto.histo), dtHisto.histo.underflows, dtHisto.histo.overflows);
+            oss << fmt::format("  {}: counts={}, underflows={}, overflows={}\n",
+                 dtHisto.histo.title, counts(dtHisto.histo), dtHisto.histo.underflows,
+                 dtHisto.histo.overflows);
         }
+
+        oss << "\n";
     }
 
     append_lines(oss, eventBuilder2StatsText);
