@@ -23,8 +23,7 @@ write A32 D32 0x0004  0x00000003        # (EN_IRQ | GO); Enable IRQ and send Tri
 
 ######## MVLC setup for TRIVA triggering ########
 # Optional signal aliases: map Triva trigger values to MVLC IRQs (1..15).
-# If no alias is set the trigger number is directly taken as the IRQ number.
-# Otherwise if one of the alias register pairs is used all pairs will be active too.
+# If one of the alias register pairs is used all pairs will be active too.
 # Mapping a trigger value to 0 makes the MVLC ignore the trigger.
 
 /*
