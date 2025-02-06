@@ -5,12 +5,13 @@
 #include "analysis_service_provider.h"
 #include "histo_ui.h"
 #include "mvme_qwt.h"
+#include "libmvme_export.h"
 
 // TODO: add a removeEnty() or popEntry() method to MultiPlotWidget. Note:
 // PlotEntry is not public. It's a detail and related to TilePlot.
 // Need some way to refer to entries. Must surive relayout operations, etc.
 
-class MultiPlotWidget: public QWidget
+class LIBMVME_EXPORT MultiPlotWidget: public QWidget
 {
     Q_OBJECT
     public:
