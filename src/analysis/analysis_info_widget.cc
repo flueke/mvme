@@ -118,7 +118,7 @@ struct AnalysisInfoWidgetPrivate
 };
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 8, 0))
-static const std::chrono::milliseconds WidgetUpdatePeriod(100);
+static const std::chrono::milliseconds WidgetUpdatePeriod(500);
 #else
 static const int WidgetUpdatePeriod = 1000;
 #endif
@@ -650,6 +650,16 @@ void append_lines(std::stringstream &oss, TextEdit *textEdit, unsigned indent = 
     }
 }
 
+inline void print_dt_histos(std::stringstream &oss, const std::vector<event_builder2::ModuleDeltaHisto> &dtHistos)
+{
+    for (const auto &dtHisto: dtHistos)
+    {
+        oss << fmt::format("  {}: counts={}, underflows={}, overflows={}\n",
+             dtHisto.histo.title, counts(dtHisto.histo), dtHisto.histo.underflows,
+             dtHisto.histo.overflows);
+    }
+}
+
 void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
     const mesytec::mvlc::event_builder2::BuilderCounters &counters,
     const mesytec::mvlc::event_builder2::BuilderCounters &/*prevCounters*/,
@@ -675,18 +685,18 @@ void AnalysisInfoWidgetPrivate::updateEventBuilder2Widget(
     for (size_t eventIndex=0; eventIndex<counters.eventCounters.size(); ++eventIndex)
     {
         const auto &eventCounters = counters.eventCounters.at(eventIndex);
-        const auto &dtHistos = eventCounters.dtInputHistos;
-        if (dtHistos.empty())
+
+        if (eventCounters.dtInputHistos.empty())
             continue;
 
-        oss << fmt::format("'{}' timestamp delta histograms:", eventCounters.eventName) << "\n";
+        oss << fmt::format("'{}' timestamp delta histograms (input side):", eventCounters.eventName) << "\n";
+        print_dt_histos(oss, eventCounters.dtInputHistos);
 
-        for (const auto &dtHisto: dtHistos)
-        {
-            oss << fmt::format("  {}: counts={}, underflows={}, overflows={}\n",
-                 dtHisto.histo.title, counts(dtHisto.histo), dtHisto.histo.underflows,
-                 dtHisto.histo.overflows);
-        }
+        if (eventCounters.dtOutputHistos.empty())
+            continue;
+
+        oss << fmt::format("'{}' timestamp delta histograms (output side):", eventCounters.eventName) << "\n";
+        print_dt_histos(oss, eventCounters.dtOutputHistos);
 
         oss << "\n";
     }
