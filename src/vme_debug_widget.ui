@@ -15,537 +15,560 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout_7">
    <item>
-    <layout class="QVBoxLayout" name="rwLayout">
-     <item>
-      <widget class="QGroupBox" name="gb_write">
-       <property name="title">
-        <string>Write</string>
-       </property>
-       <layout class="QGridLayout" name="gridLayout">
-        <property name="leftMargin">
-         <number>3</number>
-        </property>
-        <property name="topMargin">
-         <number>3</number>
-        </property>
-        <property name="rightMargin">
-         <number>3</number>
-        </property>
-        <property name="bottomMargin">
-         <number>3</number>
-        </property>
-        <property name="spacing">
-         <number>3</number>
-        </property>
-        <item row="3" column="2">
-         <widget class="QLineEdit" name="writeValue3">
-          <property name="text">
-           <string>5</string>
+    <widget class="QSplitter" name="splitter_2">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="childrenCollapsible">
+      <bool>false</bool>
+     </property>
+     <widget class="QWidget" name="">
+      <layout class="QVBoxLayout" name="rwLayout">
+       <item>
+        <widget class="QGroupBox" name="gb_write">
+         <property name="title">
+          <string>Write</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout">
+          <property name="leftMargin">
+           <number>3</number>
           </property>
-         </widget>
-        </item>
-        <item row="2" column="2">
-         <widget class="QLineEdit" name="writeValue2">
-          <property name="text">
-           <string>1</string>
+          <property name="topMargin">
+           <number>3</number>
           </property>
-         </widget>
-        </item>
-        <item row="0" column="2">
-         <widget class="QLabel" name="label_3">
-          <property name="text">
-           <string>Value</string>
+          <property name="rightMargin">
+           <number>3</number>
           </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+          <property name="bottomMargin">
+           <number>3</number>
           </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QLineEdit" name="writeValue1">
-          <property name="text">
-           <string>1</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QLineEdit" name="writeAddress2">
-          <property name="text">
-           <string>0x6034</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="label">
-          <property name="text">
-           <string>Offset</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QLineEdit" name="writeAddress1">
-          <property name="text">
-           <string>0x6008</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLineEdit" name="writeOffset1">
-          <property name="text">
-           <string>0x0000</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3">
-         <layout class="QVBoxLayout" name="verticalLayout_3">
           <property name="spacing">
-           <number>2</number>
+           <number>3</number>
           </property>
-          <item>
-           <widget class="QPushButton" name="writeLoop3">
+          <item row="3" column="2">
+           <widget class="QLineEdit" name="writeValue3">
             <property name="text">
-             <string>Loop</string>
-            </property>
-            <property name="checkable">
-             <bool>true</bool>
+             <string>5</string>
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QPushButton" name="writeWrite3">
+          <item row="2" column="2">
+           <widget class="QLineEdit" name="writeValue2">
             <property name="text">
-             <string>Write</string>
+             <string>1</string>
             </property>
            </widget>
           </item>
-         </layout>
-        </item>
-        <item row="2" column="3">
-         <layout class="QVBoxLayout" name="verticalLayout_2">
-          <property name="spacing">
-           <number>2</number>
-          </property>
-          <item>
-           <widget class="QPushButton" name="writeLoop2">
+          <item row="0" column="2">
+           <widget class="QLabel" name="label_3">
             <property name="text">
-             <string>Loop</string>
+             <string>Value</string>
             </property>
-            <property name="checkable">
-             <bool>true</bool>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QPushButton" name="writeWrite2">
+          <item row="1" column="2">
+           <widget class="QLineEdit" name="writeValue1">
             <property name="text">
-             <string>Write</string>
+             <string>1</string>
             </property>
            </widget>
           </item>
-         </layout>
-        </item>
-        <item row="3" column="1">
-         <widget class="QLineEdit" name="writeAddress3">
-          <property name="text">
-           <string>0x6070</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
-         <widget class="QLineEdit" name="writeOffset3">
-          <property name="text">
-           <string>0x0000</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QLineEdit" name="writeOffset2">
-          <property name="text">
-           <string>0x0000</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="3">
-         <layout class="QVBoxLayout" name="verticalLayout">
-          <property name="spacing">
-           <number>2</number>
-          </property>
-          <item>
-           <widget class="QPushButton" name="writeLoop1">
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="writeAddress2">
             <property name="text">
-             <string>Loop</string>
-            </property>
-            <property name="checkable">
-             <bool>true</bool>
+             <string>0x6034</string>
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QPushButton" name="writeWrite1">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label">
             <property name="text">
-             <string>Write</string>
+             <string>Offset</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
             </property>
            </widget>
           </item>
-         </layout>
-        </item>
-        <item row="0" column="1">
-         <widget class="QLabel" name="label_2">
-          <property name="text">
-           <string>Address</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QGroupBox" name="gb_read">
-       <property name="title">
-        <string>Read</string>
-       </property>
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <property name="spacing">
-         <number>3</number>
-        </property>
-        <property name="leftMargin">
-         <number>3</number>
-        </property>
-        <property name="topMargin">
-         <number>3</number>
-        </property>
-        <property name="rightMargin">
-         <number>3</number>
-        </property>
-        <property name="bottomMargin">
-         <number>3</number>
-        </property>
-        <item>
-         <widget class="QSplitter" name="splitter">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="childrenCollapsible">
-           <bool>false</bool>
-          </property>
-          <widget class="QWidget" name="layoutWidget">
-           <layout class="QVBoxLayout" name="verticalLayout_12">
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="writeAddress1">
+            <property name="text">
+             <string>0x6008</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLineEdit" name="writeOffset1">
+            <property name="text">
+             <string>0x0000</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <layout class="QVBoxLayout" name="verticalLayout_3">
             <property name="spacing">
-             <number>3</number>
+             <number>2</number>
             </property>
             <item>
-             <layout class="QGridLayout" name="gridLayout_2">
-              <item row="2" column="1">
-               <widget class="QLineEdit" name="readAddress1">
-                <property name="minimumSize">
-                 <size>
-                  <width>60</width>
-                  <height>0</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>0x6010</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="2">
-               <widget class="QLabel" name="label_6">
-                <property name="text">
-                 <string>Value</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="2">
-               <layout class="QVBoxLayout" name="verticalLayout_7">
-                <item>
-                 <widget class="QLabel" name="readResult2_hex">
-                  <property name="textFormat">
-                   <enum>Qt::PlainText</enum>
-                  </property>
-                  <property name="textInteractionFlags">
-                   <set>Qt::TextSelectableByMouse</set>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="readResult2_dec">
-                  <property name="textFormat">
-                   <enum>Qt::PlainText</enum>
-                  </property>
-                  <property name="textInteractionFlags">
-                   <set>Qt::TextSelectableByMouse</set>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item row="4" column="2">
-               <layout class="QVBoxLayout" name="verticalLayout_8">
-                <item>
-                 <widget class="QLabel" name="readResult3_hex">
-                  <property name="textFormat">
-                   <enum>Qt::PlainText</enum>
-                  </property>
-                  <property name="textInteractionFlags">
-                   <set>Qt::TextSelectableByMouse</set>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="readResult3_dec">
-                  <property name="textFormat">
-                   <enum>Qt::PlainText</enum>
-                  </property>
-                  <property name="textInteractionFlags">
-                   <set>Qt::TextSelectableByMouse</set>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item row="3" column="1">
-               <widget class="QLineEdit" name="readAddress2">
-                <property name="text">
-                 <string>0x6030</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="2">
-               <layout class="QVBoxLayout" name="verticalLayout_4">
-                <item>
-                 <widget class="QLabel" name="readResult1_hex">
+             <widget class="QPushButton" name="writeLoop3">
+              <property name="text">
+               <string>Loop</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="writeWrite3">
+              <property name="text">
+               <string>Write</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="2" column="3">
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <property name="spacing">
+             <number>2</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="writeLoop2">
+              <property name="text">
+               <string>Loop</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="writeWrite2">
+              <property name="text">
+               <string>Write</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="writeAddress3">
+            <property name="text">
+             <string>0x6070</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLineEdit" name="writeOffset3">
+            <property name="text">
+             <string>0x0000</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLineEdit" name="writeOffset2">
+            <property name="text">
+             <string>0x0000</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <layout class="QVBoxLayout" name="verticalLayout">
+            <property name="spacing">
+             <number>2</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="writeLoop1">
+              <property name="text">
+               <string>Loop</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="writeWrite1">
+              <property name="text">
+               <string>Write</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Address</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="gb_read">
+         <property name="title">
+          <string>Read</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <property name="spacing">
+           <number>3</number>
+          </property>
+          <property name="leftMargin">
+           <number>3</number>
+          </property>
+          <property name="topMargin">
+           <number>3</number>
+          </property>
+          <property name="rightMargin">
+           <number>3</number>
+          </property>
+          <property name="bottomMargin">
+           <number>3</number>
+          </property>
+          <item>
+           <widget class="QSplitter" name="splitter">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="childrenCollapsible">
+             <bool>false</bool>
+            </property>
+            <widget class="QWidget" name="layoutWidget">
+             <layout class="QVBoxLayout" name="verticalLayout_12">
+              <property name="spacing">
+               <number>3</number>
+              </property>
+              <item>
+               <layout class="QGridLayout" name="gridLayout_2">
+                <item row="2" column="1">
+                 <widget class="QLineEdit" name="readAddress1">
                   <property name="minimumSize">
                    <size>
                     <width>60</width>
                     <height>0</height>
                    </size>
                   </property>
-                  <property name="textFormat">
-                   <enum>Qt::PlainText</enum>
-                  </property>
-                  <property name="textInteractionFlags">
-                   <set>Qt::TextSelectableByMouse</set>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="readResult1_dec">
-                  <property name="textFormat">
-                   <enum>Qt::PlainText</enum>
-                  </property>
-                  <property name="textInteractionFlags">
-                   <set>Qt::TextSelectableByMouse</set>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item row="2" column="3">
-               <layout class="QVBoxLayout" name="verticalLayout_9">
-                <property name="spacing">
-                 <number>2</number>
-                </property>
-                <item>
-                 <widget class="QPushButton" name="readLoop1">
                   <property name="text">
-                   <string>Loop</string>
-                  </property>
-                  <property name="checkable">
-                   <bool>true</bool>
+                   <string>0x6010</string>
                   </property>
                  </widget>
                 </item>
-                <item>
-                 <widget class="QPushButton" name="readRead1">
+                <item row="0" column="2">
+                 <widget class="QLabel" name="label_6">
                   <property name="text">
-                   <string>Read</string>
+                   <string>Value</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
                   </property>
                  </widget>
                 </item>
-               </layout>
-              </item>
-              <item row="3" column="0">
-               <widget class="QLineEdit" name="readOffset2">
-                <property name="text">
-                 <string>0x0000</string>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="3">
-               <layout class="QVBoxLayout" name="verticalLayout_5">
-                <property name="spacing">
-                 <number>2</number>
-                </property>
-                <item>
-                 <widget class="QPushButton" name="readLoop2">
-                  <property name="text">
-                   <string>Loop</string>
-                  </property>
-                  <property name="checkable">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QPushButton" name="readRead2">
-                  <property name="text">
-                   <string>Read</string>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item row="4" column="0">
-               <widget class="QLineEdit" name="readOffset3">
-                <property name="text">
-                 <string>0x0000</string>
-                </property>
-               </widget>
-              </item>
-              <item row="4" column="1">
-               <widget class="QLineEdit" name="readAddress3">
-                <property name="text">
-                 <string>0x6010</string>
-                </property>
-               </widget>
-              </item>
-              <item row="4" column="3">
-               <layout class="QVBoxLayout" name="verticalLayout_6">
-                <property name="spacing">
-                 <number>2</number>
-                </property>
-                <item>
-                 <widget class="QPushButton" name="readLoop3">
-                  <property name="text">
-                   <string>Loop</string>
-                  </property>
-                  <property name="checkable">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QPushButton" name="readRead3">
-                  <property name="text">
-                   <string>Read</string>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item row="0" column="0">
-               <widget class="QLabel" name="label_4">
-                <property name="text">
-                 <string>Offset</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QLabel" name="label_5">
-                <property name="text">
-                 <string>Address</string>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="0">
-               <widget class="QLineEdit" name="readOffset1">
-                <property name="minimumSize">
-                 <size>
-                  <width>60</width>
-                  <height>0</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>0x0000</string>
-                </property>
-               </widget>
-              </item>
-              <item row="1" column="3" colspan="2">
-               <layout class="QHBoxLayout" name="horizontalLayout_3">
-                <item>
-                 <widget class="QRadioButton" name="readModeSingle">
-                  <property name="text">
-                   <string>single</string>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">readMode1</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QRadioButton" name="readModeBLT">
-                  <property name="text">
-                   <string>BLT</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">readMode1</string>
-                  </attribute>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QRadioButton" name="readModeMBLT">
-                  <property name="text">
-                   <string>MBLT</string>
-                  </property>
-                  <attribute name="buttonGroup">
-                   <string notr="true">readMode1</string>
-                  </attribute>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item row="2" column="4">
-               <layout class="QHBoxLayout" name="horizontalLayout_4">
-                <item>
-                 <spacer name="horizontalSpacer_5">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>1</width>
-                    <height>1</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item>
-                 <layout class="QVBoxLayout" name="verticalLayout_10">
+                <item row="3" column="2">
+                 <layout class="QVBoxLayout" name="verticalLayout_7">
                   <item>
-                   <widget class="QSpinBox" name="blockReadCount">
-                    <property name="minimum">
-                     <number>1</number>
+                   <widget class="QLabel" name="readResult2_hex">
+                    <property name="textFormat">
+                     <enum>Qt::PlainText</enum>
                     </property>
-                    <property name="maximum">
-                     <number>256</number>
-                    </property>
-                    <property name="value">
-                     <number>34</number>
+                    <property name="textInteractionFlags">
+                     <set>Qt::TextSelectableByMouse</set>
                     </property>
                    </widget>
                   </item>
                   <item>
-                   <spacer name="verticalSpacer">
+                   <widget class="QLabel" name="readResult2_dec">
+                    <property name="textFormat">
+                     <enum>Qt::PlainText</enum>
+                    </property>
+                    <property name="textInteractionFlags">
+                     <set>Qt::TextSelectableByMouse</set>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="4" column="2">
+                 <layout class="QVBoxLayout" name="verticalLayout_8">
+                  <item>
+                   <widget class="QLabel" name="readResult3_hex">
+                    <property name="textFormat">
+                     <enum>Qt::PlainText</enum>
+                    </property>
+                    <property name="textInteractionFlags">
+                     <set>Qt::TextSelectableByMouse</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="readResult3_dec">
+                    <property name="textFormat">
+                     <enum>Qt::PlainText</enum>
+                    </property>
+                    <property name="textInteractionFlags">
+                     <set>Qt::TextSelectableByMouse</set>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QLineEdit" name="readAddress2">
+                  <property name="text">
+                   <string>0x6030</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="2">
+                 <layout class="QVBoxLayout" name="verticalLayout_4">
+                  <item>
+                   <widget class="QLabel" name="readResult1_hex">
+                    <property name="minimumSize">
+                     <size>
+                      <width>60</width>
+                      <height>0</height>
+                     </size>
+                    </property>
+                    <property name="textFormat">
+                     <enum>Qt::PlainText</enum>
+                    </property>
+                    <property name="textInteractionFlags">
+                     <set>Qt::TextSelectableByMouse</set>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="readResult1_dec">
+                    <property name="textFormat">
+                     <enum>Qt::PlainText</enum>
+                    </property>
+                    <property name="textInteractionFlags">
+                     <set>Qt::TextSelectableByMouse</set>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="2" column="3">
+                 <layout class="QVBoxLayout" name="verticalLayout_9">
+                  <property name="spacing">
+                   <number>2</number>
+                  </property>
+                  <item>
+                   <widget class="QPushButton" name="readLoop1">
+                    <property name="text">
+                     <string>Loop</string>
+                    </property>
+                    <property name="checkable">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="readRead1">
+                    <property name="text">
+                     <string>Read</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLineEdit" name="readOffset2">
+                  <property name="text">
+                   <string>0x0000</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="3">
+                 <layout class="QVBoxLayout" name="verticalLayout_5">
+                  <property name="spacing">
+                   <number>2</number>
+                  </property>
+                  <item>
+                   <widget class="QPushButton" name="readLoop2">
+                    <property name="text">
+                     <string>Loop</string>
+                    </property>
+                    <property name="checkable">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="readRead2">
+                    <property name="text">
+                     <string>Read</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="4" column="0">
+                 <widget class="QLineEdit" name="readOffset3">
+                  <property name="text">
+                   <string>0x0000</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="QLineEdit" name="readAddress3">
+                  <property name="text">
+                   <string>0x6010</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="3">
+                 <layout class="QVBoxLayout" name="verticalLayout_6">
+                  <property name="spacing">
+                   <number>2</number>
+                  </property>
+                  <item>
+                   <widget class="QPushButton" name="readLoop3">
+                    <property name="text">
+                     <string>Loop</string>
+                    </property>
+                    <property name="checkable">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="readRead3">
+                    <property name="text">
+                     <string>Read</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_4">
+                  <property name="text">
+                   <string>Offset</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QLabel" name="label_5">
+                  <property name="text">
+                   <string>Address</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QLineEdit" name="readOffset1">
+                  <property name="minimumSize">
+                   <size>
+                    <width>60</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>0x0000</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="3" colspan="2">
+                 <layout class="QHBoxLayout" name="horizontalLayout_3">
+                  <item>
+                   <widget class="QRadioButton" name="readModeSingle">
+                    <property name="text">
+                     <string>single</string>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">readMode1</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="readModeBLT">
+                    <property name="text">
+                     <string>BLT</string>
+                    </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">readMode1</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QRadioButton" name="readModeMBLT">
+                    <property name="text">
+                     <string>MBLT</string>
+                    </property>
+                    <attribute name="buttonGroup">
+                     <string notr="true">readMode1</string>
+                    </attribute>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item row="2" column="4">
+                 <layout class="QHBoxLayout" name="horizontalLayout_4">
+                  <item>
+                   <spacer name="horizontalSpacer_5">
                     <property name="orientation">
-                     <enum>Qt::Vertical</enum>
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>1</width>
+                      <height>1</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
+                   <layout class="QVBoxLayout" name="verticalLayout_10">
+                    <item>
+                     <widget class="QSpinBox" name="blockReadCount">
+                      <property name="minimum">
+                       <number>1</number>
+                      </property>
+                      <property name="maximum">
+                       <number>256</number>
+                      </property>
+                      <property name="value">
+                       <number>34</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="verticalSpacer">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>1</width>
+                        <height>1</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <spacer name="horizontalSpacer_6">
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
                     </property>
                     <property name="sizeHint" stdset="0">
                      <size>
@@ -557,77 +580,216 @@
                   </item>
                  </layout>
                 </item>
-                <item>
-                 <spacer name="horizontalSpacer_6">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>1</width>
-                    <height>1</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
                </layout>
               </item>
+              <item>
+               <spacer name="verticalSpacer_2">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
              </layout>
-            </item>
-            <item>
-             <spacer name="verticalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
+            </widget>
+            <widget class="QWidget" name="layoutWidget1">
+             <layout class="QVBoxLayout" name="verticalLayout_11">
+              <property name="spacing">
+               <number>3</number>
               </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
+              <item>
+               <widget class="QLabel" name="label_7">
+                <property name="text">
+                 <string>BLT Result</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QTextEdit" name="bltResult">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>125</width>
+                  <height>125</height>
+                 </size>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>185</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Monospace</family>
+                  <pointsize>8</pointsize>
+                 </font>
+                </property>
+                <property name="lineWrapMode">
+                 <enum>QTextEdit::NoWrap</enum>
+                </property>
+                <property name="readOnly">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QGroupBox" name="gb_vmeScript">
+      <property name="font">
+       <font>
+        <pointsize>9</pointsize>
+        <bold>false</bold>
+       </font>
+      </property>
+      <property name="title">
+       <string>VME Script</string>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_5">
+       <item row="0" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <item>
+          <widget class="QLabel" name="label_41">
+           <property name="text">
+            <string>Address offset</string>
+           </property>
           </widget>
-          <widget class="QWidget" name="layoutWidget1">
-           <layout class="QVBoxLayout" name="verticalLayout_11">
-            <property name="spacing">
-             <number>3</number>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="scriptOffset">
+           <property name="text">
+            <string>0x0000</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="1" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <property name="spacing">
+          <number>2</number>
+         </property>
+         <item>
+          <widget class="QGroupBox" name="groupBox_17">
+           <property name="title">
+            <string/>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_3">
+            <property name="leftMargin">
+             <number>4</number>
             </property>
-            <item>
-             <widget class="QLabel" name="label_7">
-              <property name="text">
-               <string>BLT Result</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QTextEdit" name="bltResult">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Maximum" vsizetype="Expanding">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
+            <property name="topMargin">
+             <number>4</number>
+            </property>
+            <property name="rightMargin">
+             <number>4</number>
+            </property>
+            <property name="bottomMargin">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QTextEdit" name="scriptInput">
               <property name="minimumSize">
                <size>
-                <width>125</width>
-                <height>125</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>185</width>
-                <height>16777215</height>
+                <width>180</width>
+                <height>0</height>
                </size>
               </property>
               <property name="font">
                <font>
                 <family>Monospace</family>
                 <pointsize>8</pointsize>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="tabChangesFocus">
+               <bool>true</bool>
+              </property>
+              <property name="lineWrapMode">
+               <enum>QTextEdit::NoWrap</enum>
+              </property>
+              <property name="html">
+               <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+hr { height: 1px; border-width: 0; }
+li.unchecked::marker { content: &quot;\2610&quot;; }
+li.checked::marker { content: &quot;\2612&quot;; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Monospace'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Cantarell'; font-size:9pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="acceptRichText">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="gb_scriptOutput">
+           <property name="title">
+            <string>Result</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_6">
+            <property name="leftMargin">
+             <number>4</number>
+            </property>
+            <property name="topMargin">
+             <number>4</number>
+            </property>
+            <property name="rightMargin">
+             <number>4</number>
+            </property>
+            <property name="bottomMargin">
+             <number>4</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QTextEdit" name="scriptOutput">
+              <property name="minimumSize">
+               <size>
+                <width>180</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="font">
+               <font>
+                <family>Monospace</family>
+                <pointsize>8</pointsize>
+                <bold>false</bold>
                </font>
               </property>
               <property name="lineWrapMode">
@@ -636,219 +798,69 @@
               <property name="readOnly">
                <bool>true</bool>
               </property>
+              <property name="acceptRichText">
+               <bool>false</bool>
+              </property>
              </widget>
             </item>
            </layout>
           </widget>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <spacer name="verticalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="gb_vmeScript">
-     <property name="font">
-      <font>
-       <pointsize>9</pointsize>
-       <weight>50</weight>
-       <bold>false</bold>
-      </font>
-     </property>
-     <property name="title">
-      <string>VME Script</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_5">
-      <item row="0" column="0">
-       <layout class="QHBoxLayout" name="horizontalLayout_6">
-        <item>
-         <widget class="QLabel" name="label_41">
-          <property name="text">
-           <string>Address offset</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="scriptOffset">
-          <property name="text">
-           <string>0x0000</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="1" column="0">
-       <layout class="QHBoxLayout" name="horizontalLayout_5">
-        <property name="spacing">
-         <number>2</number>
-        </property>
-        <item>
-         <widget class="QGroupBox" name="groupBox_17">
-          <property name="title">
-           <string/>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_3">
-           <property name="leftMargin">
-            <number>4</number>
+         </item>
+        </layout>
+       </item>
+       <item row="2" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <spacer name="horizontalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
            </property>
-           <property name="topMargin">
-            <number>4</number>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
            </property>
-           <property name="rightMargin">
-            <number>4</number>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="runScript">
+           <property name="text">
+            <string>run</string>
            </property>
-           <property name="bottomMargin">
-            <number>4</number>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="saveScript">
+           <property name="text">
+            <string>save</string>
            </property>
-           <item row="0" column="0">
-            <widget class="QTextEdit" name="scriptInput">
-             <property name="minimumSize">
-              <size>
-               <width>180</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <family>Monospace</family>
-               <pointsize>8</pointsize>
-              </font>
-             </property>
-             <property name="tabChangesFocus">
-              <bool>true</bool>
-             </property>
-             <property name="lineWrapMode">
-              <enum>QTextEdit::NoWrap</enum>
-             </property>
-             <property name="html">
-              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Monospace'; font-size:8pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Cantarell'; font-size:9pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="acceptRichText">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QGroupBox" name="gb_scriptOutput">
-          <property name="title">
-           <string>Result</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_6">
-           <property name="leftMargin">
-            <number>4</number>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="loadScript">
+           <property name="text">
+            <string>load</string>
            </property>
-           <property name="topMargin">
-            <number>4</number>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_4">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
            </property>
-           <property name="rightMargin">
-            <number>4</number>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
            </property>
-           <property name="bottomMargin">
-            <number>4</number>
-           </property>
-           <item row="0" column="0">
-            <widget class="QTextEdit" name="scriptOutput">
-             <property name="minimumSize">
-              <size>
-               <width>180</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <family>Monospace</family>
-               <pointsize>8</pointsize>
-              </font>
-             </property>
-             <property name="lineWrapMode">
-              <enum>QTextEdit::NoWrap</enum>
-             </property>
-             <property name="readOnly">
-              <bool>true</bool>
-             </property>
-             <property name="acceptRichText">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="2" column="0">
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
-        <item>
-         <spacer name="horizontalSpacer_3">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QPushButton" name="runScript">
-          <property name="text">
-           <string>run</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="saveScript">
-          <property name="text">
-           <string>save</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="loadScript">
-          <property name="text">
-           <string>load</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <spacer name="horizontalSpacer_4">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-       </layout>
-      </item>
-     </layout>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
   </layout>
