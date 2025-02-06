@@ -25,8 +25,12 @@ int main(int argc, char *argv[])
 
     QObject::connect(actionOpen, &QAction::triggered, mpw, [] ()
             {
-                auto filename = QFileDialog::getOpenFileName(nullptr, "Open File", QString(), "All Files (*)");
-                spdlog::info("selected filename is {}", filename.toStdString());
+                //auto filename = QFileDialog::getOpenFileName(nullptr, "Open File", QString(), "All Files (*)");
+                QFileDialog dialog;
+                //dialog.setOption(QFileDialog::DontUseNativeDialog);
+                dialog.setAcceptMode(QFileDialog::AcceptOpen);
+                dialog.exec();
+                //spdlog::info("selected filename is {}", filename.toStdString());
             });
 
     mainWindow.show();
