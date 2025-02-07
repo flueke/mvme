@@ -171,6 +171,8 @@ void Histo1DPlotEntry::refresh()
 
     textRows << "<table>";
     textRows << RowTemplate.arg("Counts").arg(histoStats.entryCount);
+    textRows << RowTemplate.arg("Underflows").arg(histo->getUnderflow());
+    textRows << RowTemplate.arg("Overflows").arg(histo->getOverflow());
     textRows << RowTemplate.arg("RMS").arg(histoStats.sigma);
 
     if (gaussCurve->isVisible())

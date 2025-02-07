@@ -25,14 +25,9 @@
 namespace
 {
 
+} // namespace
 
-} // end anon namespace
-
-namespace mesytec
-{
-namespace mvme
-{
-namespace util
+namespace mesytec::mvme::util
 {
 
 std::unique_ptr<QPlainTextEdit> make_monospace_plain_textedit()
@@ -55,6 +50,4 @@ std::unique_ptr<QTextEdit> make_textedit(const QFont &font)
     return plain_textedit_detail::impl<QTextEdit>(font);
 }
 
-} // end namespace util
-} // end namespace mvme
-} // end namespace mesytec
+} // namespace mesytec::mvme::util

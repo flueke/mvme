@@ -23,7 +23,7 @@ class TilePlot: public QwtPlot
     Q_OBJECT
     public:
         static const int DefaultMaxColumns = 4;
-        static const int TileMinWidth = 200;
+        static const int TileMinWidth = 150;
         static const int TileMinHeight = TileMinWidth;
         static const int TileDeltaWidth = 50;
         static const int TileDeltaHeight = 50;
@@ -37,10 +37,13 @@ class TilePlot: public QwtPlot
         {
             auto tileSize = minimumSize();
             tileSize += size;
+
             if (tileSize.width() < TileMinWidth)
                 tileSize.setWidth(TileMinWidth);
+
             if (tileSize.height() < TileMinHeight)
                 tileSize.setHeight(TileMinHeight);
+
             setMinimumSize(tileSize);
         }
 

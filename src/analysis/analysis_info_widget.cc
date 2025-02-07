@@ -639,17 +639,6 @@ void AnalysisInfoWidgetPrivate::updateMVLCWidget(
     }
 }
 
-template<typename TextEdit>
-void append_lines(std::stringstream &oss, TextEdit *textEdit, unsigned indent = 0)
-{
-    std::string line;
-    while (std::getline(oss, line))
-    {
-        QString indentStr(indent, ' ');
-        textEdit->appendPlainText(QSL("%1%2").arg(indentStr).arg(line.c_str()));
-    }
-}
-
 inline void print_dt_histos(std::stringstream &oss, const std::vector<event_builder2::ModuleDeltaHisto> &dtHistos)
 {
     for (const auto &dtHisto: dtHistos)
@@ -749,6 +738,7 @@ void update_eb2_histos_widget(MultiPlotWidget *widget, std::vector<Histo1DPtr> &
     uiHistos.resize(histoCount);
     size_t outHistoIndex = 0;
 
+    // Create/update mvme Histo1D instances from the eb2 histograms.
     for (size_t eventIndex=0; eventIndex<histos.size(); ++eventIndex)
     {
         const auto &eventHistos = histos.at(eventIndex);
@@ -786,10 +776,12 @@ void update_eb2_histos_widget(MultiPlotWidget *widget, std::vector<Histo1DPtr> &
             {
                 outHisto->setBinContent(bin, dtHisto.histo.bins[bin], dtHisto.histo.bins[bin]);
             }
+            outHisto->setUnderflow(dtHisto.histo.underflows);
+            outHisto->setOverflow(dtHisto.histo.overflows);
         }
     }
 
-    // add newly created histos, remove stale histos
+    // Add newly created histos, remove stale histos
     size_t widgetEntryCount = widget->getNumberOfEntries();
 
     if (widgetEntryCount > uiHistos.size())

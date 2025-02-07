@@ -38,6 +38,7 @@
 #include <QTimer>
 #include <iterator>
 #include <memory>
+#include <qaction.h>
 #include <qgv.h>
 
 #include <mesytec-mvlc/util/counters.h>
@@ -48,6 +49,7 @@
 #include "analysis/analysis_ui.h"
 #include "analysis/analysis_ui_util.h"
 #include "analysis/condition_ui.h"
+#include "analysis/event_builder_monitor.hpp"
 #include "analysis/expression_operator_dialog.h"
 #include "analysis/listfilter_extractor_dialog.h"
 #include "analysis/mdpp_sample_decoder_monitor_widget.h"
@@ -63,6 +65,7 @@
 #include "multiplot_widget.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
+#include "qt_util.h"
 #include "rate_monitor_widget.h"
 #include "util/algo.h"
 
@@ -1358,7 +1361,7 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
     // Event settings action
     QAction *actionEventSettings = new QAction(
-        QIcon(QSL(":/gear.png")), QSL("Event settings"), this);
+        QIcon(QSL(":/gear.png")), QSL("Processing Settings"), this);
 
     connect(actionEventSettings, &QAction::triggered, this, [this] {
         auto vmeConfig = m_d->m_serviceProvider->getVMEConfig();
@@ -1408,6 +1411,36 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
     update_listfile_filter_action(m_d->m_serviceProvider->getGlobalMode());
 
+    auto actionEbMonitor = new QAction(QIcon(":/info.png"), "Event Builder Monitor");
+
+    connect(actionEbMonitor, &QAction::triggered, this, [this] {
+        if (auto w = find_top_level_widget("EventBuilderMonitorWidget"))
+        {
+            w->activateWindow();
+            w->raise();
+        }
+        else
+        {
+            auto ebMonitor = new EventBuilderMonitorWidget(getServiceProvider());
+            ebMonitor->setObjectName("EventBuilderMonitorWidget");
+            ebMonitor->setAttribute(Qt::WA_DeleteOnClose);
+
+            add_widget_close_action(ebMonitor);
+            auto geoSaver = new WidgetGeometrySaver(ebMonitor);
+            geoSaver->addAndRestore(ebMonitor, ebMonitor->objectName());
+            QSettings s;
+            ebMonitor->restoreState(s.value("EventBuilderMonitorWidget/WindowState").toByteArray());
+
+            ebMonitor->show();
+            ebMonitor->raise();
+
+            connect(ebMonitor, &EventBuilderMonitorWidget::aboutToClose, ebMonitor, [ebMonitor] {
+                QSettings s;
+                s.setValue("EventBuilderMonitorWidget/WindowState", ebMonitor->saveState());
+            });
+        }
+    });
+
     // create the lower toolbar
     {
         m_d->m_eventSelectAreaToolBar = make_toolbar();
@@ -1418,6 +1451,10 @@ EventWidget::EventWidget(AnalysisServiceProvider *serviceProvider, AnalysisWidge
 
         tb->addAction(actionEventSettings);
         tb->addAction(actionListfileFilterSettings);
+
+        tb->addSeparator();
+
+        tb->addAction(actionEbMonitor);
 
         tb->addSeparator();
 

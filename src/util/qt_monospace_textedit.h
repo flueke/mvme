@@ -21,19 +21,15 @@
 #ifndef __MVME_UTIL_QT_MONOSPACE_TEXTEDIT_H__
 #define __MVME_UTIL_QT_MONOSPACE_TEXTEDIT_H__
 
-#include <memory>
-#include <QtGlobal>
 #include <QPlainTextEdit>
 #include <QTextEdit>
+#include <QtGlobal>
+#include <memory>
 
 #include "libmvme_export.h"
 #include "util/qt_font.h"
 
-namespace mesytec
-{
-namespace mvme
-{
-namespace util
+namespace mesytec::mvme::util
 {
 
 // These functions create a QPlainTextEdit or a QTextEdit respectively. The
@@ -49,27 +45,23 @@ std::unique_ptr<QTextEdit> LIBMVME_EXPORT make_textedit(const QFont &font);
 
 namespace plain_textedit_detail
 {
-    template<typename T>
-        std::unique_ptr<T> impl(const QFont &font)
-        {
-            auto result = std::make_unique<T>();
-            result->setFont(font);
-            result->setLineWrapMode(T::NoWrap);
-            set_tabstop_width(result.get(), 4);
+template <typename T> std::unique_ptr<T> impl(const QFont &font)
+{
+    auto result = std::make_unique<T>();
+    result->setFont(font);
+    result->setLineWrapMode(T::NoWrap);
+    set_tabstop_width(result.get(), 4);
 
-            return result;
-        }
-
-    template<typename T>
-        std::unique_ptr<T> impl()
-        {
-            auto font = make_monospace_font();
-            return impl<T>(font);
-        }
+    return result;
 }
 
-} // end namespace util
-} // end namespace mvme
-} // end namespace mesytec
+template <typename T> std::unique_ptr<T> impl()
+{
+    auto font = make_monospace_font();
+    return impl<T>(font);
+}
+} // namespace plain_textedit_detail
+
+} // namespace mesytec::mvme::util
 
 #endif /* __MVME_UTIL_QT_MONOSPACE_TEXTEDIT_H__ */

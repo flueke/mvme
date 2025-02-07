@@ -160,6 +160,7 @@ add_library(libmvme SHARED
     analysis/data_extraction_widget.cc
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
+    analysis/event_builder_monitor.cc
     analysis/listfilter_extractor_dialog.cc
     analysis/mdpp_sample_decoder_monitor_widget.cc
     analysis/object_editor_dialog.cc

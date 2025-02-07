@@ -35,6 +35,7 @@
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
+#include <sstream>
 
 #include "libmvme_export.h"
 #include "typedefs.h"
@@ -260,5 +261,17 @@ QFutureWatcher<Result> *make_watcher(Handler &&handler)
 }
 
 bool equals(const QRectF &a, const QRectF &b, qreal epsilon = std::numeric_limits<qreal>::epsilon());
+
+template<typename TextEdit>
+void append_lines(std::stringstream &oss, TextEdit *textEdit, unsigned indent = 0)
+{
+    std::string line;
+    while (std::getline(oss, line))
+    {
+        QString indentStr(indent, ' ');
+        textEdit->appendPlainText(QSL("%1%2").arg(indentStr).arg(line.c_str()));
+    }
+}
+
 
 #endif /* __QT_UTIL_H__ */

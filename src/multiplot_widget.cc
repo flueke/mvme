@@ -52,7 +52,8 @@ struct EntryConversionVisitor: public PlotEntryVisitor
     PlotGridView::Entry createBasicEntry(PlotEntry *pe)
     {
         PlotGridView::Entry ve;
-        ve.sinkId = pe->analysisObject()->getId();
+        if (auto ao = pe->analysisObject())
+            ve.sinkId = ao->getId();
         ve.customTitle = pe->title();
         ve.zoomRect = pe->zoomer()->zoomRect();
         return ve;
@@ -421,7 +422,10 @@ struct MultiPlotWidget::Private
             std::set<s32> sinkUserLevels;
 
             for (const auto &e: entries_)
-                sinkUserLevels.insert(e->analysisObject()->getUserLevel());
+            {
+                if (auto ao = e->analysisObject())
+                    sinkUserLevels.insert(ao->getUserLevel());
+            }
 
             if (auto it = std::max_element(std::begin(sinkUserLevels), std::end(sinkUserLevels));
                 it != std::end(sinkUserLevels) && *it >= 1)
@@ -749,7 +753,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     connect(&d->replotTimer_, &QTimer::timeout,
             this, [this] { d->refresh(); });
 
-    d->replotTimer_.start(getReplotPeriod());
+    d->replotTimer_.start(Private::DefaultReplotPeriod_ms);
 }
 
 MultiPlotWidget::~MultiPlotWidget()

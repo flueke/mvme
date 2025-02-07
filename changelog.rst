@@ -4,6 +4,15 @@
 Changelog
 ##################################################
 
+Version 1.16.0
+--------------------------------------------------
+
+* Event Builder: add module timestamp delta histograms and more detailed counters.
+
+* Updated MVLC DAQ start sequence order to fix initial timestamp sync under very
+  high trigger load: MVLC DAQ mode is now enabled _after_ the MCST DAQ start sequence,
+  not before.
+
 Version 1.15.2
 --------------------------------------------------
 
