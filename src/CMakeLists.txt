@@ -591,7 +591,7 @@ install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINA
 
 add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
 add_mvme_exe(statemachine_test statemachine_test.cc)
-add_mvme_dev_exe(dev_multiplot_widget dev_multiplot_widget.cc)
+add_mvme_dev_exe(dev_some_gui_thing dev_some_gui_thing.cc)
 
 add_custom_target(multicrate2_dev_tools)
 add_dependencies(multicrate2_dev_tools
