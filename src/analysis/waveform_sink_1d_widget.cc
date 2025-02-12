@@ -13,6 +13,7 @@
 #include "analysis_service_provider.h"
 #include "analysis/waveform_sink_widget_common.h"
 #include "mdpp-sampling/waveform_plotting.h"
+#include "util/qledindicator.h"
 #include "util/qt_logview.h"
 
 using namespace mesytec::mvme;
@@ -105,6 +106,7 @@ struct WaveformSink1DWidget::Private
     std::vector<waveforms::WaveformPlotCurveHelper::Handle> waveformHandles_;
 
     waveforms::TraceHistories analysisTraceData_;
+    QTime traceDataUpdateTime_; // when analysisTraceData_ was last updated
 
     // Post processed trace data. One history buffer per channel in the source
     // sink. A new trace is prepended to each history buffer every ReplotInterval_ms.
@@ -113,6 +115,7 @@ struct WaveformSink1DWidget::Private
 
     RefreshMode refreshMode_ = RefreshMode_LatestData;
     RefreshMode prevRefreshMode_ = refreshMode_;
+
 
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
@@ -132,10 +135,10 @@ struct WaveformSink1DWidget::Private
     // set both the max number of traces to keep per channel and the number of traces to show in the plot at the same time.
     QSpinBox *spin_maxDepth_ = nullptr;
     QPlainTextEdit *logView_ = nullptr;
+    QLedIndicator *updateLed_ = nullptr;
 
     WidgetGeometrySaver *geoSaver_ = nullptr;
     QRectF maxBoundingRect_;
-    QPushButton *pb_resetBoundingRect = nullptr;
 
     bool selectedTraceChanged_ = false;
     bool selectedChannelChanged_ = false;
@@ -148,7 +151,7 @@ struct WaveformSink1DWidget::Private
     void updateUi();
     void resetPlotAxes();
     void makeInfoText(std::ostringstream &oss);
-    void makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame);
+    void makeStatusText(std::ostringstream &out, const QTime &lastUpdate);
     void printInfo();
     void exportPlotToPdf();
     void exportPlotToClipboard();
@@ -276,6 +279,11 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     d->pb_printInfo_ = new QPushButton(QIcon(":/info.png"), "Show Info");
     tb->addWidget(d->pb_printInfo_);
 
+    d->updateLed_ = new QLedIndicator;
+    d->updateLed_->setEnabled(false); // no clicky on the thingy
+    d->updateLed_->setMinimumSize(16, 16);
+    getStatusBar()->addPermanentWidget(d->updateLed_);
+
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
 
     connect(d->combo_modeSelect_, qOverload<int>(&QComboBox::currentIndexChanged),
@@ -331,6 +339,7 @@ bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
     if (newAnalysisTraceData != analysisTraceData_)
     {
         std::swap(analysisTraceData_, newAnalysisTraceData);
+        traceDataUpdateTime_ = QTime::currentTime();
         return true;
     }
 
@@ -516,6 +525,7 @@ void WaveformSink1DWidget::replot()
 
     d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = d->selectedTraceChanged_ = false;
     d->prevRefreshMode_ = d->refreshMode_;
+    bool gotNewAnalysisData = false;
 
     if (d->actionHold_->isChecked() && forceProcessing)
     {
@@ -525,6 +535,7 @@ void WaveformSink1DWidget::replot()
     else if (!d->actionHold_->isChecked())
     {
         const bool updated = d->updateDataFromAnalysis();
+        gotNewAnalysisData = updated;
 
         if (updated)
         {
@@ -676,10 +687,21 @@ void WaveformSink1DWidget::replot()
     histo_ui::PlotWidget::replot();
 
     std::ostringstream oss;
-    d->makeStatusText(oss, d->frameTimer_.interval());
+    d->makeStatusText(oss, d->traceDataUpdateTime_);
 
     getStatusBar()->clearMessage();
     getStatusBar()->showMessage(oss.str().c_str());
+
+    if (gotNewAnalysisData)
+    {
+        if (!d->updateLed_->isChecked())
+        {
+            d->updateLed_->setChecked(true);
+            QTimer::singleShot(100, Qt::PreciseTimer, d->updateLed_, [this] () {
+                d->updateLed_->setChecked(false);
+            });
+        }
+    }
 
     spdlog::trace("end WaveformSink1DWidget::replot()");
 }
@@ -747,7 +769,7 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     }
 }
 
-void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, const std::chrono::duration<double, std::milli> &dtFrame)
+void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, const QTime &lastUpdate)
 {
     auto selectedChannel = std::to_string(spin_chanSelect->value());
     if (cb_showAllChannels_->isChecked())
@@ -764,7 +786,11 @@ void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, cons
         }
     }
 
-    out << fmt::format("Channel: {}, #Traces: {}, #Samples: {}", selectedChannel, visibleTraceCount, sampleCount);
+    auto dt_ms = lastUpdate.msecsTo(QTime::currentTime());
+    auto dt_str = lastUpdate.isValid() ? fmt::format("{} ms", dt_ms) : "unknown";
+
+    out << fmt::format("Channel: {}, Visible Traces: {}, Samples/Trace: {}, Data Age: {}",
+         selectedChannel, visibleTraceCount, sampleCount, dt_str);
 }
 
 void WaveformSink1DWidget::Private::printInfo()
