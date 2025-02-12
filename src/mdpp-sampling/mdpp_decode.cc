@@ -31,17 +31,20 @@ using mvlc::util::make_filter_with_caches;
 struct CommonFilters
 {
 	const FilterWithCaches fModuleId        = make_filter_with_caches("0100 XXXX DDDD DDDD XXXX XXXX XXXX XXXX");
-	const FilterWithCaches fTriggerTime     = make_filter_with_caches("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fTimeStamp       = make_filter_with_caches("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fExtentedTs      = make_filter_with_caches("0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD");
 
     // Samples header: D = debug[1:0], C = config[7:0], P = phase[8:0], L = length[9:0]
-    // FIXME: still one bit too many! Took one away from the debug field.
     const FilterWithCaches fSamplesHeader   = make_filter_with_caches("0011 DCCC CCCC CPPP PPPP PPLL LLLL LLLL");
 	const FilterWithCaches fSamples         = make_filter_with_caches("0011 DDDD DDDD DDDD DDDD DDDD DDDD DDDD");
 };
 
-struct Mdpp16ScpFilters: public CommonFilters
+struct Mdpp16Filters: public CommonFilters
+{
+	const FilterWithCaches fTriggerTime     = make_filter_with_caches("0001 XXXX XX10 000A DDDD DDDD DDDD DDDD");
+};
+
+struct Mdpp16ScpFilters: public Mdpp16Filters
 {
 	const FilterWithCaches fChannelTime    = make_filter_with_caches("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fAmplitude      = make_filter_with_caches("0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD");
@@ -55,7 +58,7 @@ struct Mdpp16ScpFilters: public CommonFilters
     const char *moduleType = "mdpp16_scp";
 };
 
-struct Mdpp16QdcFilters: public CommonFilters
+struct Mdpp16QdcFilters: public Mdpp16Filters
 {
     const FilterWithCaches fChannelTime      = make_filter_with_caches("0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD");
     const FilterWithCaches fIntegrationLong  = make_filter_with_caches("0001 XXXX XX00 AAAA DDDD DDDD DDDD DDDD");
@@ -71,7 +74,12 @@ struct Mdpp16QdcFilters: public CommonFilters
     const char *moduleType = "mdpp16_qdc";
 };
 
-struct Mdpp32ScpFilters: public CommonFilters
+struct Mdpp32Filters: public CommonFilters
+{
+	const FilterWithCaches fTriggerTime     = make_filter_with_caches("0001 XXXX X100 000A DDDD DDDD DDDD DDDD");
+};
+
+struct Mdpp32ScpFilters: public Mdpp32Filters
 {
 	const FilterWithCaches fChannelTime    = make_filter_with_caches("0001 XXXP O00A AAAA DDDD DDDD DDDD DDDD");
 	const FilterWithCaches fAmplitude      = make_filter_with_caches("0001 XXXP O01A AAAA DDDD DDDD DDDD DDDD");
@@ -85,7 +93,7 @@ struct Mdpp32ScpFilters: public CommonFilters
     const char *moduleType = "mdpp32_scp";
 };
 
-struct Mdpp32QdcFilters: public CommonFilters
+struct Mdpp32QdcFilters: public Mdpp32Filters
 {
     const FilterWithCaches fChannelTime      = make_filter_with_caches("0001 XXXX X01A AAAA DDDD DDDD DDDD DDDD");
     const FilterWithCaches fIntegrationLong  = make_filter_with_caches("0001 XXXX X00A AAAA DDDD DDDD DDDD DDDD");
