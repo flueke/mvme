@@ -147,15 +147,14 @@ void EventBuilderMonitorWidget::Private::updateCountersText(
 }
 
 inline void
-update_histos(MultiPlotWidget *widget, std::vector<Histo1DPtr> &uiHistos,
-              const std::vector<std::vector<mvlc::event_builder2::ModuleDeltaHisto>> &histos)
+update_histos(MultiPlotWidget *widget, const std::vector<std::vector<mvlc::event_builder2::ModuleDeltaHisto>> &histos)
 {
     const size_t histoCount =
         std::accumulate(std::begin(histos), std::end(histos), static_cast<size_t>(0),
                         [](auto sum, const auto &eventHistos) { return sum + eventHistos.size(); });
 
-    uiHistos.resize(histoCount);
-    size_t outHistoIndex = 0;
+    std::vector<Histo1DPtr> uiHistos;
+    uiHistos.reserve(histoCount);
 
     // Create/update mvme Histo1D instances from the eb2 histograms.
     for (size_t eventIndex = 0; eventIndex < histos.size(); ++eventIndex)
@@ -164,26 +163,10 @@ update_histos(MultiPlotWidget *widget, std::vector<Histo1DPtr> &uiHistos,
 
         for (const auto &dtHisto: eventHistos)
         {
-            assert(outHistoIndex < uiHistos.size());
+            auto outHisto = std::make_shared<Histo1D>(dtHisto.histo.bins.size(),
+                                                    dtHisto.histo.binning.minValue,
+                                                    dtHisto.histo.binning.maxValue);
 
-            auto &outHisto = uiHistos[outHistoIndex++];
-
-            if (!outHisto)
-            {
-                outHisto = std::make_shared<Histo1D>(dtHisto.histo.bins.size(),
-                                                     dtHisto.histo.binning.minValue,
-                                                     dtHisto.histo.binning.maxValue);
-            }
-            else
-            {
-                auto ebBinning = dtHisto.histo.binning;
-                assert(ebBinning.binCount == dtHisto.histo.bins.size());
-                AxisBinning binning(ebBinning.binCount, ebBinning.minValue, ebBinning.maxValue);
-                outHisto->setAxisBinning(Qt::XAxis, binning);
-                outHisto->resize(ebBinning.binCount);
-            }
-
-            outHisto->clear();
             outHisto->setObjectName(QSL("dt(%1, %2), %3")
                                         .arg(dtHisto.moduleIndexes.first)
                                         .arg(dtHisto.moduleIndexes.second)
@@ -196,22 +179,15 @@ update_histos(MultiPlotWidget *widget, std::vector<Histo1DPtr> &uiHistos,
             }
             outHisto->setUnderflow(dtHisto.histo.underflows);
             outHisto->setOverflow(dtHisto.histo.overflows);
+            uiHistos.emplace_back(outHisto);
         }
     }
 
-    // Add newly created histos, remove stale histos
-    size_t widgetEntryCount = widget->getNumberOfEntries();
+    // Brute-force: Clear the widget and readd all histos.
+    widget->clear();
 
-    if (widgetEntryCount > uiHistos.size())
-    {
-        widget->clear();
-        widgetEntryCount = 0;
-    }
-
-    for (size_t i = widgetEntryCount; i < uiHistos.size(); ++i)
-    {
-        widget->addHisto1D(uiHistos[i]);
-    }
+    for (auto &uiHisto: uiHistos)
+        widget->addHisto1D(uiHisto);
 
     widget->replot();
 }
@@ -219,8 +195,8 @@ update_histos(MultiPlotWidget *widget, std::vector<Histo1DPtr> &uiHistos,
 void EventBuilderMonitorWidget::Private::updateHistos(
     const mesytec::mvlc::event_builder2::BuilderCounters &counters)
 {
-    update_histos(inputHistosWidget_, inputHistos_, counters.getInputDtHistograms());
-    update_histos(outputHistosWidget_, outputHistos_, counters.getOutputDtHistograms());
+    update_histos(inputHistosWidget_, counters.getInputDtHistograms());
+    update_histos(outputHistosWidget_, counters.getOutputDtHistograms());
 }
 
 } // namespace analysis

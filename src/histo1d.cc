@@ -26,6 +26,7 @@ Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
     , m_xAxisBinning(nBins, xMin, xMax)
     , m_data(new double[nBins])
 {
+    //qDebug() << __PRETTY_FUNCTION__ << this;
     clear();
 }
 
@@ -40,9 +41,13 @@ Histo1D::Histo1D(AxisBinning binning, const SharedHistoMem &mem, QObject *parent
 
 Histo1D::~Histo1D()
 {
+    //qDebug() << __PRETTY_FUNCTION__ << this;
+
     if (ownsMemory())
     {
+        //qDebug() << __PRETTY_FUNCTION__ << this << "delete m_data" << m_data;
         delete[] m_data;
+        m_data = nullptr;
     }
 }
 

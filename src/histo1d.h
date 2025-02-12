@@ -91,7 +91,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         /* Uses the memory passed in with the data pointer. resize() will not
          * be available. */
         Histo1D(AxisBinning binning, const SharedHistoMem &mem, QObject *parent = 0);
-        ~Histo1D();
+        ~Histo1D() override;
 
         bool ownsMemory() const { return !m_externalMemory.arena; }
         bool canResize() const { return !m_externalMemory.arena; }
@@ -204,13 +204,14 @@ class LIBMVME_EXPORT Histo1D: public QObject
             }
         }
 
+        // Note: leaves the histogram in an inconsistent state if the bin count
+        // changes. When using internal memory call resize() to adjust the memory.
+        // Note2: does not clear histogram contents or modify the memory in any way.
         void setAxisBinning(Qt::Axis axis, AxisBinning binning)
         {
             if (axis == Qt::XAxis && binning != m_xAxisBinning)
             {
-                bool doClear = m_xAxisBinning.getBinCount() != binning.getBinCount();
                 m_xAxisBinning = binning;
-                if (doClear) clear();
                 emit axisBinningChanged(axis);
             }
         }
