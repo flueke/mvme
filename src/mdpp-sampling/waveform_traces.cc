@@ -7,6 +7,7 @@
 #include <mesytec-mvlc/util/algo.h>
 #include <mesytec-mvlc/util/fmt.h>
 #include "util/math.h"
+#include "mdpp-sampling/mdpp_decode.h"
 
 namespace mesytec::mvme::waveforms
 {
@@ -126,7 +127,16 @@ std::string trace_meta_to_string(const Trace::MetaMap &meta)
 
     for (const auto &[key, value]: meta)
     {
-        auto valueStr = std::visit([] (const auto &v) { return fmt::format("{}", v); }, value);
+        std::string valueStr;
+        if (key == "config")
+        {
+            valueStr = fmt::format("value:{}, {}", std::get<u32>(value),
+                mesytec::mvme::mdpp_sampling::sampling_config_to_string(std::get<u32>(value)));
+        }
+        else
+        {
+            valueStr = std::visit([] (const auto &v) { return fmt::format("{}", v); }, value);
+        }
         strParts.emplace_back(fmt::format("{}={}", key, valueStr));
     }
 

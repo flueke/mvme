@@ -35,14 +35,11 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
         u32 debug: 1;
 
         // The contents of 0x614A:
-        // 0x614A 0b1100'0000		# sampling settings [3:0]
-        // # 0 = directly from ADC
-        // # 1 = after deconvolution of pre-differentiation
-        // # 2 = output shaper of timing path
-        // # 3 = output shaper of amplitude path
-        // # sampling settings [7:4]
-        // # bit 7 set: no offset correction
-        // # bit 6 set: no resampling
+        // Sampling configuration (register 0x614A):
+        // bits 0-2: sample source (depends on firmware type, see the init scripts and the data sheet).
+        // bit 7 set: no offset correction
+        // bit 6 set: no resampling
+        // Other bits are not used yet.
         u32 config: 8;
 
         // Phase correction factor. [0, 512] normalized to [0, 1) in the analysis
@@ -71,10 +68,7 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
 // Register 0x614A / the 'config' field in the trace header.
 struct LIBMVME_MDPP_DECODE_EXPORT SamplingSettings
 {
-    static const u32 DirectFromAdc          = 1u << 0;
-    static const u32 AfterDeconvolution     = 1u << 1;
-    static const u32 TimingPathShaper       = 1u << 2;
-    static const u32 AmplitudePathShaper    = 1u << 3;
+    static const u32 SourceMask             = 0b11;
     static const u32 NoResampling           = 1u << 6; // if set do phase correction in software
     static const u32 NoOffsetCorrection     = 1u << 7;
 };
@@ -140,6 +134,8 @@ DecoderFunction LIBMVME_MDPP_DECODE_EXPORT get_decoder_function(const char *modu
 using TraceBuffer = QList<ChannelTrace>;
 using ModuleTraceHistory = std::vector<TraceBuffer>; // indexed by the traces channel number
 using TraceHistoryMap = QMap<QUuid, ModuleTraceHistory>;
+
+std::string LIBMVME_MDPP_DECODE_EXPORT sampling_config_to_string(u32 config);
 
 }
 

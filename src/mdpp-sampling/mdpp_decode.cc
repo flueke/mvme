@@ -284,7 +284,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
                 traceHeader.parts.phase = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'P');
                 traceHeader.parts.length = *mvlc::util::extract(filters.fSamplesHeader, *wordPtr, 'L');
 
-                // Sadly cannot (yet) use bitfield members directly with spdlog.
+                // Sadly cannot (yet) use bitfield members directly with fmt/spdlog.
                 auto thDebug = traceHeader.parts.debug;
                 auto thConfig = traceHeader.parts.config;
                 auto thPhase = traceHeader.parts.phase;
@@ -400,6 +400,16 @@ DecodedMdppSampleEvent decode_mdpp_samples(const u32 *data, const size_t size, c
     }
 
     return result;
+}
+
+std::string sampling_config_to_string(u32 config)
+{
+    unsigned source = config & SamplingSettings::SourceMask;
+    bool noResampling = config & SamplingSettings::NoResampling;
+    bool noOffsetCorrection = config & SamplingSettings::NoOffsetCorrection;
+
+    return fmt::format("source:{}, resampling:{}, offset_correction:{}",
+        source, !noResampling, !noOffsetCorrection);
 }
 
 }
