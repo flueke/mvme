@@ -39,15 +39,17 @@ accu_test_warn gte 0x50 "MDPP-16_SCP >= FW2050 required for Sampling mode"
 0x6044 0x${sampling}${output_format}
 
 # Sampling parameter (can be set for all channels or per channel pair)
-0x6100 8				# select_chan_pair, 8 = all channels
+0x6100 8						# select_chan_pair, 8 = all channels
 0x6146 ${number_presamples}		# number of pre-samples
 0x6148 ${number_samples}		# total samples to output (even number required)
-0x614A $(${no_offset_correction}*128+${no_resampling}*64+${sample_source}) # sampling settings [7:0]
-						# 0 = directly from ADC
-						# 1 = after deconvolution of pre-differentiation
-						# 2 = output shaper of timing path
-						# 3 = output shaper of amplitude path
 
-						# sampling settings [7:4]
-						# bit 7 set: no offset correction1
-						# bit 6 set: no resampling
+# sampling source and settings [7:0]
+# bits [1:0]: sample source
+#   00 = from ADC
+#   01 = deconvoluted
+#   10 = timing filter
+#   11 = from shaper
+# settings [7:4]
+#   bit 7 set: no offset correction
+#   bit 6 set: no resampling
+0x614A $(${no_offset_correction}*128+${no_resampling}*64+${sample_source})
