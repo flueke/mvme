@@ -56,10 +56,14 @@ struct fmt::formatter<RefreshMode>: fmt::formatter<string_view>
 inline QComboBox *add_mode_selector(QToolBar *toolbar)
 {
     auto result = new QComboBox;
-    result->addItem("Latest Data", RefreshMode_LatestData);
-    result->addItem("Event Snapshot", RefreshMode_EventSnapshot);
+    result->addItem(fmt::format("{}", RefreshMode_LatestData).c_str(), RefreshMode_LatestData);
+    result->addItem(fmt::format("{}", RefreshMode_EventSnapshot).c_str(), RefreshMode_EventSnapshot);
     auto boxstruct = make_vbox_container("Refresh Mode", result, 0, -2);
     toolbar->addWidget(boxstruct.container.release());
+    result->setToolTip(QSL(
+        "Latest Data: Shows latest data from the module, not neccessarily belonging to the same readout event.\n"
+        "Event Snapshot: Shows data originating from the same readout event."
+    ));
     return result;
 }
 
@@ -181,6 +185,9 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     set_widget_font_pointsize(tb, 7);
 
+    d->zoomer_ = histo_ui::install_scrollzoomer(this);
+    tb->addSeparator();
+
     d->combo_modeSelect_ = add_mode_selector(tb);
 
     d->actionHold_ = tb->addAction(QIcon(":/control_pause.png"), "Hold");
@@ -201,15 +208,13 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     chanSelLayout->addWidget(d->cb_showAllChannels_, 1, 1);
 
     tb->addWidget(chanSelWidget);
-    tb->addSeparator();
 
-    d->zoomer_ = histo_ui::install_scrollzoomer(this);
-    tb->addAction(QIcon(":/selection-resize.png"), QSL("Rescale Axes"), this, [this] {
+    tb->addAction(QIcon(":/selection-resize.png"), QSL("Fit Axes"), this, [this] {
         d->resetPlotAxes();
         replot();
     });
 
-    histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
+    //histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
 
     {
         auto menu = new QMenu;
@@ -241,9 +246,9 @@ WaveformSink1DWidget::WaveformSink1DWidget(
 
     tb->addSeparator();
     d->spin_dtSample_ = add_dt_sample_setter(tb);
-
     tb->addSeparator();
     d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
+    tb->addSeparator();
 
     {
         d->combo_phaseCorrection_ = new QComboBox;
@@ -736,7 +741,7 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
         chanMax = selectedChannel + 1;
     }
 
-    out << "Trace History Info:\n";
+    out << "Trace History:\n";
     out << fmt::format("  Total memory used: {:} B / {:.2f} MiB\n", totalMemory, static_cast<double>(totalMemory) / Megabytes(1));
     out << fmt::format("  Number of channels: {}\n", channelCount);
     out << fmt::format("  History depth: {}\n", historyDepth);
@@ -744,6 +749,8 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     out << fmt::format("  Total samples: {}\n", totalSamples);
     out << fmt::format("  Selected channel: {}\n", cb_showAllChannels_->isChecked() ? "All" : std::to_string(selectedChannel));
     out << "\n";
+
+    out << "Visible Traces:\n";
 
     // row wise: walk the channels
     for (size_t chan = chanMin; chan < chanMax; ++chan)
