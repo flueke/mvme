@@ -3060,13 +3060,11 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
                             srcPtr->setModuleId(moduleConfig->getId());
                             srcPtr->setObjectName(moduleConfig->objectName());
                             // FIXME: This should not be here but abstracted somehow.
-                            // FIXME: it gets even worse now that the sample decoder has getMaxChannels() outputs for trace data
-                            //        and an additional getStatsCount() outputs for the statistics.
                             if (auto sampleDecoder = std::dynamic_pointer_cast<DataSourceMdppSampleDecoder>(srcPtr))
                             {
                                 sampleDecoder->setModuleTypeName(moduleConfig->getModuleMeta().typeName);
                                 sampleDecoder->setObjectName(moduleConfig->objectName()+".samples");
-                                if (moduleConfig->getModuleMeta().typeName == "mdpp32_scp")
+                                if (moduleConfig->getModuleMeta().typeName.startsWith("mdpp32"))
                                     sampleDecoder->setMaxChannels(32);
 
                                 sampleDecoder->beginRun({}); // to create the pipes and everything
