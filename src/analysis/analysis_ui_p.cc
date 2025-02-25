@@ -42,6 +42,7 @@
 #include <QMenu>
 #include <QRadioButton>
 #include <QRegularExpressionValidator>
+#include <QScrollArea>
 #include <QShortcut>
 #include <QSignalMapper>
 #include <QSplitter>
@@ -909,7 +910,6 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     auto slotFrame = new QFrame;
     auto slotGrid = new QGridLayout(slotFrame);
     m_slotGrid = slotGrid;
-    slotGrid->setContentsMargins(0, 0, 0, 0);
 
     if (slotCount == 1 && !op->hasVariableNumberOfSlots())
     {
@@ -927,14 +927,14 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     auto slotGroupBox = new QGroupBox(slotCount > 1 ? QSL("Inputs") : QSL("Input"));
     auto slotGroupBoxLayout = new QGridLayout(slotGroupBox);
     slotGroupBoxLayout->setContentsMargins(2, 2, 2, 2);
-    slotGroupBoxLayout->addWidget(slotFrame, 0, 0, 1, 2);
 
     if (op->hasVariableNumberOfSlots())
     {
-        m_addSlotButton = new QPushButton(QIcon(QSL(":/list_add.png")), QString());
+        m_addSlotButton = new QPushButton(QIcon(QSL(":/list_add.png")), QSL("Add Input"));
         m_addSlotButton->setToolTip(QSL("Add input"));
+        m_addSlotButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
-        m_removeSlotButton = new QPushButton(QIcon(QSL(":/list_remove.png")), QString());
+        m_removeSlotButton = new QPushButton(QIcon(QSL(":/list_remove.png")), QSL("Remove last Input"));
         m_removeSlotButton->setToolTip(QSL("Remove last input"));
         m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
 
@@ -960,8 +960,13 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
         buttonLayout->addStretch();
         buttonLayout->addWidget(m_addSlotButton);
         buttonLayout->addWidget(m_removeSlotButton);
-        slotGroupBoxLayout->addLayout(buttonLayout, 1, 0, 1, 2);
+        slotGroupBoxLayout->addLayout(buttonLayout, 0, 0, 1, 2);
     }
+
+    auto slotScroll = new QScrollArea;
+    slotScroll->setWidgetResizable(true);
+    slotScroll->setWidget(slotFrame);
+    slotGroupBoxLayout->addWidget(slotScroll, 1, 0, 1, 2);
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorDialog::accept);
@@ -990,16 +995,20 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     invisibleDefaultButton->hide();
 
     auto layout = new QGridLayout(this);
-    //layout->setContentsMargins(2, 2, 2, 2);
+
+    auto theSplitter = new QSplitter;
+    theSplitter->addWidget(slotGroupBox);
+    theSplitter->addWidget(m_opConfigWidget);
+    theSplitter->setChildrenCollapsible(false);
+    theSplitter->setOrientation(Qt::Vertical);
+    theSplitter->setHandleWidth(theSplitter->handleWidth() + 20);
 
     s32 row = 0;
     // row, col, rowSpan, colSpan
     layout->addWidget(eventGroupBox, row++, 0);
-    layout->addWidget(slotGroupBox, row++, 0);
-    layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
+    layout->addWidget(theSplitter, row, 0);
+    layout->setRowStretch(row++, 1);
     layout->addLayout(buttonBoxLayout, row++, 0);
-
-    layout->setRowStretch(2, 1); // m_opConfigWidget may stretch
 
     // The widget is complete, now populate the slot grid.
     repopulateSlotGrid();
@@ -1130,8 +1139,11 @@ void AddEditOperatorDialog::repopulateSlotGrid()
 
         m_slotGrid->addWidget(selectButton, row, col++);
         m_slotGrid->addWidget(clearButton, row, col++);
+        m_slotGrid->setRowStretch(row, 0);
         ++row;
     }
+
+    m_slotGrid->setRowStretch(row, 1);
 
     // Update the slot select buttons in case we're editing a connected operator
     for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
