@@ -315,6 +315,7 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         VMEScriptConfig *getInitScript(s32 scriptIndex) const;
 
         void addInitScript(VMEScriptConfig *script);
+        bool removeInitScript(VMEScriptConfig *script);
 
         const EventConfig *getEventConfig() const;
         EventConfig *getEventConfig();

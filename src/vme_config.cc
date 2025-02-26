@@ -449,6 +449,19 @@ void ModuleConfig::addInitScript(VMEScriptConfig *script)
     setModified(true);
 }
 
+bool ModuleConfig::removeInitScript(VMEScriptConfig *script)
+{
+    if (m_initScripts.removeOne(script))
+    {
+        script->setParent(nullptr);
+        script->deleteLater();
+        setModified(true);
+        return true;
+    }
+
+    return false;
+}
+
 VMEScriptConfig *ModuleConfig::getInitScript(const QString &scriptName) const
 {
     auto it = std::find_if(m_initScripts.begin(), m_initScripts.end(),
