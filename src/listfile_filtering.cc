@@ -479,7 +479,6 @@ ListfileFilterDialog::ListfileFilterDialog(AnalysisServiceProvider *asp, QWidget
     d->asp_ = asp;
     auto analysis = d->asp_->getAnalysis();
     auto vmeConfig = d->asp_->getVMEConfig();
-    const auto &replayHandle = d->asp_->getReplayFileHandle();
 
     d->config_ = listfile_filter_config_from_variant(analysis->property("ListfileFilterConfig"));
     auto eventConfigs = vmeConfig->getEventConfigs();
