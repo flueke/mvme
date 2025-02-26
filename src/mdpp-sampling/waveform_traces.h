@@ -98,8 +98,10 @@ using TraceHistories = std::vector<TraceHistory>;
 size_t get_used_memory(const Trace &trace);
 size_t get_used_memory(const TraceHistory &traceHistory);
 size_t get_used_memory(const TraceHistories &traceHistories);
+
 // Produces output compatible with gnuplot's 'plot' command. One xy pair per line.
 std::ostream &print_trace(std::ostream &out, const Trace &trace);
+
 // Prints the trace on a single line, using a JSON-like format.
 std::ostream &print_trace_compact(std::ostream &out, const Trace &trace);
 

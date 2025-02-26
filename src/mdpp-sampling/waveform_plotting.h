@@ -12,8 +12,7 @@ namespace mesytec::mvme::waveforms
 
 // Does not take ownership of any of the underlying data containers!
 // Only works for increasing and non-negative x values for now.
-
-// It must behave like an iterator over Sample instances.
+// 'It' must behave like an iterator over Sample instances.
 template<typename It>
 QRectF calculate_bounding_rect(const It &begin, const It &end)
 {
@@ -241,8 +240,6 @@ class IWaveformPlotter
 class WaveformPlotCurveHelper: public IWaveformPlotter
 {
     public:
-        using Handle = size_t;
-
         explicit WaveformPlotCurveHelper(QwtPlot *plot = nullptr);
 
         QwtPlot *getPlot() const;
@@ -325,8 +322,8 @@ size_t post_process_waveform_snapshot(
 
 // Reprocess waveforms to account for changed dtSample and interpolationFactor
 // values.
-// The traces in rawDisplayTraces are rescaled by dtSample, then interpolated
-// data is written to interpolatedDisplayTraces.
+// The traces in rawDisplayTraces are rescaled by dtSample. Interpolated data
+// from the adjusted raw traces is written to interpolatedDisplayTraces.
 size_t reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,

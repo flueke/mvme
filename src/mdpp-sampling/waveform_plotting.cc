@@ -264,6 +264,7 @@ size_t post_process_waveforms(
         assert(ipolDestTraces.size() <= maxDepth);
         assert(rawDestTraces.size() == ipolDestTraces.size());
 
+        // Find the latest non-empty trace in the trace history.
         auto pred = [] (const waveforms::Trace &trace) { return !trace.empty(); };
 
         if (auto it = std::find_if(std::begin(inputTraces), std::end(inputTraces), pred);
