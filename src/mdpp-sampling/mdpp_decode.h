@@ -85,17 +85,9 @@ struct LIBMVME_MDPP_DECODE_EXPORT ChannelTrace
     u32 moduleHeader = 0;
     QVector<s16> samples; // samples are 14 bit signed, converted to and stored as 16 bit signed
     TraceHeader traceHeader;
+
+    inline size_t size() const { return static_cast<size_t>(samples.size()); }
 };
-
-inline bool has_raw_samples(const ChannelTrace &trace)
-{
-    return !trace.samples.isEmpty();
-}
-
-inline size_t get_raw_sample_count(const ChannelTrace &trace)
-{
-    return trace.samples.size();
-}
 
 // Clear the sample memory and reset all other fields to default values.
 void LIBMVME_MDPP_DECODE_EXPORT reset_trace(ChannelTrace &trace);

@@ -248,7 +248,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 			s32 addr = *mvlc::util::extract(theFilter, *wordPtr, 'A');
 			auto value = *mvlc::util::extract(theFilter, *wordPtr, 'D');
 
-            if (currentTrace.channel >= 0 && currentTrace.channel != addr)
+            if (currentTrace.channel >= 0 && currentTrace.channel != addr && currentTrace.size() > 0)
             {
                 // The current channel number changed which means we're done
                 // with this trace and can prepare for the next one.
@@ -256,7 +256,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
                     currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", ")));
 
                 totalSamples += currentTrace.samples.size();
-                ret.traces.push_back(currentTrace); // store the old trace
+                ret.traces.push_back(currentTrace); // store the decoded trace
 
                 // begin the new trace
                 reset_trace(currentTrace);
@@ -331,7 +331,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
 
     // Handle a possible last trace that was decoded but not yet moved into the
     // result.
-    if (currentTrace.channel >= 0)
+    if (currentTrace.channel >= 0 && currentTrace.size() > 0)
     {
         logger_fun("trace", fmt::format("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
             currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", ")));
