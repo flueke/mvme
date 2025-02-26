@@ -2,12 +2,15 @@
     "ModuleConfig": {
         "baseAddress": 0,
         "enabled": true,
-        "id": "{a63b1f09-e0ef-408e-ac2e-9d6d5545b1c8}",
+        "id": "{fa9e11a3-f690-4f3d-88fa-6f61c4c965b5}",
         "initScripts": [
             {
                 "enabled": true,
-                "id": "{2a9cca84-9c01-4727-8390-4663da0af45c}",
+                "id": "{bb836d11-7a5c-485f-8fdc-38db18dd786c}",
                 "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
                 "variable_table": {
                     "name": "",
                     "variables": {
@@ -17,8 +20,11 @@
             },
             {
                 "enabled": true,
-                "id": "{295ee751-92c1-4c55-8fd7-b8a550fbc105}",
+                "id": "{6b1068d1-199d-447a-ab6f-10655edde2b8}",
                 "name": "Frontend Settings",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
                 "variable_table": {
                     "name": "",
                     "variables": {
@@ -28,14 +34,31 @@
             },
             {
                 "enabled": true,
-                "id": "{595a0f58-84d2-4654-b1fc-1bbf119d561f}",
+                "id": "{6080f16b-f07d-4ef9-8c82-e96ad84f86ba}",
                 "name": "VME Interface Settings",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
                 "variable_table": {
                     "name": "",
                     "variables": {
                     }
                 },
                 "vme_script": "# Settings related to the readout loop\n# #####################################\n# Trigger output via IRQ-lines at Backplane; MDPP-32\n# Implemented since March 2021.\n# 0x6300 0b1111'1111'1111'1111  #IRQ 1 lower 16 channels\n# 0x6302 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6304 0b1111'1111'1111'1111  #IRQ2 lower 16 channels\n# 0x6306 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6308 0b1111'1111'1111'1111  #IRQ3 lower 16 channels\n# 0x630A 0b1111'1111'1111'1111  # upper 16 channels\n# 0x630C 0b1111'1111'1111'1111  #IRQ4 lower 16 channels\n# 0x630E 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6310 0b1111'1111'1111'1111  #IRQ5 lower 16 channels\n# 0x6312 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6314 0b1111'1111'1111'1111  #IRQ6 lower 16 channels\n# 0x6316 0b1111'1111'1111'1111  # upper 16 channels\n# 0x6318 0b1111'1111'1111'1111  # ** not supported by MVLC ** IRQ 7 lower 16 channels\n# 0x631A 0b1111'1111'1111'1111  #** not supported by MVLC ** upper 16 channels\n#######################################\n\n0x6010  ${sys_irq}                          # irq level\n\n# IRQ_source and thresholds\n#0x601C 1                                   # 1 -> specifies number of words\n#0x6018  100                                # IRQ-FIFO threshold, words\n0x601C 0                                    # 0 -> the following register specifies the number of events\n0x601E $(${mesy_readout_num_events} + 2)    # IRQ-FIFO threshold, events\n\n# marking_type\n0x6038 ${mesy_eoe_marker}                   # End Of Event marking\n                                            # 0 -> event counter\n                                            # 1 -> time stamp\n                                            # 3 -> extended time stamp\n\n# multi event mode:\n0x6036 0xb                                  # 0x0 -> single event\n                                            # 0x3 -> multi event, number of words\n                                            # 0xb -> multi event, transmits number of events specified\n\n# max_transfer_data\n0x601A ${mesy_readout_num_events}           # multi event mode == 0x3 -> Berr is emitted when more or equal the\n                                            #   specified number of words have been sent and \"End Of Event\" is detected.\n                                            # multi event mode == 0xb -> Berr is emitted when the specified number\n                                            #   of events has been transmitted.\n\n# Stop the module from accepting triggers and clear the readout FIFO.\n# Acquisition will be started simultaneously for all modules in the parent\n# event by the \"Multicast DAQ Start\" script.\n0x603a 0   # stop acq\n0x603c 1   # FIFO reset\n0x6034 1   # readout reset\n\n# MCST - Multicast Setup\n# #####################################\n0x6020 0x80                                 # Enable multicast\n0x6024 0x${mesy_mcst}                       # Set 8 high bits of MCST address\n"
+            },
+            {
+                "enabled": true,
+                "id": "{687b5ba9-054d-4f9d-b691-a712f37a5071}",
+                "name": "Streaming and Sampling",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "# Streaming and Sampling Settings\n# ############################################################################\n\n#***** Sample output ********\nset sampling 0\t   \t\t# 0= no sample output, 1 = sampling.\n\n#***** Definition of sampling trails ******\nset sample_source 0 \t\t# 0 = from ADC, 1 = deconvoluted, 2 = timing filter, 3 = from shaper.\nset no_offset_correction 0 \t# 0 = offset correction; 1= no offset correction\nset no_resampling 0\t\t\t# 0 = resampling; 1 = no resampling\n\nset number_presamples 4 # 0 to 1000, number of samples before input edge appears with ADC source\nset number_samples\t12  # 2 to 1000, total number of samples required. Even number.\n\n\n\n#********************************************\n#**** From here experts only ****************\n#********************************************\n\n#***** output data format **********\nset output_format 0 \t# 0 = standard WOI format #only for experts:  4 = compact_streaming, 8 = standard_streaming\n\t\t\t\t\t\t#  Compact streaming does not support sampling\n\n#**** Firmware check *************\nread a32 d16 0x600E # firmware revision\naccu_mask_rotate 0x000000ff 32\naccu_test_warn gte 0x50 \"MDPP-32_QDC >= FW3050 required for Sampling mode\"\n\n# *** Use the variables defined above ***************\n\n# output_format register 0x6044\n# 0 (default)   -> window of interest, no samples\n# 4  -> Since SCP FW2050. Enables compact_streaming.\n# 8  -> Since SCP FW2050. Enables standard_streaming.\n# Individual bits: {sampling, standard_streaming, compact_streaming, 0,0}\n#\t\t\t\t\tdefault: window of interest: standard_streaming = 0, compact_streaming = 0\n\n0x6044 0x${sampling}${output_format}\n\n# Sampling parameter (can be set for all channels or per channel pair)\n0x6100 8\t\t\t\t\t\t# select_chan_pair, 8 = all channels\n0x6146 ${number_presamples}\t\t# number of pre-samples\n0x6148 ${number_samples}\t\t# total samples to output (even number required)\n\n# sampling source and settings [7:0]\n# bits [1:0]: sample source\n#   00 = from ADC\n#   01 = deconvoluted\n#   10 = timing filter\n#   11 = from shaper\n# settings [7:4]\n#   bit 7 set: no offset correction\n#   bit 6 set: no resampling\n0x614A $(${no_offset_correction}*128+${no_resampling}*64+${sample_source})\n"
             }
         ],
         "name": "mdpp32_qdc",
@@ -47,7 +70,7 @@
         },
         "vmeReadout": {
             "enabled": true,
-            "id": "{43fcff77-44e0-4b45-a5a1-1dd30b5cbf5a}",
+            "id": "{adda680b-d7de-4024-84ed-36e5c4b46be2}",
             "name": "Module Readout",
             "properties": {
                 "icon": ":/vme_script.png"
@@ -61,7 +84,7 @@
         },
         "vmeReset": {
             "enabled": true,
-            "id": "{b4c440de-7dfa-418a-b258-4e6034aeb324}",
+            "id": "{7d9e6013-9619-4774-a18a-584e8d341a90}",
             "name": "Module Reset",
             "properties": {
                 "icon": ":/vme_script.png"
