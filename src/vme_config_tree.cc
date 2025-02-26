@@ -976,6 +976,7 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(
         node->setText(0, script->objectName());
         node->setIcon(0, QIcon(":/vme_script.png"));
         moduleNode->addChild(node);
+        m_treeMap[script] = node;
     }
 
     // Module init nodes
@@ -984,12 +985,15 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(
         auto node = makeNode(script);
         node->setText(0, script->objectName());
         node->setIcon(0, QIcon(":/vme_script.png"));
+        node->setFlags(node->flags() | Qt::ItemIsEditable);
         moduleNode->addChild(node);
+        m_treeMap[script] = node;
     }
 
     // Readout node under the "Readout Loop" parent
     {
-        auto readoutNode = makeNode(module->getReadoutScript());
+        auto script = module->getReadoutScript();
+        auto readoutNode = makeNode(script);
         moduleNode->readoutNode = readoutNode;
         readoutNode->setText(0, module->objectName());
         readoutNode->setIcon(0, QIcon(":/vme_module.png"));
@@ -997,6 +1001,7 @@ TreeNode *VMEConfigTreeWidget::addModuleNodes(
         auto readoutLoopNode = parent->readoutLoopNode;
         // Plus one to the index to account for the "Cycle Start" node
         readoutLoopNode->insertChild(moduleIndex+1, readoutNode);
+        m_treeMap[script] = readoutNode;
     }
 
     return moduleNode;
@@ -1350,6 +1355,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Show Diagnostics"), this,
                            &VMEConfigTreeWidget::handleShowDiagnostics);
         }
+
+        menu.addSeparator();
+        menu.addAction(QIcon(":/vme_script.png"), QSL("Add Init Script"),
+                       this, &VMEConfigTreeWidget::addModuleInitScript);
+
     }
 
     // MVLC Trigger IO (note: this is a VMEScript node but with a custom icon)
@@ -1511,18 +1521,17 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     }
 
     // remove selected object
-    if (isIdle)
     {
         QString objectTypeString;
         std::function<void ()> removeFunc;
 
-        if (node && node->type() == NodeType_Event)
+        if (isIdle && node && node->type() == NodeType_Event)
         {
             objectTypeString = "Event";
             removeFunc = [this] () { removeEvent(); };
         }
 
-        if (node && node->type() == NodeType_Module)
+        if (isIdle && node && node->type() == NodeType_Module)
         {
             objectTypeString = "Module";
             removeFunc = [this] () { removeModule(); };
@@ -1530,11 +1539,15 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
         if (qobject_cast<VMEScriptConfig *>(obj) && obj->parent() && node != m_nodeMVLCTriggerIO)
         {
-            if (auto parentContainer = qobject_cast<ContainerObject *>(obj->parent()))
+            if (qobject_cast<ContainerObject *>(obj->parent()))
             {
-                (void) parentContainer;
                 objectTypeString = "VME Script";
                 removeFunc = [this] () { removeGlobalScript(); };
+            }
+            else if (qobject_cast<ModuleConfig *>(obj->parent()))
+            {
+                objectTypeString = "VME Script";
+                removeFunc = [this] () { removeModuleInitScript(); };
             }
         }
 
@@ -2207,6 +2220,52 @@ void VMEConfigTreeWidget::removeGlobalScript()
     }
 }
 
+void VMEConfigTreeWidget::addModuleInitScript()
+{
+    auto node = m_tree->currentItem();
+    if (!node) return;
+
+    auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+    if (!module) return;
+
+    node->setExpanded(true);
+
+    auto script = std::make_unique<VMEScriptConfig>();
+    script->setObjectName("new init script");
+    auto scriptRaw = script.get();
+    module->addInitScript(script.release());
+
+    // Note: in other places this is invoked from a slot, e.g.
+    // onGlobalChildAdded(). There is currently no initScriptAdded() signal in
+    // ModuleConfig, so the node is directly added instead.
+    addObjectNode(node, scriptRaw);
+    auto scriptNode = m_treeMap.value(scriptRaw, nullptr);
+    assert(scriptNode);
+
+    if (scriptNode)
+        m_tree->editItem(scriptNode, 0);
+}
+
+void VMEConfigTreeWidget::removeModuleInitScript()
+{
+    qDebug() << "removeModuleInitScript()";
+
+    auto node = m_tree->currentItem();
+    if (!node) return;
+
+    auto script = Var2Ptr<VMEScriptConfig>(node->data(0, DataRole_Pointer));
+    if (!script) return;
+
+    auto module = qobject_cast<ModuleConfig *>(script->parent());
+    if (!module) return;
+
+    if (module->removeInitScript(script))
+    {
+        assert(m_treeMap.contains(script));
+        delete m_treeMap.take(script);  // delete the node
+    }
+}
+
 enum class CollectOption { CollectAll, CollectEnabled };
 
 // Collect vme scripts in depth first order.
@@ -2410,7 +2469,8 @@ bool VMEConfigTreeWidget::canPaste() const
 
     if (clipboardData->hasFormat(MIMEType_JSON_VMEScriptConfig))
     {
-        result |= (node->type() == NodeType_Container);
+        result |= (node->type() == NodeType_Container
+            || node->type() == NodeType_Module);
     }
 
     if (clipboardData->hasFormat(MIMEType_JSON_ContainerObject))
@@ -2519,6 +2579,32 @@ void VMEConfigTreeWidget::pasteFromClipboard()
             // Tree is notified via EventConfig::moduleAdded()
             destEvent->addModuleConfig(moduleConfig);
             obj.release();
+        }
+    }
+    else if (auto vmeScriptConfig = qobject_cast<VMEScriptConfig *>(obj.get()))
+    {
+        if (auto moduleConfig = qobject_cast<ModuleConfig *>(destObj))
+        {
+            moduleConfig->addInitScript(vmeScriptConfig);
+            obj.release();
+
+            // FIXME: similar code as in addModuleInitScript()
+            addObjectNode(node, vmeScriptConfig);
+            auto scriptNode = m_treeMap.value(vmeScriptConfig, nullptr);
+            assert(scriptNode);
+
+            if (scriptNode)
+                m_tree->editItem(scriptNode, 0);
+        }
+        else if (auto destContainer = qobject_cast<ContainerObject *>(destObj))
+        {
+            obj->setObjectName(make_unique_name(obj.get(), destContainer));
+
+            destContainer->addChild(obj.get());
+            obj.release();
+
+            if (node)
+                node->setExpanded(true);
         }
     }
     else

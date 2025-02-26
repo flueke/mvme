@@ -121,6 +121,8 @@ class LIBMVME_EXPORT VMEConfigTreeWidget: public QWidget
         void addScriptDirectory();
         void removeDirectoryRecursively();
         void removeGlobalScript();
+        void addModuleInitScript();
+        void removeModuleInitScript();
 
         void runScripts();
         void editName();
