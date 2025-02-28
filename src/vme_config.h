@@ -377,6 +377,8 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
             return modules.size();
         }
 
+        bool hasEnabledModules() const;
+
         QList<ModuleConfig *> getModuleConfigs() const { return modules; }
 
         ModuleConfig *getModuleConfig(int moduleIndex) const { return modules.value(moduleIndex); }

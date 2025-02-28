@@ -459,14 +459,17 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
     for (const auto &eventConfig: eventConfigs)
     {
-        auto eventName = eventConfig->objectName().toStdString();
+        if (eventConfig->hasEnabledModules())
+        {
+            auto eventName = eventConfig->objectName().toStdString();
 
-        auto script = eventConfig->vmeScripts["daq_start"];
+            auto script = eventConfig->vmeScripts["daq_start"];
 
-        add_stack_group(
-            dstConfig.mcstDaqStart,
-            eventName + "." + script->objectName().toStdString(),
-            mesytec::mvme::parse(script));
+            add_stack_group(
+                dstConfig.mcstDaqStart,
+                eventName + "." + script->objectName().toStdString(),
+                mesytec::mvme::parse(script));
+        }
     }
 
     // mcst daq stop
@@ -474,14 +477,17 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 
     for (const auto &eventConfig: eventConfigs)
     {
-        auto eventName = eventConfig->objectName().toStdString();
+        if (eventConfig->hasEnabledModules())
+        {
+            auto eventName = eventConfig->objectName().toStdString();
 
-        auto script = eventConfig->vmeScripts["daq_stop"];
+            auto script = eventConfig->vmeScripts["daq_stop"];
 
-        add_stack_group(
-            dstConfig.mcstDaqStop,
-            eventName + "." + script->objectName().toStdString(),
-            mesytec::mvme::parse(script));
+            add_stack_group(
+                dstConfig.mcstDaqStop,
+                eventName + "." + script->objectName().toStdString(),
+                mesytec::mvme::parse(script));
+        }
     }
 
     return dstConfig;

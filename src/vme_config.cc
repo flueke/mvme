@@ -603,6 +603,13 @@ EventConfig::EventConfig(QObject *parent)
     triggerOptions[QSL("sis3153.timer_period")] = 1.0;
 }
 
+bool EventConfig::hasEnabledModules() const
+{
+    return std::any_of(modules.begin(), modules.end(), [](ModuleConfig *module) {
+        return module->isEnabled();
+    });
+}
+
 const VMEConfig *EventConfig::getVMEConfig() const
 {
     return qobject_cast<const VMEConfig *>(parent());
