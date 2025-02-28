@@ -2016,8 +2016,8 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
         virtual void write(QJsonObject &json) const override;
 
         // Info
-        virtual QString getDisplayName() const override { return QSL("Event History Recorder"); }
-        virtual QString getShortName() const override { return QSL("EventHistory"); }
+        virtual QString getDisplayName() const override { return QSL("Waveform Viewer"); }
+        virtual QString getShortName() const override { return QSL("Waveforms"); }
 
         virtual size_t getStorageSize() const override;
 
