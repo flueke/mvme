@@ -798,10 +798,12 @@ TriggerIOGraphicsScene::TriggerIOGraphicsScene(
                 16, // outputConnectorMargin
                 result.parent);
 
+            int irq = 1;
             for (auto c: result.irqItem->inputConnectors())
             {
                 c->setEnabled(false);
                 c->setBrush(gfx::Connector_Brush_Disabled);
+                c->setLabel(QSL("IRQ%1").arg(irq++));
             }
 
             result.irqItem->moveBy(25, 25);
