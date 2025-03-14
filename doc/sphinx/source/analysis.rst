@@ -1193,59 +1193,55 @@ dialog found in the context menu of each module in the analysis UI.
 Event Builder
 ~~~~~~~~~~~~~
 
-.. todo: improve the event builder description
-
 Since version 1.4.7 mvme contains a timestamp based EventBuilder module which
 can be enabled if using the MVLC VME Controller. The purpose of the
 EventBuilder is to create optimally matched events across modules while
 tolerating non-perfect trigger setups.
 
-The system works by buffering up readout data from modules belonging to the
-same event. Once a certain buffer threshold for the reference module (a user
-chosen module that is guaranteed to have produced readout data for events we
-are interested in) is reached the event building starts:
+.. note::
+   In mvme-1.15.2 the EventBuilder has been reimplemented to yield better
+   results while also having a simpler configuration. The description below
+   refers to this new implementation.
 
-   For each module-event the module timestamp is extracted and compared to the
-   timestamp of the reference module. A user defined time window specifies the
-   maximum timestamp delta relative to the reference timestamp that is acceptable
-   for the module-event to be included in the fully assembled output event.
+The EventBuilder algorithm works as follows:
 
-.. raw:: latex
+#. Recording phase
 
-   \clearpage
+   #. Record incoming module data into memory buffers.
 
-Example: ::
+   #. Extract an event timestamp for each module.
 
-         Buffered input events. (*) Marks the reference module.
+   #. Apply the configured module timestamp offsets.
 
-             mod0          mod1(*)        mod2
-          +--------+     +--------+    +--------+
-          |  ev00  |     |  ev10  |    |  ev20  |
-          |  ev01  |     |  ev11  |    |  ev21  |
-          |  ev02  |     |  ev12  |    |  ev22  |
-          |  ev03  |     |  ev13  |    |  ev23  |
-          |        |     |  ev14  |    |  ev24  |
-          +--------+     +--------+    +--------+
+   #. Record all extracted stamps in a list. This can be seen like a virtual
+      module containing the timestamps of all incoming modules.
 
-         A possible sequence of output events could look like this:
+#. Yield data
 
-             mod0          mod1(*)        mod2
-          +--------+     +--------+    +--------+
-    out0  |  ev01  |     |  ev10  |    |  ev21  |
-    out1  |  ev02  |     |  ev11  |    |  ev22  |
-    out2  |  ev03  |     |  ev12  |    |  ev23  |
-    out3  |  null  |     |  ev13  |    |  ev24  |
-    out4  |  null  |     |  ev14  |    |  null  |
-          +--------+     +--------+    +--------+
+   #. Pick the oldest stamp from the virtual stamp list. This is the reference stamp for this cycle.
 
-Given the above output ``ev00`` and ``ev20`` where outside the lower end of
-their respective timestamp window, i.e. both events where too old to be
-included in the output event ``out0``.
+   #. Ensure all modules have at least one timestamp that is too far in the
+      future to be included in the output event.
+      If this is not the case no data can be flushed yet and the yield phase
+      terminates.
 
-The following output events include data from all modules, until we run out of
-buffered events for ``mod0`` and then ``mod2``. As we still do have main module
-events to yield the missing modules will be set to null in the remaining output
-events.
+   #. Discard module data that is too old to fall into a modules timestamp match window.
+
+   #. For each module pick the first recorded stamp that falls into the match
+      window. Use the corresponding module data for the output event.
+
+      Break if a match was found or the next recorded module stamp is too far in the future.
+
+   #. If there is at least one module with non-empty output data, yield the output event.
+
+   #. Remove the used reference stamp from the stamp list.
+
+   #. Repeat until no timestamp match is possible anymore, meaning there is no
+      more data or all data is too far in the future.
+
+.. .. raw:: latex
+..
+..    \clearpage
 
 .. note::
    Timestamp extraction is currently hard-coded to work with the non-extended
@@ -1253,14 +1249,19 @@ events.
 
    Event building is only implemented for the mesytec MVLC controller.
 
-Event Building can be enabled in the ``Event Settings`` dialog. The reference
-module, timestamp windows and minimum number of buffered events can set in
-``Event Settings -> Event Builder Settings``. Changes are applied when
-restarting the DAQ/replay.
+Event Building can be enabled in the ``Event Settings`` dialog. The timestamp offset and match windows can be set in
+``Event Settings -> Event Builder Settings``.
 
 .. figure:: images/analysis_event_builder_settings.*
 
     Event Builder Settings
+
+A tool to monitor the EventBuilder operation is available via the ``Event Builder Monitor`` button in the analysis window.
+This monitor prints internal counters and shows timestamp delta histograms for all module pairs.
+
+.. figure:: images/analysis_event_builder_monitor.*
+
+    Event Builder Monitor
 
 
 More UI structuring and interactions
