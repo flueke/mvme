@@ -95,6 +95,8 @@ TEST(MultiEventSplitter, WithSizeSameCount)
     { std::vector<u32> expected = { 0x0201, 0x2221 }; ASSERT_EQ(splitEvents[1][0], expected); }
     { std::vector<u32> expected = { 0x0201, 0x2222 }; ASSERT_EQ(splitEvents[1][1], expected); }
     { std::vector<u32> expected = { 0x0201, 0x2223 }; ASSERT_EQ(splitEvents[1][2], expected); }
+
+    ASSERT_EQ(splitter.processingFlags, 0);
 }
 
 TEST(MultiEventSplitter, WithSizeMissingCount)
@@ -182,6 +184,8 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
     ASSERT_TRUE(splitEvents[1].size() == 2);
     { std::vector<u32> expected = { 0x0201, 0x2221 }; ASSERT_EQ(splitEvents[1][0], expected); }
     { std::vector<u32> expected = { 0x0201, 0x2222 }; ASSERT_EQ(splitEvents[1][1], expected); }
+
+    ASSERT_EQ(splitter.processingFlags, 0);
 }
 
 TEST(MultiEventSplitter, WithSizeExceeded)
@@ -272,6 +276,8 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     { std::vector<u32> expected = { 0x0201, 0x2221 }; ASSERT_EQ(splitEvents[1][0], expected); }
     { std::vector<u32> expected = { 0x0201, 0x2222 }; ASSERT_EQ(splitEvents[1][1], expected); }
     { std::vector<u32> expected = { 0x0202, 0x2223 }; ASSERT_EQ(splitEvents[1][2], expected); }
+
+    ASSERT_NE(splitter.processingFlags, 0);
 }
 
 TEST(MultiEventSplitter, NoSizeSameCount)
@@ -372,6 +378,8 @@ TEST(MultiEventSplitter, NoSizeSameCount)
     { std::vector<u32> expected = { 0x0200, 0x2011, 0x2012 }; ASSERT_EQ(splitEvents[1][0], expected); }
     { std::vector<u32> expected = { 0x0200, 0x2021, 0x2022 }; ASSERT_EQ(splitEvents[1][1], expected); }
     { std::vector<u32> expected = { 0x0200, 0x2031, 0x2032 }; ASSERT_EQ(splitEvents[1][2], expected); }
+
+    ASSERT_EQ(splitter.processingFlags, 0);
 }
 
 TEST(MultiEventSplitter, NoSizeMissingCount)
@@ -514,7 +522,7 @@ TEST(MultiEventSplitter, SplitSizeMatch)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    split_module_data(filter, input, output);
+    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::Ok);
 
     ASSERT_EQ(output.size(), 3);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
@@ -548,7 +556,7 @@ TEST(MultiEventSplitter, SplitSizeMatchOverflow)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    split_module_data(filter, input, output);
+    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::ModuleSizeExceedsBuffer);
 
     ASSERT_EQ(output.size(), 2);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
@@ -580,7 +588,7 @@ TEST(MultiEventSplitter, SplitNoSize)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    split_module_data(filter, input, output);
+    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::Ok);
 
     ASSERT_EQ(output.size(), 3);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
@@ -614,7 +622,7 @@ TEST(MultiEventSplitter, SplitNoMatch)
     input.hasDynamic = true;
 
     std::vector<ModuleData> output;
-    split_module_data(filter, input, output);
+    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::ModuleHeaderMismatch);
 
     ASSERT_EQ(output.size(), 1);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }

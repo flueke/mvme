@@ -93,6 +93,10 @@ const TheMultiEventSplitterErrorCategory theMultiEventSplitterErrorCategory {};
 namespace mesytec::mvme::multi_event_splitter
 {
 
+const u32 State::ProcessingFlags::Ok;
+const u32 State::ProcessingFlags::ModuleHeaderMismatch;
+const u32 State::ProcessingFlags::ModuleSizeExceedsBuffer;
+
 namespace
 {
     Counters make_counters(const std::vector<std::vector<std::string>> &splitFilterStrings)
@@ -196,8 +200,11 @@ inline std::error_code begin_event(State &state, int ei)
 }
 
 // No suffix handling!
-inline void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filter,
-                       const mvlc::readout_parser::ModuleData &input, std::vector<mvlc::readout_parser::ModuleData> &output)
+// Returns State::ProcessingFlags
+inline u32 split_dynamic_part(
+    const mesytec::mvlc::util::FilterWithCaches &filter,
+    const mvlc::readout_parser::ModuleData &input,
+    std::vector<mvlc::readout_parser::ModuleData> &output)
 {
     assert(input.hasDynamic && input.dynamicSize > 0);
 
@@ -207,6 +214,8 @@ inline void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filt
     std::basic_string_view<u32> data(dynamic_span(input).data, dynamic_span(input).size);
     assert(!data.empty());
 
+    u32 result = 0;
+
     while (!data.empty())
     {
         if (mesytec::mvlc::util::matches(filter.filter, data.front()))
@@ -214,6 +223,10 @@ inline void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filt
             if (filterSizeCache)
             {
                 u32 size = 1 + mesytec::mvlc::util::extract(*filterSizeCache, data.front());
+
+                if (size > data.size())
+                    result |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
+
                 current.dynamicSize = std::min(size, static_cast<u32>(data.size()));
                 current.hasDynamic = true;
                 data.remove_prefix(current.dynamicSize);
@@ -242,6 +255,9 @@ inline void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filt
         }
         else
         {
+            if (filterSizeCache)
+                result |= State::ProcessingFlags::ModuleHeaderMismatch;
+
             // no header match: consume all remaining data
             current.dynamicSize = data.size();
             current.hasDynamic = true;
@@ -255,9 +271,11 @@ inline void split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filt
         current.data.data = data.data();
         current.data.size = data.size();
     }
+
+    return result;
 }
 
-void split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
+u32 split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
                        const State::ModuleData &input,
                        std::vector<State::ModuleData> &output)
 {
@@ -265,11 +283,11 @@ void split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
     if (!input.hasDynamic || input.dynamicSize == 0)
     {
         output.emplace_back(input);
-        return;
+        return 0;
     }
 
     assert(size_consistency_check(input));
-    split_dynamic_part(filter, input, output);
+    auto result = split_dynamic_part(filter, input, output);
     for (const auto &moduleData: output)
     {
         assert(size_consistency_check(moduleData));
@@ -277,6 +295,8 @@ void split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
     assert(!output.empty());
     assert(output.front().data.data == input.data.data);
     // TODO: handle input.suffix or warn + status?
+
+    return result;
 }
 
 std::error_code event_data(
@@ -312,7 +332,16 @@ std::error_code event_data(
 
     for (unsigned mi=0; mi<moduleCount; ++mi)
     {
-        split_module_data(state.splitFilters[ei][mi], moduleDataList[mi], state.splitModuleData[mi]);
+        auto splitResult = split_module_data(state.splitFilters[ei][mi], moduleDataList[mi], state.splitModuleData[mi]);
+
+        if (splitResult & State::ProcessingFlags::ModuleHeaderMismatch)
+            ++state.counters.moduleHeaderMismatches[ei][mi];
+
+        if (splitResult & State::ProcessingFlags::ModuleSizeExceedsBuffer)
+            ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
+
+        state.processingFlags |= splitResult;
+
         for (const auto &moduleData: state.splitModuleData[mi])
         {
             assert(size_consistency_check(moduleData));

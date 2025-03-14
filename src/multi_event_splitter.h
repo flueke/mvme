@@ -128,6 +128,8 @@ struct State
 
     struct ProcessingFlags
     {
+        static const u32 Ok = 0;
+
         // Set if the next expected module header word did not match the modules
         // header filter.
         static const u32 ModuleHeaderMismatch = 1u << 0;
@@ -153,6 +155,7 @@ struct State
     // Used to communicate non-fatal error/warning conditions to the outside.
     // Reset this before calling event_data(), then examine the value to
     // determine if error/warning cases occured.
+    // TODO: reset at the start of event_data()? would simplify the interface.
     u32 processingFlags = {};
 };
 
@@ -184,9 +187,11 @@ std::error_code LIBMVME_EXPORT event_data(
     State &state, Callbacks &callbacks,
     void *userContext, int ei, const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
 
-void LIBMVME_EXPORT split_module_data(const mvlc::util::FilterWithCaches &filter,
-                       const State::ModuleData &input,
-                       std::vector<State::ModuleData> &output);
+// Split the dynamic part of the input module data into separate events.
+// Returns State::ProecssingFlags
+u32 LIBMVME_EXPORT split_module_data(const mvlc::util::FilterWithCaches &filter,
+                                     const State::ModuleData &input,
+                                     std::vector<State::ModuleData> &output);
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 
