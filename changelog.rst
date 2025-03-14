@@ -7,11 +7,30 @@ Changelog
 Version 1.16.0
 --------------------------------------------------
 
-* Event Builder: add module timestamp delta histograms and more detailed counters.
-
 * Updated MVLC DAQ start sequence order to fix initial timestamp sync under very
   high trigger load: MVLC DAQ mode is now enabled _after_ the MCST DAQ start sequence,
-  not before.
+  not before. Note: this breaks multicrate. Will be fixed in an upcoming
+  firmware+software release.
+
+* Event Builder:
+
+  - Add module timestamp delta histograms and more detailed counters.
+
+  - Improve the configuration ui.
+
+* vme_templates:
+
+  - Add new MVLC trigger signal mappings implemented since MVLC FW0041
+
+  - Add the new trigger signal mappings to the TRIVA7 master init script
+
+  - Add/update the 'Streaming and Sampling' init scripts for MDPP modules.
+
+* analysis:
+
+  - Improve the MDPP Sample Trace viewer.
+
+  - Updates for the upcoming MDPP-32 firmware with Sampling support.
 
 Version 1.15.2
 --------------------------------------------------
