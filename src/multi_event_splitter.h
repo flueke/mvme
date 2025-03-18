@@ -24,15 +24,14 @@
 #include <bitset>
 #include <functional>
 #include <map>
+#include <mesytec-mvlc/mvlc_readout_parser.h>
+#include <mesytec-mvlc/util/data_filter.h>
+#include <mesytec-mvlc/util/fmt.h>
 #include <sstream>
 #include <string>
 #include <system_error>
 #include <utility>
 #include <vector>
-#include <mesytec-mvlc/mvlc_readout_parser.h>
-#include <mesytec-mvlc/util/data_filter.h>
-#include <mesytec-mvlc/util/fmt.h>
-
 
 #include "libmvme_export.h"
 
@@ -99,16 +98,18 @@ struct Callbacks
     mvlc::readout_parser::ReadoutParserCallbacks::EventData eventData;
 
     // Optional logger callback.
-    std::function<void (void *userContext, const std::string &msg)>
-        logger = [] (void *, const std::string &) {};
+    //std::function<void(void *userContext, const std::string &msg)> logger =
+    //    [](void *, const std::string &) {};
 };
 
 struct Counters
 {
-    std::vector<size_t> inputEvents; // number of input events by zero based event index
+    std::vector<size_t> inputEvents;  // number of input events by zero based event index
     std::vector<size_t> outputEvents; // numer of output events by zero based event index
-    std::vector<std::vector<size_t>> inputModules; // [eventIndex, moduleIndex] -> number of input events per module
-    std::vector<std::vector<size_t>> outputModules; // [eventIndex, moduleIndex] -> number of output events per module
+    std::vector<std::vector<size_t>>
+        inputModules; // [eventIndex, moduleIndex] -> number of input events per module
+    std::vector<std::vector<size_t>>
+        outputModules; // [eventIndex, moduleIndex] -> number of output events per module
     size_t eventIndexOutOfRange = 0;
     size_t moduleIndexOutOfRange = 0;
 
@@ -122,40 +123,53 @@ struct Counters
     std::vector<std::vector<size_t>> moduleEventSizeExceedsBuffer;
 };
 
+struct ProcessingFlags
+{
+    static const u32 Ok = 0;
+
+    // Set if the next expected module header word did not match the modules
+    // header filter.
+    static const u32 ModuleHeaderMismatch = 1u << 0;
+
+    // Set if the extracted or calculated module data size exceeds the input
+    // buffer size.
+    static const u32 ModuleSizeExceedsBuffer = 1u << 1;
+};
+
+using ModuleData = mvlc::readout_parser::ModuleData;
+
+struct ModuleDataWithDebugInfo
+{
+    ModuleData md;
+    u32 flags = 0; // ProcessingFlags resulting from this split.
+};
+
 struct State
 {
-    using ModuleData = mvlc::readout_parser::ModuleData;
-
-    struct ProcessingFlags
-    {
-        static const u32 Ok = 0;
-
-        // Set if the next expected module header word did not match the modules
-        // header filter.
-        static const u32 ModuleHeaderMismatch = 1u << 0;
-
-        // Set if the extracted or calculated module data size exceeds the input
-        // buffer size.
-        static const u32 ModuleSizeExceedsBuffer = 1u << 1;
-    };
-
     // DataFilters used for module header matching and size extraction grouped
     // by event and module indexes.
     std::vector<std::vector<mvlc::util::FilterWithCaches>> splitFilters;
 
+    // Output crateIndex used when invoking the callbacks.
+    int outputCrateIndex = 0;
+
     // Storage to record pointers into the incoming (multievent) module data.
-    std::vector<mvlc::readout_parser::ModuleData> dataSpans;
-    std::vector<std::vector<mvlc::readout_parser::ModuleData>> splitModuleData;
+    // Used when invoking the output eventData callback.
+    std::vector<ModuleData> dataSpans;
+
+    // For each event and module stores split module data and debug info. As
+    // above only pointers and size information is stored, the actual data is
+    // not copied. Filled in event_data() and valid after the call returns.
+    std::vector<std::vector<ModuleDataWithDebugInfo>> splitModuleData;
 
     // Bit N is set if splitting is enabled for corresponding event index.
-    std::bitset<MaxVMEEvents+1> enabledForEvent;
+    std::bitset<MaxVMEEvents + 1> enabledForEvent;
 
     Counters counters;
 
     // Used to communicate non-fatal error/warning conditions to the outside.
-    // Reset this before calling event_data(), then examine the value to
-    // determine if error/warning cases occured.
-    // TODO: reset at the start of event_data()? would simplify the interface.
+    // The flag is reset at the start of event_data(). Examine it after the call
+    // returns.
     u32 processingFlags = {};
 };
 
@@ -170,12 +184,15 @@ struct State
 // of the first event doesn't have the 'S' match character so repeated
 // matching will be performed to find the next header. For the other modules
 // the event size can be directly extracted using the filter.
-std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings);
+std::pair<State, std::error_code>
+make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings,
+              int outputCrateIndex = 0);
 
 enum class ErrorCode : u8
 {
     Ok,
-    // event_data() was called with an event index >= the number of events in the splitFilterString vector
+    // event_data() was called with an event index >= the number of events in the splitFilterString
+    // vector
     EventIndexOutOfRange,
     ModuleIndexOutOfRange,
     MaxVMEEventsExceeded,
@@ -183,15 +200,16 @@ enum class ErrorCode : u8
 };
 
 // The main multi_event_splitter entry point taking a parsed module data list.
-std::error_code LIBMVME_EXPORT event_data(
-    State &state, Callbacks &callbacks,
-    void *userContext, int ei, const mvlc::readout_parser::ModuleData *moduleDataList, unsigned moduleCount);
+std::error_code LIBMVME_EXPORT event_data(State &state, Callbacks &callbacks, void *userContext,
+                                          int ei,
+                                          const ModuleData *moduleDataList,
+                                          unsigned moduleCount);
 
 // Split the dynamic part of the input module data into separate events.
 // Returns State::ProecssingFlags
 u32 LIBMVME_EXPORT split_module_data(const mvlc::util::FilterWithCaches &filter,
-                                     const State::ModuleData &input,
-                                     std::vector<State::ModuleData> &output);
+                                     const ModuleData &input,
+                                     std::vector<ModuleDataWithDebugInfo> &output);
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 
@@ -202,7 +220,9 @@ std::ostream &format_counters_tabular(std::ostream &out, const Counters &counter
 
 namespace std
 {
-    template<> struct is_error_code_enum<mesytec::mvme::multi_event_splitter::ErrorCode>: true_type {};
+template <> struct is_error_code_enum<mesytec::mvme::multi_event_splitter::ErrorCode>: true_type
+{
+};
 } // end namespace std
 
 #endif /* __MVME_MULTI_EVENT_SPLITTER_H__ */

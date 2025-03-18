@@ -8,7 +8,6 @@ using namespace mesytec;
 using namespace mesytec::mvme::multi_event_splitter;
 
 using DataBlock = mvlc::readout_parser::DataBlock;
-using ModuleData = State::ModuleData;
 
 TEST(MultiEventSplitter, WithSizeSameCount)
 {
@@ -277,7 +276,7 @@ TEST(MultiEventSplitter, WithSizeExceeded)
     { std::vector<u32> expected = { 0x0201, 0x2222 }; ASSERT_EQ(splitEvents[1][1], expected); }
     { std::vector<u32> expected = { 0x0202, 0x2223 }; ASSERT_EQ(splitEvents[1][2], expected); }
 
-    ASSERT_NE(splitter.processingFlags, 0);
+    ASSERT_EQ(splitter.processingFlags, ProcessingFlags::ModuleSizeExceedsBuffer);
 }
 
 TEST(MultiEventSplitter, NoSizeSameCount)
@@ -476,6 +475,8 @@ TEST(MultiEventSplitter, NoSizeMissingCount)
     { std::vector<u32> expected = { 0x0200, 0x2011, 0x2012 }; ASSERT_EQ(splitEvents[1][0], expected); }
     { std::vector<u32> expected = { 0x0200, 0x2021, 0x2022 }; ASSERT_EQ(splitEvents[1][1], expected); }
 
+    ASSERT_EQ(splitter.processingFlags, 0);
+
     format_counters(std::cout, splitter.counters);
     std::cout << std::endl;
     format_counters_tabular(std::cout, splitter.counters);
@@ -521,14 +522,14 @@ TEST(MultiEventSplitter, SplitSizeMatch)
     input.dynamicSize = data.size() - input.prefixSize;
     input.hasDynamic = true;
 
-    std::vector<ModuleData> output;
-    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::Ok);
+    std::vector<ModuleDataWithDebugInfo> output;
+    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::Ok);
 
     ASSERT_EQ(output.size(), 3);
-    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(dynamic_span(output[1]), expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[2]), expected); }
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0].md), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(dynamic_span(output[1].md), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[2].md), expected); }
 
 }
 
@@ -555,13 +556,13 @@ TEST(MultiEventSplitter, SplitSizeMatchOverflow)
     input.dynamicSize = data.size() - input.prefixSize;
     input.hasDynamic = true;
 
-    std::vector<ModuleData> output;
-    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::ModuleSizeExceedsBuffer);
+    std::vector<ModuleDataWithDebugInfo> output;
+    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::ModuleSizeExceedsBuffer);
 
     ASSERT_EQ(output.size(), 2);
-    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
-    { std::vector<u32> expected = { 0x0104, 0x1112, 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[1]), expected); }
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0].md), expected); }
+    { std::vector<u32> expected = { 0x0104, 0x1112, 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[1].md), expected); }
 }
 
 TEST(MultiEventSplitter, SplitNoSize)
@@ -587,14 +588,14 @@ TEST(MultiEventSplitter, SplitNoSize)
     input.dynamicSize = data.size() - input.prefixSize;
     input.hasDynamic = true;
 
-    std::vector<ModuleData> output;
-    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::Ok);
+    std::vector<ModuleDataWithDebugInfo> output;
+    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::Ok);
 
     ASSERT_EQ(output.size(), 3);
-    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(dynamic_span(output[1]), expected); }
-    { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[2]), expected); }
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1111 }; ASSERT_EQ(dynamic_span(output[0].md), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1112 }; ASSERT_EQ(dynamic_span(output[1].md), expected); }
+    { std::vector<u32> expected = { 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[2].md), expected); }
 
 }
 
@@ -621,10 +622,10 @@ TEST(MultiEventSplitter, SplitNoMatch)
     input.dynamicSize = data.size() - input.prefixSize;
     input.hasDynamic = true;
 
-    std::vector<ModuleData> output;
-    ASSERT_EQ(split_module_data(filter, input, output), State::ProcessingFlags::ModuleHeaderMismatch);
+    std::vector<ModuleDataWithDebugInfo> output;
+    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::ModuleHeaderMismatch);
 
     ASSERT_EQ(output.size(), 1);
-    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0]), expected); }
-    { std::vector<u32> expected = { 0x0201, 0x1111, 0x0101, 0x1112, 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[0]), expected); }
+    { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }
+    { std::vector<u32> expected = { 0x0201, 0x1111, 0x0101, 0x1112, 0x0101, 0x1113 }; ASSERT_EQ(dynamic_span(output[0].md), expected); }
 }

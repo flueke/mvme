@@ -4494,7 +4494,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         out << "</pre></body></html>";
     }
 
-    using ModuleData = mesytec::mvme::multi_event_splitter::State::ModuleData;
+    using ModuleData = mesytec::mvme::multi_event_splitter::ModuleData;
     bool usesMultiEventSplitting = uses_multi_event_splitting(*vmeConfig, *analysis);
     std::error_code multiEventSplitterError;
     mesytec::mvme::multi_event_splitter::State multiEventSplitter;
@@ -4528,42 +4528,14 @@ void MVLCParserDebugHandler::handleDebugInfo(
             }
             else
             {
-                // Factory function for module callbacks which log their input data.
-                auto make_module_callback = [&splitterOut] (const QString &typeString)
-                {
-                    return [&splitterOut, typeString] (int ei, int mi, const u32 *data, u32 size)
-                    {
-                        splitterOut << QString("  module%1, ei=%2, mi=%3, size=%4:")
-                            .arg(typeString).arg(ei).arg(mi).arg(size)
-                            << endl;
-
-                        ::logBuffer(BufferIterator(const_cast<u32 *>(data), size),
-                                    [&splitterOut] (const QString &str)
-                                    {
-                                        splitterOut << "    " << str << endl;
-                                    });
-                    };
-                };
-
-                splitterCallbacks.eventData = [&splitterOut, make_module_callback] (
+                // Not used anymore, instead better debug output is generated
+                // after the call to multi_event_splitter::event_data().
+                splitterCallbacks.eventData = [] (
                     void *, int /*crateIndex*/, int ei, const ModuleData *moduleDataList, unsigned moduleCount)
                 {
-                    splitterOut << "beginEvent(ei=" << ei << ")" << endl;
-
-                    for (unsigned mi=0; mi<moduleCount; ++mi)
-                    {
-                        auto &moduleData = moduleDataList[mi];
-
-                        make_module_callback("Data")(
-                            ei, mi, moduleData.data.data, moduleData.data.size);
-                    }
-
-                    splitterOut << "endEvent(ei=" << ei << ")" << endl;
-                };
-
-                splitterCallbacks.logger = [&splitterOut] (void *, const std::string &msg)
-                {
-                    splitterOut << QSL("Error: ") <<  msg.c_str();
+                    (void) ei;
+                    (void) moduleDataList;
+                    (void) moduleCount;
                 };
             }
         }
@@ -4608,6 +4580,48 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 mesytec::mvme::multi_event_splitter::event_data(
                     multiEventSplitter, splitterCallbacks,
                     nullptr, ei, moduleDataList, moduleCount);
+
+                // Iterate over multiEventSplitter.splitModuleData and produce
+                // more detailed output than would be possible from within the
+                // callback above.
+                const auto &splitModuleData = multiEventSplitter.splitModuleData;
+
+                size_t maxEventCount = 0;
+                for (unsigned mi = 0; mi < moduleCount; ++mi)
+                    maxEventCount = std::max(maxEventCount, splitModuleData[mi].size());
+
+                for (size_t outIdx = 0; outIdx < maxEventCount; ++outIdx)
+                {
+                    for (unsigned mi = 0; mi < moduleCount; ++mi)
+                    {
+                        if (outIdx < splitModuleData[mi].size())
+                        {
+                            const auto &moduleData = splitModuleData[mi][outIdx];
+                            splitterOut << QString("  moduleSplit, ei=%2, mi=%3, size=%4:")
+                                .arg(ei).arg(mi).arg(moduleData.md.data.size);
+
+                            if (moduleData.flags & mesytec::mvme::multi_event_splitter::ProcessingFlags::ModuleHeaderMismatch)
+                                splitterOut << "error: ModuleHeaderMismatch";
+
+                            if (moduleData.flags & mesytec::mvme::multi_event_splitter::ProcessingFlags::ModuleSizeExceedsBuffer)
+                                splitterOut << "error: ModuleSizeExceedsBuffer";
+
+                            splitterOut << endl;
+
+                            ::logBuffer(BufferIterator(const_cast<u32 *>(moduleData.md.data.data), moduleData.md.data.size),
+                                        [&splitterOut] (const QString &str)
+                                        {
+                                            splitterOut << "    " << str << endl;
+                                        });
+                        }
+                        else
+                        {
+                            splitterOut << QSL("  module%1, ei=%2, mi=%3: no data")
+                                .arg("Split").arg(ei).arg(mi) << endl;
+                        }
+                    }
+                }
+
                 splitterOut << "========================================" << endl;
             }
         };

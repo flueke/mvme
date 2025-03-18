@@ -24,9 +24,9 @@
 #include <mesytec-mvlc/util/io_util.h>
 #include <spdlog/spdlog.h>
 
-#define LOG_LEVEL_OFF     0
-#define LOG_LEVEL_WARN  100
-#define LOG_LEVEL_INFO  200
+#define LOG_LEVEL_OFF 0
+#define LOG_LEVEL_WARN 100
+#define LOG_LEVEL_INFO 200
 #define LOG_LEVEL_DEBUG 300
 #define LOG_LEVEL_TRACE 400
 
@@ -36,29 +36,31 @@
 
 #define LOG_LEVEL_SETTING MULTI_EVENT_SPLITTER_LOG_LEVEL
 
-#define DO_LOG(level, prefix, fmt, ...)\
-do\
-{\
-    if (LOG_LEVEL_SETTING >= level)\
-    {\
-        fprintf(stderr, prefix "%s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);\
-    }\
-} while (0);
+#define DO_LOG(level, prefix, fmt, ...)                                                            \
+    do                                                                                             \
+    {                                                                                              \
+        if (LOG_LEVEL_SETTING >= level)                                                            \
+        {                                                                                          \
+            fprintf(stderr, prefix "%s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);         \
+        }                                                                                          \
+    }                                                                                              \
+    while (0);
 
-#define LOG_WARN(fmt, ...)  DO_LOG(LOG_LEVEL_WARN,  "WARN - multi_event_splitter ", fmt, ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...)  DO_LOG(LOG_LEVEL_INFO,  "INFO - multi_event_splitter ", fmt, ##__VA_ARGS__)
-#define LOG_DEBUG(fmt, ...) DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - multi_event_splitter ", fmt, ##__VA_ARGS__)
-#define LOG_TRACE(fmt, ...) DO_LOG(LOG_LEVEL_TRACE, "TRACE - multi_event_splitter ", fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...)                                                                         \
+    DO_LOG(LOG_LEVEL_WARN, "WARN - multi_event_splitter ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)                                                                         \
+    DO_LOG(LOG_LEVEL_INFO, "INFO - multi_event_splitter ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...)                                                                        \
+    DO_LOG(LOG_LEVEL_DEBUG, "DEBUG - multi_event_splitter ", fmt, ##__VA_ARGS__)
+#define LOG_TRACE(fmt, ...)                                                                        \
+    DO_LOG(LOG_LEVEL_TRACE, "TRACE - multi_event_splitter ", fmt, ##__VA_ARGS__)
 
 namespace
 {
 
 class TheMultiEventSplitterErrorCategory: public std::error_category
 {
-    const char *name() const noexcept override
-    {
-        return "multi_event_splitter";
-    }
+    const char *name() const noexcept override { return "multi_event_splitter"; }
 
     std::string message(int ev) const override
     {
@@ -66,69 +68,72 @@ class TheMultiEventSplitterErrorCategory: public std::error_category
 
         switch (static_cast<ErrorCode>(ev))
         {
-            case ErrorCode::Ok:
-                return "Ok";
+        case ErrorCode::Ok:
+            return "Ok";
 
-            case ErrorCode::EventIndexOutOfRange:
-                return "Event index out of range";
+        case ErrorCode::EventIndexOutOfRange:
+            return "Event index out of range";
 
-            case ErrorCode::ModuleIndexOutOfRange:
-                return "Module index out of range";
+        case ErrorCode::ModuleIndexOutOfRange:
+            return "Module index out of range";
 
-            case ErrorCode::MaxVMEEventsExceeded:
-                return fmt::format("Maximum number of VME events ({}) exceeded", MaxVMEEvents);
+        case ErrorCode::MaxVMEEventsExceeded:
+            return fmt::format("Maximum number of VME events ({}) exceeded", MaxVMEEvents);
 
-            case ErrorCode::MaxVMEModulesExceeded:
-                return fmt::format("Maximum number of VME modules ({}) exceeded", MaxVMEModules);
+        case ErrorCode::MaxVMEModulesExceeded:
+            return fmt::format("Maximum number of VME modules ({}) exceeded", MaxVMEModules);
         }
 
         return "unrecognized multi_event_splitter error";
     }
 };
 
-const TheMultiEventSplitterErrorCategory theMultiEventSplitterErrorCategory {};
+const TheMultiEventSplitterErrorCategory theMultiEventSplitterErrorCategory{};
 
-} // end anon namespace
+} // namespace
 
 namespace mesytec::mvme::multi_event_splitter
 {
 
-const u32 State::ProcessingFlags::Ok;
-const u32 State::ProcessingFlags::ModuleHeaderMismatch;
-const u32 State::ProcessingFlags::ModuleSizeExceedsBuffer;
+const u32 ProcessingFlags::Ok;
+const u32 ProcessingFlags::ModuleHeaderMismatch;
+const u32 ProcessingFlags::ModuleSizeExceedsBuffer;
 
 namespace
 {
-    Counters make_counters(const std::vector<std::vector<std::string>> &splitFilterStrings)
+Counters make_counters(const std::vector<std::vector<std::string>> &splitFilterStrings)
+{
+    const size_t eventCount = splitFilterStrings.size();
+
+    Counters counters;
+    counters.inputEvents.resize(eventCount);
+    counters.outputEvents.resize(eventCount);
+    counters.inputModules.resize(eventCount);
+    counters.outputModules.resize(eventCount);
+    counters.moduleHeaderMismatches.resize(eventCount);
+    counters.moduleEventSizeExceedsBuffer.resize(eventCount);
+
+    for (size_t ei = 0; ei < splitFilterStrings.size(); ++ei)
     {
-        const size_t eventCount = splitFilterStrings.size();
-
-        Counters counters;
-        counters.inputEvents.resize(eventCount);
-        counters.outputEvents.resize(eventCount);
-        counters.inputModules.resize(eventCount);
-        counters.outputModules.resize(eventCount);
-        counters.moduleHeaderMismatches.resize(eventCount);
-        counters.moduleEventSizeExceedsBuffer.resize(eventCount);
-
-        for (size_t ei=0; ei<splitFilterStrings.size(); ++ei)
-        {
-            const size_t moduleCount = splitFilterStrings[ei].size();
-            counters.inputModules[ei].resize(moduleCount);
-            counters.outputModules[ei].resize(moduleCount);
-            counters.moduleHeaderMismatches[ei].resize(moduleCount);
-            counters.moduleEventSizeExceedsBuffer[ei].resize(moduleCount);
-        }
-
-        return counters;
+        const size_t moduleCount = splitFilterStrings[ei].size();
+        counters.inputModules[ei].resize(moduleCount);
+        counters.outputModules[ei].resize(moduleCount);
+        counters.moduleHeaderMismatches[ei].resize(moduleCount);
+        counters.moduleEventSizeExceedsBuffer[ei].resize(moduleCount);
     }
-}
 
-std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings)
+    return counters;
+}
+} // namespace
+
+std::pair<State, std::error_code>
+make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings, int outputCrateIndex)
 {
     auto result = std::pair<State, std::error_code>();
     auto &state = result.first;
     auto &ec = result.second;
+
+    state.outputCrateIndex = outputCrateIndex;
 
     if (splitFilterStrings.size() > MaxVMEEvents)
     {
@@ -136,7 +141,7 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
         return result;
     }
 
-    for (size_t ei=0; ei<splitFilterStrings.size(); ++ei)
+    for (size_t ei = 0; ei < splitFilterStrings.size(); ++ei)
     {
         if (splitFilterStrings[ei].size() > MaxVMEModules)
         {
@@ -167,12 +172,9 @@ std::pair<State, std::error_code> make_splitter(const std::vector<std::vector<st
     size_t eventIndex = 0;
     for (const auto &filters: state.splitFilters)
     {
-        bool hasNonZeroFilter = std::any_of(
-            filters.begin(), filters.end(),
-            [] (const auto &fc)
-            {
-                return fc.filter.matchMask != 0;
-            });
+        bool hasNonZeroFilter =
+            std::any_of(filters.begin(), filters.end(),
+                        [](const auto &fc) { return fc.filter.matchMask != 0; });
 
         state.enabledForEvent[eventIndex++] = hasNonZeroFilter;
     }
@@ -193,26 +195,27 @@ inline std::error_code begin_event(State &state, int ei)
 
     auto &spans = state.dataSpans;
 
-    std::fill(spans.begin(), spans.end(), State::ModuleData{});
+    std::fill(spans.begin(), spans.end(), ModuleData{});
     ++state.counters.inputEvents[ei];
 
     return {};
 }
 
 // No suffix handling!
-// Returns State::ProcessingFlags
-inline u32 split_dynamic_part(
-    const mesytec::mvlc::util::FilterWithCaches &filter,
-    const mvlc::readout_parser::ModuleData &input,
-    std::vector<mvlc::readout_parser::ModuleData> &output)
+// Returns ProcessingFlags
+inline u32 split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filter,
+                              const ModuleData &input,
+                              std::vector<ModuleDataWithDebugInfo> &output)
 {
     assert(input.hasDynamic && input.dynamicSize > 0);
 
     const auto filterSizeCache = mesytec::mvlc::util::get_cache_entry(filter, 'S');
 
-    auto current = input;
     std::basic_string_view<u32> data(dynamic_span(input).data, dynamic_span(input).size);
     assert(!data.empty());
+
+    ModuleDataWithDebugInfo current = {};
+    current.md = input;
 
     u32 result = 0;
 
@@ -225,15 +228,18 @@ inline u32 split_dynamic_part(
                 u32 size = 1 + mesytec::mvlc::util::extract(*filterSizeCache, data.front());
 
                 if (size > data.size())
-                    result |= State::ProcessingFlags::ModuleSizeExceedsBuffer;
+                {
+                    result |= ProcessingFlags::ModuleSizeExceedsBuffer;
+                    current.flags |= ProcessingFlags::ModuleSizeExceedsBuffer;
+                }
 
-                current.dynamicSize = std::min(size, static_cast<u32>(data.size()));
-                current.hasDynamic = true;
-                data.remove_prefix(current.dynamicSize);
+                current.md.dynamicSize = std::min(size, static_cast<u32>(data.size()));
+                current.md.hasDynamic = true;
+                data.remove_prefix(current.md.dynamicSize);
             }
             else
             {
-                current.dynamicSize = 1;
+                current.md.dynamicSize = 1;
                 data.remove_prefix(1);
 
                 while (!data.empty())
@@ -241,69 +247,74 @@ inline u32 split_dynamic_part(
                     if (mesytec::mvlc::util::matches(filter.filter, data.front()))
                         break;
 
-                    ++current.dynamicSize;
+                    ++current.md.dynamicSize;
                     data.remove_prefix(1);
                 }
 
-                current.hasDynamic = true;
+                current.md.hasDynamic = true;
             }
 
-            current.data.size = current.prefixSize + current.dynamicSize;
+            current.md.data.size = current.md.prefixSize + current.md.dynamicSize;
 
-            assert(size_consistency_check(current));
+            assert(size_consistency_check(current.md));
             output.push_back(current);
         }
         else
         {
             if (filterSizeCache)
-                result |= State::ProcessingFlags::ModuleHeaderMismatch;
+            {
+                result |= ProcessingFlags::ModuleHeaderMismatch;
+                current.flags |= ProcessingFlags::ModuleHeaderMismatch;
+            }
 
             // no header match: consume all remaining data
-            current.dynamicSize = data.size();
-            current.hasDynamic = true;
+            current.md.dynamicSize = data.size();
+            current.md.hasDynamic = true;
             data.remove_prefix(data.size());
 
-            assert(size_consistency_check(current));
+            assert(size_consistency_check(current.md));
             output.push_back(current);
         }
 
         current = {};
-        current.data.data = data.data();
-        current.data.size = data.size();
+        current.md.data.data = data.data();
+        current.md.data.size = data.size();
     }
 
     return result;
 }
 
 u32 split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
-                       const State::ModuleData &input,
-                       std::vector<State::ModuleData> &output)
+                      const ModuleData &input, std::vector<ModuleDataWithDebugInfo> &output)
 {
     // handle prefix-only and all empty-dynamic cases (with or without prefix/suffix)
     if (!input.hasDynamic || input.dynamicSize == 0)
     {
-        output.emplace_back(input);
+        ModuleDataWithDebugInfo current = {};
+        current.md = input;
+        output.emplace_back(current);
         return 0;
     }
 
     assert(size_consistency_check(input));
+
     auto result = split_dynamic_part(filter, input, output);
+
     for (const auto &moduleData: output)
     {
-        assert(size_consistency_check(moduleData));
+        assert(size_consistency_check(moduleData.md));
     }
     assert(!output.empty());
-    assert(output.front().data.data == input.data.data);
+    assert(output.front().md.data.data == input.data.data);
     // TODO: handle input.suffix or warn + status?
 
     return result;
 }
 
-std::error_code event_data(
-    State &state, Callbacks &callbacks,
-    void *userContext, int ei, const State::ModuleData *moduleDataList, unsigned moduleCount)
+std::error_code event_data(State &state, Callbacks &callbacks, void *userContext, int ei,
+                           const ModuleData *moduleDataList, unsigned moduleCount)
 {
-    const int crateIndex = 0; // FIXME: do not hardcode this. pass it along at least.
+    state.processingFlags = 0;
 
     if (auto ec = begin_event(state, ei))
         return ec;
@@ -311,10 +322,11 @@ std::error_code event_data(
     // if out of range or not enabled for this event pass the data through
     if (static_cast<size_t>(ei) >= state.enabledForEvent.size() || !state.enabledForEvent[ei])
     {
-        LOG_TRACE("state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
-                  &state, ei);
+        LOG_TRACE(
+            "state=%p, splitting not enabled for ei=%d; invoking callbacks with non-split data",
+            &state, ei);
 
-        callbacks.eventData(userContext, crateIndex, ei, moduleDataList, moduleCount);
+        callbacks.eventData(userContext, state.outputCrateIndex, ei, moduleDataList, moduleCount);
 
         for (size_t mi = 0; mi < moduleCount; ++mi)
             ++state.counters.outputModules[ei][mi];
@@ -326,50 +338,55 @@ std::error_code event_data(
     if (moduleCount > state.splitFilters[ei].size())
         return make_error_code(ErrorCode::ModuleIndexOutOfRange);
 
+    // clear the output module data
     state.splitModuleData.resize(moduleCount);
     std::for_each(state.splitModuleData.begin(), state.splitModuleData.end(),
-                  [] (auto &v) { v.clear(); });
+                  [](auto &v) { v.clear(); });
 
-    for (unsigned mi=0; mi<moduleCount; ++mi)
+    //  splits into state.splitModuleData
+    for (unsigned mi = 0; mi < moduleCount; ++mi)
     {
-        auto splitResult = split_module_data(state.splitFilters[ei][mi], moduleDataList[mi], state.splitModuleData[mi]);
+        auto splitResult = split_module_data(state.splitFilters[ei][mi], moduleDataList[mi],
+                                             state.splitModuleData[mi]);
 
-        if (splitResult & State::ProcessingFlags::ModuleHeaderMismatch)
+        if (splitResult & ProcessingFlags::ModuleHeaderMismatch)
             ++state.counters.moduleHeaderMismatches[ei][mi];
 
-        if (splitResult & State::ProcessingFlags::ModuleSizeExceedsBuffer)
+        if (splitResult & ProcessingFlags::ModuleSizeExceedsBuffer)
             ++state.counters.moduleEventSizeExceedsBuffer[ei][mi];
 
         state.processingFlags |= splitResult;
+        ++state.counters.inputModules[ei][mi];
 
         for (const auto &moduleData: state.splitModuleData[mi])
         {
-            assert(size_consistency_check(moduleData));
+            assert(size_consistency_check(moduleData.md));
         }
-        ++state.counters.inputModules[ei][mi];
     }
 
     size_t maxEventCount = 0;
 
-    for (unsigned mi=0; mi<moduleCount; ++mi)
+    for (unsigned mi = 0; mi < moduleCount; ++mi)
         maxEventCount = std::max(maxEventCount, state.splitModuleData[mi].size());
 
     state.dataSpans.resize(moduleCount);
 
+    // Yield output events.
     for (size_t outIdx = 0; outIdx < maxEventCount; ++outIdx)
     {
-        std::fill(std::begin(state.dataSpans), std::end(state.dataSpans), State::ModuleData{});
-        for (unsigned mi=0; mi<moduleCount; ++mi)
+        std::fill(std::begin(state.dataSpans), std::end(state.dataSpans), ModuleData{});
+        for (unsigned mi = 0; mi < moduleCount; ++mi)
         {
             if (outIdx < state.splitModuleData[mi].size())
             {
-                state.dataSpans[mi] = state.splitModuleData[mi][outIdx];
+                state.dataSpans[mi] = state.splitModuleData[mi][outIdx].md;
                 ++state.counters.outputModules[ei][mi];
                 assert(size_consistency_check(state.dataSpans[mi]));
             }
         }
 
-        callbacks.eventData(userContext, crateIndex, ei, state.dataSpans.data(), state.dataSpans.size());
+        callbacks.eventData(userContext, state.outputCrateIndex, ei, state.dataSpans.data(),
+                            state.dataSpans.size());
         ++state.counters.outputEvents[ei];
     }
 
@@ -378,28 +395,28 @@ std::error_code event_data(
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error)
 {
-    return { static_cast<int>(error), theMultiEventSplitterErrorCategory };
+    return {static_cast<int>(error), theMultiEventSplitterErrorCategory};
 }
 
-template<typename Out>
-Out &format_counters_(Out &out, const Counters &counters)
+template <typename Out> Out &format_counters_(Out &out, const Counters &counters)
 {
-    for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
+    for (size_t ei = 0; ei < counters.inputEvents.size(); ++ei)
     {
         auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
-        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}, out/in={:.2f}\n",
-            ei, counters.inputEvents[ei], counters.outputEvents[ei], eventRatio);
+        out << fmt::format("* eventIndex={}, inputEvents={}, outputEvents={}, out/in={:.2f}\n", ei,
+                           counters.inputEvents[ei], counters.outputEvents[ei], eventRatio);
 
-        for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
+        for (size_t mi = 0; mi < counters.inputModules[ei].size(); ++mi)
         {
             auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
-            out << fmt::format("  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}, out/in={:.2f}\n",
+            out << fmt::format(
+                "  - moduleIndex={}, inputModuleCount={}, outputModuleCount={}, out/in={:.2f}\n",
                 mi, counters.inputModules[ei][mi], counters.outputModules[ei][mi], moduleRatio);
         }
     }
 
     out << fmt::format("* Error Counts: eventIndexOutOfRange={}, moduleIndexOutOfRange={}\n",
-        counters.eventIndexOutOfRange, counters.moduleIndexOutOfRange);
+                       counters.eventIndexOutOfRange, counters.moduleIndexOutOfRange);
 
     return out;
 }
@@ -409,59 +426,50 @@ std::ostream &format_counters(std::ostream &out, const Counters &counters)
     return format_counters_(out, counters);
 }
 
-template<typename Out>
-Out &format_counters_tabular_(Out &out, const Counters &counters)
+template <typename Out> Out &format_counters_tabular_(Out &out, const Counters &counters)
 {
-    out << fmt::format("{: <12} {: >12} {: >12} {: >12}\n", "Type", "InputCount", "OutputCount", "Out/In");
+    out << fmt::format("{: <12} {: >12} {: >12} {: >12}\n", "Type", "InputCount", "OutputCount",
+                       "Out/In");
 
-    for (size_t ei=0; ei<counters.inputEvents.size(); ++ei)
+    for (size_t ei = 0; ei < counters.inputEvents.size(); ++ei)
     {
         auto eventRatio = counters.outputEvents[ei] * 1.0 / counters.inputEvents[ei];
 
-        out << fmt::format("{: <12} {: >12L} {: >12L} {: >12.2Lf}\n",
-            fmt::format("event{}", ei),
-            counters.inputEvents[ei],
-            counters.outputEvents[ei],
-            eventRatio
-            );
+        out << fmt::format("{: <12} {: >12L} {: >12L} {: >12.2Lf}\n", fmt::format("event{}", ei),
+                           counters.inputEvents[ei], counters.outputEvents[ei], eventRatio);
 
-        for (size_t mi=0; mi<counters.inputModules[ei].size(); ++mi)
+        for (size_t mi = 0; mi < counters.inputModules[ei].size(); ++mi)
         {
             auto moduleRatio = counters.outputModules[ei][mi] * 1.0 / counters.inputModules[ei][mi];
             out << fmt::format("{: <12} {: >12L} {: >12L} {: >12.2Lf}\n",
-                fmt::format("module{}", mi),
-                counters.inputModules[ei][mi],
-                counters.outputModules[ei][mi],
-                moduleRatio
-                );
+                               fmt::format("module{}", mi), counters.inputModules[ei][mi],
+                               counters.outputModules[ei][mi], moduleRatio);
         }
     }
 
     out << fmt::format("\n{: <22} {: >12}\n", "ErrorType", "ErrorCount");
     out << fmt::format("{: <22} {: >12}\n", "eventIndexOutOfRange", counters.eventIndexOutOfRange);
-    out << fmt::format("{: <22} {: >12}\n", "moduleIndexOutOfRange", counters.moduleIndexOutOfRange);
+    out << fmt::format("{: <22} {: >12}\n", "moduleIndexOutOfRange",
+                       counters.moduleIndexOutOfRange);
 
     out << "\nModule header mismatches:\n";
-    for (size_t ei=0; ei<counters.moduleHeaderMismatches.size(); ++ei)
+    for (size_t ei = 0; ei < counters.moduleHeaderMismatches.size(); ++ei)
     {
         const auto &mismatches = counters.moduleHeaderMismatches[ei];
-        for (size_t mi=0; mi<mismatches.size(); ++mi)
+        for (size_t mi = 0; mi < mismatches.size(); ++mi)
         {
-            out << fmt::format("  {} {}\n",
-                               fmt::format("event{}, module{}", ei, mi),
+            out << fmt::format("  {} {}\n", fmt::format("event{}, module{}", ei, mi),
                                mismatches[mi]);
         }
     }
 
     out << "\nModule size exceeds input event size:\n";
-    for (size_t ei=0; ei<counters.moduleEventSizeExceedsBuffer.size(); ++ei)
+    for (size_t ei = 0; ei < counters.moduleEventSizeExceedsBuffer.size(); ++ei)
     {
         const auto &exceeds = counters.moduleEventSizeExceedsBuffer[ei];
-        for (size_t mi=0; mi<exceeds.size(); ++mi)
+        for (size_t mi = 0; mi < exceeds.size(); ++mi)
         {
-            out << fmt::format("  {} {}\n",
-                               fmt::format("event{}, module{}", ei, mi),
-                               exceeds[mi]);
+            out << fmt::format("  {} {}\n", fmt::format("event{}, module{}", ei, mi), exceeds[mi]);
         }
     }
 
@@ -473,4 +481,4 @@ std::ostream &format_counters_tabular(std::ostream &out, const Counters &counter
     return format_counters_tabular_(out, counters);
 }
 
-} // end namespace multi_event_splitter
+} // namespace mesytec::mvme::multi_event_splitter
