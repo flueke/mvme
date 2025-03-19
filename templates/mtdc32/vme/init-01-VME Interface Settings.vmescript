@@ -2,20 +2,24 @@
 # #####################################
 # Trigger output via IRQ-lines at Backplane; MTDC-32
 # Implemented since March 2025.
-# 0x6300 0b1111'1111'1111'1111  #IRQ 1 lower 16 channels
-# 0x6302 0b1111'1111'1111'1111  # upper 16 channels
-# 0x6304 0b1111'1111'1111'1111  #IRQ2 lower 16 channels
-# 0x6306 0b1111'1111'1111'1111  # upper 16 channels
-# 0x6308 0b1111'1111'1111'1111  #IRQ3 lower 16 channels
-# 0x630A 0b1111'1111'1111'1111  # upper 16 channels
-# 0x630C 0b1111'1111'1111'1111  #IRQ4 lower 16 channels
-# 0x630E 0b1111'1111'1111'1111  # upper 16 channels
-# 0x6310 0b1111'1111'1111'1111  #IRQ5 lower 16 channels
-# 0x6312 0b1111'1111'1111'1111  # upper 16 channels
-# 0x6314 0b1111'1111'1111'1111  #IRQ6 lower 16 channels
-# 0x6316 0b1111'1111'1111'1111  # upper 16 channels
-# 0x6318 0b1111'1111'1111'1111  # ** not supported by MVLC ** IRQ 7 lower 16 channels
-# 0x631A 0b1111'1111'1111'1111  #** not supported by MVLC ** upper 16 channels
+#read a32 d16 0x600E # read firmware revision
+#accu_mask_rotate 0x0000ffff 0
+#accu_test gte 0x0316 "MTDC-32 >= FW0316 required for Sampling mode"
+# Each bit corresponds to one of the MTDC-32 channels.
+#0x6300 0b1111'1111'1111'1111  #IRQ 1 lower 16 channels
+#0x6302 0b1111'1111'1111'1111  # upper 16 channels
+#0x6304 0b1111'1111'1111'1111  #IRQ2 lower 16 channels
+#0x6306 0b1111'1111'1111'1111  # upper 16 channels
+#0x6308 0b1111'1111'1111'1111  #IRQ3 lower 16 channels
+#0x630A 0b1111'1111'1111'1111  # upper 16 channels
+#0x630C 0b1111'1111'1111'1111  #IRQ4 lower 16 channels
+#0x630E 0b1111'1111'1111'1111  # upper 16 channels
+#0x6310 0b1111'1111'1111'1111  #IRQ5 lower 16 channels
+#0x6312 0b1111'1111'1111'1111  # upper 16 channels
+#0x6314 0b1111'1111'1111'1111  #IRQ6 lower 16 channels
+#0x6316 0b1111'1111'1111'1111  # upper 16 channels
+#0x6318 0b1111'1111'1111'1111  # ** not supported by MVLC ** IRQ 7 lower 16 channels
+#0x631A 0b1111'1111'1111'1111  #** not supported by MVLC ** upper 16 channels
 #######################################
 
 0x6010  ${sys_irq}                          # irq level
