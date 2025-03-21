@@ -168,8 +168,7 @@ struct State
     Counters counters;
 
     // Used to communicate non-fatal error/warning conditions to the outside.
-    // The flag is reset at the start of event_data(). Examine it after the call
-    // returns.
+    // Reset this before calls to event_data(), examine it afterwards.
     u32 processingFlags = {};
 };
 

@@ -891,7 +891,6 @@ void MVLC_StreamWorker::processBuffer(
     bool processingOk = false;
     auto bufferView = buffer->viewU32();
     const bool useLogThrottle = true;
-
     m_multiEventSplitter.processingFlags = {};
 
     try

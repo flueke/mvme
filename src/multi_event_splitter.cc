@@ -314,8 +314,6 @@ u32 split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
 std::error_code event_data(State &state, Callbacks &callbacks, void *userContext, int ei,
                            const ModuleData *moduleDataList, unsigned moduleCount)
 {
-    state.processingFlags = 0;
-
     if (auto ec = begin_event(state, ei))
         return ec;
 
