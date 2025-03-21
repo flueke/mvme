@@ -4601,10 +4601,10 @@ void MVLCParserDebugHandler::handleDebugInfo(
                                 .arg(ei).arg(mi).arg(moduleData.md.data.size);
 
                             if (moduleData.flags & mesytec::mvme::multi_event_splitter::ProcessingFlags::ModuleHeaderMismatch)
-                                splitterOut << "error: ModuleHeaderMismatch";
+                                splitterOut << " error: ModuleHeaderMismatch";
 
                             if (moduleData.flags & mesytec::mvme::multi_event_splitter::ProcessingFlags::ModuleSizeExceedsBuffer)
-                                splitterOut << "error: ModuleSizeExceedsBuffer";
+                                splitterOut << " error: ModuleSizeExceedsBuffer";
 
                             splitterOut << endl;
 
@@ -4678,7 +4678,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
     }
 
     auto make_searchable_text_widget = [](QTextEdit *te)
-        -> std::pair<QWidget *, TextEditSearchWidget *>
+        -> std::tuple<QWidget *, TextEditSearchWidget *, QLayout *>
     {
         auto parserResultWidget = new QWidget;
         auto resultLayout = make_layout<QVBoxLayout, 0, 0>(parserResultWidget);
@@ -4687,7 +4687,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
         resultLayout->addWidget(te);
         resultLayout->setStretch(1, 1);
 
-        return std::make_pair(parserResultWidget, searchWidget);
+        return std::make_tuple(parserResultWidget, searchWidget, resultLayout);
     };
 
     // Display the buffer contents and the parser results side-by-side in two
@@ -4706,12 +4706,12 @@ void MVLCParserDebugHandler::handleDebugInfo(
         doc_buffer->setDefaultStyleSheet(styles);
         doc_buffer->setHtml(rawBufferText);
         tb_buffer->setDocument(doc_buffer);
-        auto bufferWidget = make_searchable_text_widget(tb_buffer).first;
+        auto bufferWidget = std::get<0>(make_searchable_text_widget(tb_buffer));
 
         // parser result on the right side
         auto tb_parserResult = new QTextBrowser;
         tb_parserResult->setText(parserText);
-        auto parserResultWidget = make_searchable_text_widget(tb_parserResult).first;
+        auto parserResultWidget = std::get<0>(make_searchable_text_widget(tb_parserResult));
 
         auto splitter = new QSplitter;
         splitter->addWidget(bufferWidget);
@@ -4726,8 +4726,16 @@ void MVLCParserDebugHandler::handleDebugInfo(
             splitterText.prepend(countersText);
             auto tb_splitterResult = new QTextBrowser;
             tb_splitterResult->setText(splitterText);
-            auto splitterResultWidget = make_searchable_text_widget(tb_splitterResult).first;
-            splitter->addWidget(splitterResultWidget);
+            auto stuff = make_searchable_text_widget(tb_splitterResult);
+            auto wText = std::get<0>(stuff);
+            auto wSearch = std::get<1>(stuff);
+            auto pbFindNextError = new QPushButton("Find next error");
+            wSearch->getLayout()->addWidget(pbFindNextError);
+            connect(pbFindNextError, &QPushButton::clicked, wSearch, [wSearch]
+            {
+                wSearch->searchFor("error:");
+            });
+            splitter->addWidget(wText);
         }
 
         for (int i=0; i<splitter->count(); ++i)

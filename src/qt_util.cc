@@ -362,10 +362,25 @@ TextEditSearchWidget::TextEditSearchWidget(QTextEdit *te, QWidget *parent)
 
     m_searchInput->setMinimumWidth(80);
 
-    auto layout = make_layout<QHBoxLayout>(this);
-    layout->addWidget(m_searchInput);
-    layout->addWidget(m_searchButton);
-    layout->setStretch(0, 1);
+    m_layout = make_layout<QHBoxLayout>(this);
+    m_layout->addWidget(m_searchInput);
+    m_layout->addWidget(m_searchButton);
+    m_layout->setStretch(0, 1);
+}
+
+QPushButton *TextEditSearchWidget::getSearchButton()
+{
+    return m_searchButton;
+}
+
+QLineEdit *TextEditSearchWidget::getSearchTextEdit()
+{
+    return m_searchInput;
+}
+
+QHBoxLayout *TextEditSearchWidget::getLayout()
+{
+    return m_layout;
 }
 
 void TextEditSearchWidget::findNext()
@@ -394,6 +409,12 @@ void TextEditSearchWidget::onSearchTextEdited(const QString &)
     auto currentCursor = m_textEdit->textCursor();
     currentCursor.movePosition(QTextCursor::StartOfWord);
     m_textEdit->setTextCursor(currentCursor);
+    findNext();
+}
+
+void TextEditSearchWidget::searchFor(const QString &text)
+{
+    m_searchInput->setText(text);
     findNext();
 }
 

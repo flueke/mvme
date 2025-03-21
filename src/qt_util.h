@@ -230,10 +230,12 @@ class LIBMVME_EXPORT TextEditSearchWidget: public QWidget
 
         QPushButton *getSearchButton();
         QLineEdit *getSearchTextEdit();
+        QHBoxLayout *getLayout();
 
     public slots:
         void focusSearchInput();
         void findNext();
+        void searchFor(const QString &text);
 
     private slots:
         void onSearchTextEdited(const QString &text);
@@ -244,6 +246,7 @@ class LIBMVME_EXPORT TextEditSearchWidget: public QWidget
         QLineEdit *m_searchInput;
         QPushButton *m_searchButton;
         QTextEdit *m_textEdit;
+        QHBoxLayout *m_layout;
 };
 
 QWidget *find_top_level_widget(const QString &objectName);

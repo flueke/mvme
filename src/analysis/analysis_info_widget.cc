@@ -172,7 +172,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(AnalysisServiceProvider *serviceProvider,
             m_d->mvlcLabels.push_back(label);
         }
 
-        m_d->mvlcRequestBufferOnError = new QPushButton("Debug on parse error");
+        m_d->mvlcRequestBufferOnError = new QPushButton("Debug on error");
         m_d->mvlcRequestNextBuffer = new QPushButton("Debug next buffer");
         m_d->mvlcRequestNextNonTimetickBuffer = new QPushButton("Debug next buffer (ignore timeticks)");
 
