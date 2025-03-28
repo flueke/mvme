@@ -155,6 +155,13 @@ bool operator==(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb)
            );
 }
 
+bool operator==(const VMEModuleEventSizeFilter &a, const VMEModuleEventSizeFilter &b)
+{
+    return (a.filterString == b.filterString
+            && a.description == b.description
+           );
+}
+
 bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
 {
     return (mma.typeId == mmb.typeId
@@ -162,7 +169,7 @@ bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
             && mma.displayName == mmb.displayName
             && mma.vendorName == mmb.vendorName
             && mma.templates == mmb.templates
-            && mma.eventHeaderFilter == mmb.eventHeaderFilter
+            && mma.eventSizeFilters == mmb.eventSizeFilters
             && mma.vmeAddress == mmb.vmeAddress
             && mma.templatePath == mmb.templatePath
            );
@@ -181,6 +188,11 @@ bool operator!=(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb)
 bool operator!=(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
 {
     return !(mma == mmb);
+}
+
+bool operator!=(const VMEModuleEventSizeFilter &a, const VMEModuleEventSizeFilter &b)
+{
+    return !(a == b);
 }
 
 QDebug operator<<(QDebug debug, const MVMETemplates &templates);
@@ -205,7 +217,25 @@ VMEModuleMeta modulemeta_from_json(const QJsonObject &json)
     mm.typeName = json["typeName"].toString();
     mm.displayName = json["displayName"].toString();
     mm.vendorName = json["vendorName"].toString();
-    mm.eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
+    if (json["eventHeaderFilters"].isArray())
+    {
+        // Handle new-style, list-of-filter-structures templates.
+        for (const auto &filterDef: json["eventHeaderFilters"].toArray())
+        {
+            VMEModuleEventSizeFilter filter;
+            filter.filterString = filterDef.toObject()["filter"].toString().toLocal8Bit();
+            filter.description = filterDef.toObject()["description"].toString();
+            mm.eventSizeFilters.push_back(filter);
+        }
+    }
+    else
+    {
+        // Handle old-style, single filter string templates.
+        VMEModuleEventSizeFilter filter;
+        filter.filterString = json["eventHeaderFilter"].toString().toLocal8Bit();
+        filter.description = "Default module event size extraction filter";
+        mm.eventSizeFilters.push_back(filter);
+    }
     mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
     mm.variables = json["variables"].toArray();
     return mm;
@@ -332,8 +362,11 @@ static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int ind
     do_indent(out, indent) << "typeName=" << module.typeName << endl;
     do_indent(out, indent) << "displayName=" << module.displayName << endl;
 
-    do_indent(out, indent) << "eventHeaderFilter="
-        << QString::fromLocal8Bit(module.eventHeaderFilter) << endl;
+    for (const auto &filterDef: module.eventSizeFilters)
+    {
+        do_indent(out, indent) << "eventHeaderFilters=" << filterDef.filterString
+            << ", description=" << filterDef.description << endl;
+    }
 
     do_indent(out, indent) << "vmeBaseAddress="
         << (QString("0x%1").arg(module.vmeAddress, 8, 16, QLatin1Char('0'))) << endl;

@@ -66,6 +66,15 @@ struct LIBMVME_EXPORT VMEModuleTemplates
 bool operator==(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
 bool operator!=(const VMEModuleTemplates &mta, const VMEModuleTemplates &mtb);
 
+struct VMEModuleEventSizeFilter
+{
+    QByteArray filterString;
+    QString description;
+};
+
+bool operator==(const VMEModuleEventSizeFilter &a, const VMEModuleEventSizeFilter &b);
+bool operator!=(const VMEModuleEventSizeFilter &a, const VMEModuleEventSizeFilter &b);
+
 struct LIBMVME_EXPORT VMEModuleMeta
 {
     static const u8 InvalidTypeId = 0;
@@ -79,12 +88,13 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QString displayName;
     QString vendorName;
     VMEModuleTemplates templates;
-    QByteArray eventHeaderFilter;
+    QVector<VMEModuleEventSizeFilter> eventSizeFilters;
     u32 vmeAddress = 0u;
     QJsonArray variables;
 
     QString templatePath;
     QString templateFile;
+
     // New style templates only: contents of the .mvmemodule file from which
     // this VMEModuleMeta object was created.
     QJsonObject moduleJson;
