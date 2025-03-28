@@ -435,8 +435,8 @@ void MVLC_StreamWorker::setupParserCallbacks(
     {
         namespace multi_event_splitter = ::mvme::multi_event_splitter;
 
-        auto filterStrings = collect_multi_event_splitter_filter_strings(
-            *vmeConfig, *analysis);
+        auto filterDefs = collect_multi_event_splitter_filters(*vmeConfig, *analysis);
+        auto filterStrings = analysis::multi_event_splitter_filters_to_strings(filterDefs);
 
         logInfo("enabling multi_event_splitter");
 

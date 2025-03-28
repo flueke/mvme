@@ -484,14 +484,6 @@ std::error_code ModuleConfig::read_impl(const QJsonObject &json)
 
     QString typeName = json["type"].toString();
 
-    // Use the typeName to load module meta info from the template system.
-    const auto moduleMetas = read_templates().moduleMetas;
-    auto it = std::find_if(moduleMetas.begin(), moduleMetas.end(), [typeName](const VMEModuleMeta &mm) {
-        return mm.typeName == typeName;
-    });
-
-    m_meta = (it != moduleMetas.end() ? *it : VMEModuleMeta());
-
     // IMPORTANT: using json["baseAddress"].toInt() directly does not support
     // the full range of 32-bit unsigned integers!
     m_baseAddress = static_cast<u32>(json["baseAddress"].toDouble());
@@ -508,6 +500,23 @@ std::error_code ModuleConfig::read_impl(const QJsonObject &json)
         auto cfg = new VMEScriptConfig(this);
         cfg->read(it->toObject());
         m_initScripts.push_back(cfg);
+    }
+
+    // Use the typeName to load (and update) module meta info from the template system.
+    const auto moduleMetas = read_templates().moduleMetas;
+    auto it = std::find_if(moduleMetas.begin(), moduleMetas.end(), [typeName](const VMEModuleMeta &mm) {
+        return mm.typeName == typeName;
+    });
+
+    if (it != moduleMetas.end())
+    {
+        m_meta = *it; // use the found meta info
+    }
+    else if (json.contains("ModuleMeta"))
+    {
+        // Must be a user defined module as the template system does not know
+        // the typeName. Use the stored meta info.
+        m_meta = vats::modulemeta_from_json(json["ModuleMeta"].toObject());
     }
 
     return {};
@@ -543,6 +552,9 @@ std::error_code ModuleConfig::write_impl(QJsonObject &json) const
         }
         json["initScripts"] = dstArray;
     }
+
+    // module meta (since mvme-1.17)
+    json["moduleMeta"] = vats::modulemeta_to_json(m_meta);
 
     return {};
 }

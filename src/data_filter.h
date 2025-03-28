@@ -217,4 +217,11 @@ LIBMVME_EXPORT QString generate_pretty_filter_string(u8 bits = 32, char c = 'N')
 // Groups of 4 chars separated by a space, padded on the left with spaces if dataBits < totalBits.
 LIBMVME_EXPORT QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c = 'N');
 
+// Generates a filter string with groups of 4 chars separated spaces.
+// Assumes the length of the given filterString corresponds to the number of
+// total bits in the filter. Whitespace is removed from the input string prior
+// to generating the formatted output string.
+LIBMVME_EXPORT QString generate_pretty_filter_string(QString filterString);
+LIBMVME_EXPORT QString generate_pretty_filter_string(QByteArray filterString);
+
 #endif /* __MVME_DATA_FILTER_H__ */

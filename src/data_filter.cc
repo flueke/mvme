@@ -131,3 +131,25 @@ QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c)
     return buffer;
 }
 
+QString generate_pretty_filter_string(QString filterString)
+{
+    QString result;
+    size_t i=1;
+    for (auto c: filterString)
+    {
+        if (!c.isSpace())
+            result.push_back(c);
+
+        if (i > 1 && i % 4 == 0)
+            result.push_back(" ");
+
+        ++i;
+    }
+
+    return result.trimmed();
+}
+
+QString generate_pretty_filter_string(QByteArray filterString)
+{
+    return generate_pretty_filter_string(QString::fromLocal8Bit(filterString));
+}

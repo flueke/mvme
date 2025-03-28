@@ -23,6 +23,7 @@
 
 #include "vme_config.h"
 #include <QDialog>
+#include <QStyledItemDelegate>
 #include <memory>
 
 
@@ -105,5 +106,13 @@ QLineEdit *make_vme_address_edit(u32 address = 0u, QWidget *parent = nullptr);
 QString info_text(const VMEConfig *config);
 QString info_text(const EventConfig *config);
 QString info_text(const ModuleConfig *config);
+
+class DataFilterEditItemDelegate: public QStyledItemDelegate
+{
+    public:
+        using QStyledItemDelegate::QStyledItemDelegate;
+        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                                      const QModelIndex &index) const;
+};
 
 #endif /* __CONFIG_WIDGETS_H__ */

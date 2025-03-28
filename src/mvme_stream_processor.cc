@@ -184,7 +184,11 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
             if (moduleEventHeaderFilter.isEmpty())
             {
-                moduleEventHeaderFilter = moduleConfig->getModuleMeta().eventHeaderFilter;
+                // Note (flueke, 3/2025): This code was written for the single-filter string case. To avoid touching
+                // any of this the first filter string in the new list of filters is picked and used as before.
+                auto mm = moduleConfig->getModuleMeta();
+                if (!mm.eventSizeFilters.empty())
+                    moduleEventHeaderFilter = moduleConfig->getModuleMeta().eventSizeFilters.at(0).filterString;
             }
 
             if (moduleEventHeaderFilter.isEmpty() || !moduleConfig->isEnabled())
