@@ -29,7 +29,6 @@
 #include <qnamespace.h>
 
 #include "analysis_serialization.h"
-#include "../template_system.h"
 #include "analysis/a2_adapter.h"
 
 namespace analysis
@@ -608,16 +607,42 @@ bool LIBMVME_EXPORT uses_event_builder(const VMEConfig &vmeConfig, const Analysi
     return usesEventBuilder;
 }
 
-std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_strings(
+std::vector<vats::VMEModuleEventHeaderFilter> vme_module_event_size_filters_from_object_settings(
+    const QVariantMap &moduleSettings)
+{
+    std::vector<vats::VMEModuleEventHeaderFilter> result;
+
+    if (moduleSettings.contains("MultiEventHeaderFilters"))
+    {
+        // New style, multi filter definition structs.
+        for (const auto &filterDef: moduleSettings["MultiEventHeaderFilters"].toList())
+        {
+            auto filterString = filterDef.toMap().value("filter").toByteArray();
+            auto filterDescription = filterDef.toMap().value("description").toString();
+            result.emplace_back(vats::VMEModuleEventHeaderFilter{filterString, filterDescription});
+        }
+    }
+    else
+    {
+        // Old-style, single filter string.
+        auto filterString = moduleSettings.value("MultiEventHeaderFilter").toByteArray();
+        result.emplace_back(vats::VMEModuleEventHeaderFilter{filterString, "default header size filter (old-style)"});
+    }
+
+    return result;
+}
+
+std::vector<std::vector<std::vector<vats::VMEModuleEventHeaderFilter>>>
+collect_multi_event_splitter_filters(
     const VMEConfig &vmeConfig, const Analysis &analysis)
 {
     const auto &eventConfigs = vmeConfig.getEventConfigs();
 
-    std::vector<std::vector<std::string>> splitterFilters;
+    std::vector<std::vector<std::vector<vats::VMEModuleEventHeaderFilter>>> result;
 
     for (const auto &eventConfig: eventConfigs)
     {
-        std::vector<std::string> moduleSplitterFilters;
+        std::vector<std::vector<vats::VMEModuleEventHeaderFilter>> eventFilters;
         auto eventSettings = analysis.getVMEObjectSettings(eventConfig->getId());
         bool enabledForEvent = eventSettings["MultiEventProcessing"].toBool();
 
@@ -626,22 +651,43 @@ std::vector<std::vector<std::string>> collect_multi_event_splitter_filter_string
             if (!moduleConfig->isEnabled())
                 continue;
 
-            auto moduleSettings = analysis.getVMEObjectSettings(moduleConfig->getId());
-            auto filterString = moduleSettings.value("MultiEventHeaderFilter").toString();
-
-            if (filterString.isEmpty())
-                filterString = moduleConfig->getModuleMeta().eventHeaderFilter;
-
             if (enabledForEvent)
-                moduleSplitterFilters.emplace_back(filterString.toStdString());
+            {
+                auto moduleFilters = vme_module_event_size_filters_from_object_settings(
+                    analysis.getVMEObjectSettings(moduleConfig->getId()));
+                eventFilters.emplace_back(moduleFilters);
+            }
             else
-                moduleSplitterFilters.emplace_back(std::string{});
+            {
+                // add an empty filter list for this event
+                eventFilters.emplace_back(std::vector<vats::VMEModuleEventHeaderFilter>());
+            }
         }
 
-        splitterFilters.emplace_back(moduleSplitterFilters);
+        result.emplace_back(eventFilters);
     }
 
-    return splitterFilters;
+    return result;
+}
+
+std::vector<std::vector<std::vector<std::string>>>
+multi_event_splitter_filters_to_strings(
+    const std::vector<std::vector<std::vector<vats::VMEModuleEventHeaderFilter>>> &filterDefs)
+{
+    std::vector<std::vector<std::vector<std::string>>> result;
+    for (const auto &eventFilterDefs: filterDefs)
+    {
+        std::vector<std::vector<std::string>> eventFilterStrings;
+        for (const auto &moduleFilterDefs: eventFilterDefs)
+        {
+            std::vector<std::string> moduleFilterStrings;
+            for (const auto &filterDef: moduleFilterDefs)
+                moduleFilterStrings.emplace_back(filterDef.filterString.constData());
+            eventFilterStrings.emplace_back(moduleFilterStrings);
+        }
+        result.emplace_back(eventFilterStrings);
+    }
+    return result;
 }
 
 void add_default_filters(Analysis *analysis, ModuleConfig *module)

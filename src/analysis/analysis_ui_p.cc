@@ -4136,27 +4136,28 @@ Analysis::VMEObjectSettings EventSettingsDialog::getSettings() const
 //
 
 ModuleSettingsDialog::ModuleSettingsDialog(const ModuleConfig *moduleConfig,
-                                           const QVariantMap &settings,
+                                           const QVariantMap &moduleSettings,
                                            QWidget *parent)
     : QDialog(parent)
-    , m_settings(settings)
-    , m_filterEdit(makeFilterEdit())
+    , m_settings(moduleSettings)
+    , m_filtersTable(new QTableWidget)
 {
     setWindowTitle(QSL("Analysis Module Settings"));
 
     auto gbSettings = new QGroupBox(QSL("Module settings"));
     auto settingsLayout = new QFormLayout(gbSettings);
-    settingsLayout->addRow(QSL("Multi Event Header Filter"), m_filterEdit);
+    settingsLayout->addRow(QSL("Multi Event Header Filters"), m_filtersTable);
     auto label = new QLabel(QSL(
-            "Used to split the module data section into individual events.<br/>"
-            "Only has an effect if Multi Event Processing is enabled for the"
-            " current event.<br/>"
+            "Used to split incoming multi-event module data into individual events.<br/>"
+            "The first matching filter is used to split the module data at event size boundaries.<br/>"
+            "Only has an effect if Multi Event Processing is enabled for the current event.<br/>"
             "Changes become active on the next DAQ/Replay start."
             ));
     label->setWordWrap(true);
 
     set_widget_font_pointsize_relative(label, -1);
     settingsLayout->addRow(label);
+    settingsLayout->addRow(m_filtersTable);
 
     auto dialogLayout = new QVBoxLayout(this);
 
@@ -4172,20 +4173,33 @@ ModuleSettingsDialog::ModuleSettingsDialog(const ModuleConfig *moduleConfig,
     QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    // populate
-    QString filterString = settings.value(QSL("MultiEventHeaderFilter")).toString();
+    auto filters = vme_module_event_size_filters_from_object_settings(moduleSettings);
 
-    if (filterString.isEmpty())
+    // setup and populate the filters table
+    m_filtersTable->setColumnCount(2);
+    m_filtersTable->setHorizontalHeaderLabels({"Filter String", "Description"});
+    m_filtersTable->horizontalHeader()->setStretchLastSection(true);
+    m_filtersTable->verticalHeader()->setVisible(false);
+    m_filtersTable->setRowCount(filters.size());
+    int row = 0;
+
+    for (const auto &filterDef: filters)
     {
-        filterString = moduleConfig->getModuleMeta().eventHeaderFilter;
-    }
+        auto item = new QTableWidgetItem;
+        item->setData(Qt::DisplayRole, filterDef.filterString);
+        m_filtersTable->setItem(row, 0, item);
 
-    m_filterEdit->setFilterString(filterString);
+        item = new QTableWidgetItem;
+        item->setData(Qt::DisplayRole, filterDef.description);
+        m_filtersTable->setItem(row, 1, item);
+
+        ++row;
+    }
 }
 
 void ModuleSettingsDialog::accept()
 {
-    m_settings.insert(QSL("MultiEventHeaderFilter"), m_filterEdit->text().trimmed());
+    //m_settings.insert(QSL("MultiEventHeaderFilter"), m_filterEdit->text().trimmed());
 
     QDialog::accept();
 }
@@ -4516,10 +4530,11 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
         if (usesMultiEventSplitting)
         {
-            auto filterStrings = collect_multi_event_splitter_filter_strings(
-                *vmeConfig, *analysis);
+            auto filterDefs = collect_multi_event_splitter_filters(*vmeConfig, *analysis);
+            auto filterStrings = multi_event_splitter_filters_to_strings(filterDefs);
 
-            std::tie(multiEventSplitter, multiEventSplitterError) = mesytec::mvme::multi_event_splitter::make_splitter(filterStrings);
+            std::tie(multiEventSplitter, multiEventSplitterError) = mesytec::mvme::multi_event_splitter::make_splitter(
+                filterStrings);
 
             if (multiEventSplitterError)
             {

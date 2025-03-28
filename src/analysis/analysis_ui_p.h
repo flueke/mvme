@@ -538,7 +538,7 @@ class ModuleSettingsDialog: public QDialog
 
     private:
         QVariantMap m_settings;
-        DataFilterEdit *m_filterEdit;
+        QTableWidget *m_filtersTable;
 };
 
 QString make_input_source_text(Slot *slot);
