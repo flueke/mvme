@@ -4,6 +4,12 @@
 #include "multi_event_splitter.h"
 #include "typedefs.h"
 
+// TODO (flueke, 3/2025): these tests were written before the move from a single
+// filter to a list of filters per module. So all the tests use a single filter
+// string only.
+// Add new tests and/or update the existing ones to test the cases with more
+// than one filter string.
+
 using namespace mesytec;
 using namespace mesytec::mvme::multi_event_splitter;
 
@@ -12,10 +18,10 @@ using DataBlock = mvlc::readout_parser::DataBlock;
 TEST(MultiEventSplitter, WithSizeSameCount)
 {
     // Prepare a splitter for one event with two modules.
-    std::vector<std::string> filters =
+    std::vector<std::vector<std::string>> filters =
     {
-        "XXXX 0001 XXXX SSSS",
-        "XXXX 0010 XXXX SSSS",
+        { "XXXX 0001 XXXX SSSS" },
+        { "XXXX 0010 XXXX SSSS" },
     };
 
     State splitter;
@@ -101,10 +107,10 @@ TEST(MultiEventSplitter, WithSizeSameCount)
 TEST(MultiEventSplitter, WithSizeMissingCount)
 {
     // Prepare a splitter for one event with two modules.
-    std::vector<std::string> filters =
+    std::vector<std::vector<std::string>> filters =
     {
-        "XXXX 0001 XXXX SSSS",
-        "XXXX 0010 XXXX SSSS",
+        { "XXXX 0001 XXXX SSSS" },
+        { "XXXX 0010 XXXX SSSS" },
     };
 
     State splitter;
@@ -190,10 +196,10 @@ TEST(MultiEventSplitter, WithSizeMissingCount)
 TEST(MultiEventSplitter, WithSizeExceeded)
 {
     // Prepare a splitter for one event with two modules.
-    std::vector<std::string> filters =
+    std::vector<std::vector<std::string>> filters =
     {
-        "XXXX 0001 XXXX SSSS",
-        "XXXX 0010 XXXX SSSS",
+        { "XXXX 0001 XXXX SSSS" },
+        { "XXXX 0010 XXXX SSSS" },
     };
 
     State splitter;
@@ -282,10 +288,10 @@ TEST(MultiEventSplitter, WithSizeExceeded)
 TEST(MultiEventSplitter, NoSizeSameCount)
 {
     // Prepare a splitter for one event with two modules.
-    std::vector<std::string> filters =
+    std::vector<std::vector<std::string>> filters =
     {
-        "XXXX 0001 XXXX XXXX",
-        "XXXX 0010 XXXX XXXX",
+        { "XXXX 0001 XXXX XXXX" },
+        { "XXXX 0010 XXXX XXXX" },
     };
 
     State splitter;
@@ -384,10 +390,10 @@ TEST(MultiEventSplitter, NoSizeSameCount)
 TEST(MultiEventSplitter, NoSizeMissingCount)
 {
     // Prepare a splitter for one event with two modules.
-    std::vector<std::string> filters =
+    std::vector<std::vector<std::string>> filters =
     {
-        "XXXX 0001 XXXX XXXX",
-        "XXXX 0010 XXXX XXXX",
+        { "XXXX 0001 XXXX XXXX" },
+        { "XXXX 0010 XXXX XXXX" },
     };
 
     State splitter;
@@ -502,7 +508,7 @@ inline bool operator==(const DataBlock &lhs, const std::vector<u32> &rhs)
 TEST(MultiEventSplitter, SplitSizeMatch)
 {
     const std::string headerFilter("0000 0001 XXXX SSSS");
-    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+    std::vector<mesytec::mvlc::util::FilterWithCaches> filtersList = { mesytec::mvlc::util::make_filter_with_caches(headerFilter) };
 
     const std::vector<u32> data =
     {
@@ -523,7 +529,7 @@ TEST(MultiEventSplitter, SplitSizeMatch)
     input.hasDynamic = true;
 
     std::vector<ModuleDataWithDebugInfo> output;
-    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::Ok);
+    ASSERT_EQ(split_module_data(filtersList, input, output), ProcessingFlags::Ok);
 
     ASSERT_EQ(output.size(), 3);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }
@@ -536,7 +542,7 @@ TEST(MultiEventSplitter, SplitSizeMatch)
 TEST(MultiEventSplitter, SplitSizeMatchOverflow)
 {
     const std::string headerFilter("0000 0001 XXXX SSSS");
-    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+    std::vector<mesytec::mvlc::util::FilterWithCaches> filtersList = { mesytec::mvlc::util::make_filter_with_caches(headerFilter) };
 
     const std::vector<u32> data =
     {
@@ -557,7 +563,7 @@ TEST(MultiEventSplitter, SplitSizeMatchOverflow)
     input.hasDynamic = true;
 
     std::vector<ModuleDataWithDebugInfo> output;
-    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::ModuleSizeExceedsBuffer);
+    ASSERT_EQ(split_module_data(filtersList, input, output), ProcessingFlags::ModuleSizeExceedsBuffer);
 
     ASSERT_EQ(output.size(), 2);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }
@@ -568,7 +574,7 @@ TEST(MultiEventSplitter, SplitSizeMatchOverflow)
 TEST(MultiEventSplitter, SplitNoSize)
 {
     const std::string headerFilter("0000 0001 XXXX XXXX");
-    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+    std::vector<mesytec::mvlc::util::FilterWithCaches> filtersList = { mesytec::mvlc::util::make_filter_with_caches(headerFilter) };
 
     const std::vector<u32> data =
     {
@@ -589,7 +595,7 @@ TEST(MultiEventSplitter, SplitNoSize)
     input.hasDynamic = true;
 
     std::vector<ModuleDataWithDebugInfo> output;
-    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::Ok);
+    ASSERT_EQ(split_module_data(filtersList, input, output), ProcessingFlags::Ok);
 
     ASSERT_EQ(output.size(), 3);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }
@@ -602,7 +608,7 @@ TEST(MultiEventSplitter, SplitNoSize)
 TEST(MultiEventSplitter, SplitNoMatch)
 {
     const std::string headerFilter("0000 0001 XXXX SSSS");
-    const auto filter = mesytec::mvlc::util::make_filter_with_caches(headerFilter);
+    std::vector<mesytec::mvlc::util::FilterWithCaches> filtersList = { mesytec::mvlc::util::make_filter_with_caches(headerFilter) };
 
     const std::vector<u32> data =
     {
@@ -623,7 +629,7 @@ TEST(MultiEventSplitter, SplitNoMatch)
     input.hasDynamic = true;
 
     std::vector<ModuleDataWithDebugInfo> output;
-    ASSERT_EQ(split_module_data(filter, input, output), ProcessingFlags::ModuleHeaderMismatch);
+    ASSERT_EQ(split_module_data(filtersList, input, output), ProcessingFlags::ModuleHeaderMismatch);
 
     ASSERT_EQ(output.size(), 1);
     { std::vector<u32> expected = { 0xaaaa, 0xaaaa }; ASSERT_EQ(prefix_span(output[0].md), expected); }

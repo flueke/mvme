@@ -101,7 +101,7 @@ const u32 ProcessingFlags::ModuleSizeExceedsBuffer;
 
 namespace
 {
-Counters make_counters(const std::vector<std::vector<std::string>> &splitFilterStrings)
+Counters make_counters(const std::vector<std::vector<std::vector<std::string>>> &splitFilterStrings)
 {
     const size_t eventCount = splitFilterStrings.size();
 
@@ -127,7 +127,7 @@ Counters make_counters(const std::vector<std::vector<std::string>> &splitFilterS
 } // namespace
 
 std::pair<State, std::error_code>
-make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings, int outputCrateIndex)
+make_splitter(const std::vector<std::vector<std::vector<std::string>>> &splitFilterStrings, int outputCrateIndex)
 {
     auto result = std::pair<State, std::error_code>();
     auto &state = result.first;
@@ -152,16 +152,23 @@ make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings, i
 
     size_t eventMaxModules = 0u;
 
-    for (const auto &moduleStrings: splitFilterStrings)
+    for (const auto &eventFilterString: splitFilterStrings)
     {
-        eventMaxModules = std::max(moduleStrings.size(), eventMaxModules);
+        std::vector<FiltersVector> eventFilters;
 
-        std::vector<mvlc::util::FilterWithCaches> moduleFilters;
+        for (const auto &moduleStrings: eventFilterString)
+        {
+            eventMaxModules = std::max(moduleStrings.size(), eventMaxModules);
 
-        for (auto moduleString: moduleStrings)
-            moduleFilters.emplace_back(mvlc::util::make_filter_with_caches(moduleString));
+            FiltersVector moduleFilters;
 
-        state.splitFilters.emplace_back(moduleFilters);
+            for (auto moduleString: moduleStrings)
+                moduleFilters.emplace_back(mvlc::util::make_filter_with_caches(moduleString));
+
+            eventFilters.emplace_back(std::move(moduleFilters));
+        }
+
+        state.splitFilters.emplace_back(std::move(eventFilters));
     }
 
     // Allocate space for the module data spans for each event
@@ -170,11 +177,16 @@ make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings, i
     // For each event determine if splitting should be enabled. This is the
     // case if any of the events modules has a non-zero header filter.
     size_t eventIndex = 0;
-    for (const auto &filters: state.splitFilters)
+    for (const auto &filtersList: state.splitFilters)
     {
-        bool hasNonZeroFilter =
-            std::any_of(filters.begin(), filters.end(),
-                        [](const auto &fc) { return fc.filter.matchMask != 0; });
+        bool hasNonZeroFilter = false;
+
+        for (const auto &filters: filtersList)
+        {
+            hasNonZeroFilter |=
+                std::any_of(filters.begin(), filters.end(),
+                            [](const auto &fc) { return fc.filter.matchMask != 0; });
+        }
 
         state.enabledForEvent[eventIndex++] = hasNonZeroFilter;
     }
@@ -203,13 +215,11 @@ inline std::error_code begin_event(State &state, int ei)
 
 // No suffix handling!
 // Returns ProcessingFlags
-inline u32 split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filter,
+inline u32 split_dynamic_part(const std::vector<mesytec::mvlc::util::FilterWithCaches> &filtersList,
                               const ModuleData &input,
                               std::vector<ModuleDataWithDebugInfo> &output)
 {
     assert(input.hasDynamic && input.dynamicSize > 0);
-
-    const auto filterSizeCache = mesytec::mvlc::util::get_cache_entry(filter, 'S');
 
     std::basic_string_view<u32> data(dynamic_span(input).data, dynamic_span(input).size);
     assert(!data.empty());
@@ -221,8 +231,31 @@ inline u32 split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filte
 
     while (!data.empty())
     {
-        if (mesytec::mvlc::util::matches(filter.filter, data.front()))
+        std::optional<mvlc::util::FilterWithCaches> filter;
+
+        // Find the first filter that matches the current data word (which is
+        // expected to be a module header).
+        for (const auto &f: filtersList)
         {
+            if (mesytec::mvlc::util::matches(f, data.front()))
+            {
+                filter = f;
+                break;
+            }
+        }
+
+        // Set if the filter contains 'S' size bits, so we can directly jump to
+        // event boundaries.
+        std::optional<mvlc::util::CacheEntry> filterSizeCache;
+
+        if (filter)
+            filterSizeCache = mesytec::mvlc::util::get_cache_entry(filter.value(), 'S');
+
+        if (filter.has_value())
+        {
+            // established in the loop above
+            assert(mesytec::mvlc::util::matches(filter.value().filter, data.front()));
+
             if (filterSizeCache)
             {
                 u32 size = 1 + mesytec::mvlc::util::extract(*filterSizeCache, data.front());
@@ -244,7 +277,7 @@ inline u32 split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filte
 
                 while (!data.empty())
                 {
-                    if (mesytec::mvlc::util::matches(filter.filter, data.front()))
+                    if (mesytec::mvlc::util::matches(filter.value().filter, data.front()))
                         break;
 
                     ++current.md.dynamicSize;
@@ -261,7 +294,7 @@ inline u32 split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filte
         }
         else
         {
-            if (filterSizeCache)
+            if (!filter || filterSizeCache)
             {
                 result |= ProcessingFlags::ModuleHeaderMismatch;
                 current.flags |= ProcessingFlags::ModuleHeaderMismatch;
@@ -284,7 +317,7 @@ inline u32 split_dynamic_part(const mesytec::mvlc::util::FilterWithCaches &filte
     return result;
 }
 
-u32 split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
+u32 split_module_data(const std::vector<mvlc::util::FilterWithCaches> &filtersList,
                       const ModuleData &input, std::vector<ModuleDataWithDebugInfo> &output)
 {
     // handle prefix-only and all empty-dynamic cases (with or without prefix/suffix)
@@ -298,7 +331,7 @@ u32 split_module_data(const mesytec::mvlc::util::FilterWithCaches &filter,
 
     assert(size_consistency_check(input));
 
-    auto result = split_dynamic_part(filter, input, output);
+    auto result = split_dynamic_part(filtersList, input, output);
 
     for (const auto &moduleData: output)
     {

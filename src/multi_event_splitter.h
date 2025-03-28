@@ -144,11 +144,14 @@ struct ModuleDataWithDebugInfo
     u32 flags = 0; // ProcessingFlags resulting from this split.
 };
 
+using FiltersVector = std::vector<mvlc::util::FilterWithCaches>;
+
 struct State
 {
     // DataFilters used for module header matching and size extraction grouped
-    // by event and module indexes.
-    std::vector<std::vector<mvlc::util::FilterWithCaches>> splitFilters;
+    // by event and module indexes. For each module a list of filters is stored.
+    // These are tried in order and the first matching filter is used.
+    std::vector<std::vector<FiltersVector>> splitFilters;
 
     // Output crateIndex used when invoking the callbacks.
     int outputCrateIndex = 0;
@@ -173,18 +176,18 @@ struct State
 };
 
 // Creates an initial splitter state. The input are lists of per event and
-// module data_filter strings used to detect module headers and extract module
-// data sizes.
+// module vectors of data_filter strings used to detect module headers and
+// extract module data sizes.
 //
 // Example:
-// { { "0101 SSSS", "1010 XXXX" }, { "1111 SSSS", "0001 SSSS" } }
+// { {{ "0101 SSSS"}, {"1010 XXXX" }}, {{ "1111 SSSS"}, {"0001 SSSS" }} }
 //
 // Creates a splitter for two events, with two modules each. The second module
 // of the first event doesn't have the 'S' match character so repeated
 // matching will be performed to find the next header. For the other modules
 // the event size can be directly extracted using the filter.
 std::pair<State, std::error_code>
-make_splitter(const std::vector<std::vector<std::string>> &splitFilterStrings,
+make_splitter(const std::vector<std::vector<std::vector<std::string>>> &splitFilterStrings,
               int outputCrateIndex = 0);
 
 enum class ErrorCode : u8
@@ -205,10 +208,12 @@ std::error_code LIBMVME_EXPORT event_data(State &state, Callbacks &callbacks, vo
                                           unsigned moduleCount);
 
 // Split the dynamic part of the input module data into separate events.
-// Returns State::ProecssingFlags
-u32 LIBMVME_EXPORT split_module_data(const mvlc::util::FilterWithCaches &filter,
-                                     const ModuleData &input,
-                                     std::vector<ModuleDataWithDebugInfo> &output);
+// Returns State::ProcessingFlags.
+// Filters in filtersList are tried in order. The first filter matching on the
+// first word of module data is used to perform all of the splits for that
+// module.
+u32 LIBMVME_EXPORT split_module_data(const std::vector<mvlc::util::FilterWithCaches> &filtersList,
+                      const ModuleData &input, std::vector<ModuleDataWithDebugInfo> &output);
 
 std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
 
