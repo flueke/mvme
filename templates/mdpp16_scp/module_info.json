@@ -3,5 +3,14 @@
     "typeName"      : "mdpp16_scp",
     "displayName"   : "MDPP-16_SCP",
     "vendorName"    : "mesytec",
-    "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
+    "eventHeaderFilters": [
+        {
+            "filter": "0100XXX0MMMMMMMMXXXXXXSSSSSSSSSS",
+            "description": "Event size filter for the classic, non-sampling mode."
+        },
+        {
+            "filter": "0100XXX1MMMMMMMMSSSSSSSSSSSSSSSS",
+            "description": "Event size filter with extended size bits for sampling mode."
+        }
+    ]
 }

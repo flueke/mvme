@@ -72,12 +72,15 @@ Description of the per module files and directories:
     - displayName (required):
       User visible name of the module.
 
-    - eventHeaderFilter (optional):
-      A DataFilter string used to split multievent readout data from the module
-      into single events.
-      The placeholder 'S' in the filter word is used to extract the number of
+    - eventHeaderFilters (optional):
+      List of { "filter": <str>, "description": <str> } structures.
+      The filter strings are used to split multievent readout data from the
+      module into single events. Multiple filters can be specified if the module
+      has more than one header format, e.g. for MDPP sampling and non-sampling
+      modes.
+      The placeholder 'S' in each filter word is used to extract the number of
       data words following the module header.
-      The optional placeholder 'M' is used to extract a module id from the
+      The optional placeholder 'M' can be used to extract a module id from the
       header word as a consistency check.
 
     - vmeBaseAddress (optional):

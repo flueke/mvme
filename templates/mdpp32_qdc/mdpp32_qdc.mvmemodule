@@ -99,7 +99,16 @@
     },
     "ModuleMeta": {
         "displayName": "MDPP-32_QDC",
-        "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
+        "eventHeadersFilters": [
+            {
+                "filter": "0100 XXX0 MMMM MMMM XXXX XXSS SSSS SSSS",
+                "description": "Event size filter for the classic, non-sampling mode."
+            },
+            {
+                "filter": "0100 XXX1 MMMM MMMM SSSS SSSS SSSS SSSS",
+                "description": "Event size filter with extended size bits for sampling mode."
+            }
+        ],
         "typeId": 13,
         "typeName": "mdpp32_qdc",
         "variables": [
