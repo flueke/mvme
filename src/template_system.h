@@ -118,6 +118,8 @@ MVMETemplates LIBMVME_EXPORT read_templates_from_path(const QString &path, Templ
 
 VMEModuleMeta LIBMVME_EXPORT modulemeta_from_json(const QJsonObject &json);
 QJsonObject LIBMVME_EXPORT modulemeta_to_json(const VMEModuleMeta &mm);
+VMEModuleMeta LIBMVME_EXPORT read_modulemeta_from_mvmemodule_file(
+    const QString &filename, TemplateLogger logger = TemplateLogger());
 
 QString LIBMVME_EXPORT get_module_path(const QString &moduleTypeName);
 

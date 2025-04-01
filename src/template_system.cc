@@ -138,6 +138,7 @@ namespace
 
 namespace vats
 {
+const u8 VMEModuleMeta::InvalidTypeId;
 
 bool operator==(const VMETemplate &ta, const VMETemplate &tb)
 {
@@ -228,12 +229,12 @@ VMEModuleMeta modulemeta_from_json(const QJsonObject &json)
             mm.eventSizeFilters.push_back(filter);
         }
     }
-    else
+    else if (json.contains("eventHeaderFilter"))
     {
         // Handle old-style, single filter string templates.
         VMEModuleEventHeaderFilter filter;
         filter.filterString = json["eventHeaderFilter"].toString().toLocal8Bit();
-        filter.description = "Default module event size extraction filter";
+        filter.description = QSL("Default event header filter for %1").arg(mm.typeName);
         mm.eventSizeFilters.push_back(filter);
     }
     mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
@@ -261,6 +262,18 @@ QJsonObject modulemeta_to_json(const VMEModuleMeta &mm)
     metaJ["variables"] = mm.variables;
 
     return metaJ;
+}
+
+VMEModuleMeta read_modulemeta_from_mvmemodule_file(
+    const QString &filename, TemplateLogger logger)
+{
+    auto moduleJson = read_json_file(filename, logger).object();
+    auto mm = modulemeta_from_json(moduleJson["ModuleMeta"].toObject());
+    auto moduleDir = QFileInfo(filename).absoluteDir();
+    mm.templatePath = moduleDir.path();
+    mm.templateFile = moduleDir.filePath(filename);
+    mm.moduleJson = moduleJson;
+    return mm;
 }
 
 // TODO:
@@ -310,6 +323,7 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
 
             auto json = moduleInfo.object();
 
+            #if 0 // (flueke, 2025): typeId is only used for old mvmelst files. mvlc uses unique typeNames.
             s32 moduleType = json["typeId"].toInt();
 
             if (moduleType <= 0 || moduleType > std::numeric_limits<u8>::max())
@@ -319,6 +333,7 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
                        logger);
                 continue;
             }
+            #endif
 
             auto mm = modulemeta_from_json(json);
             mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
@@ -334,12 +349,7 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
 
             for (const auto &c: candidates)
             {
-                auto l = [] (const QString &msg) { spdlog::error(msg.toStdString()); };
-                auto moduleJson = read_json_file(moduleDir.filePath(c), l).object();
-                auto mm = modulemeta_from_json(moduleJson["ModuleMeta"].toObject());
-                mm.templatePath = moduleDir.path();
-                mm.templateFile = moduleDir.filePath(c);
-                mm.moduleJson = moduleJson;
+                auto mm = read_modulemeta_from_mvmemodule_file(moduleDir.filePath(c), logger);
                 result.moduleMetas.push_back(mm);
             }
         }
@@ -622,6 +632,5 @@ GenericVMEScriptInfo read_default_mvlc_trigger_io_script()
 
     return {};
 }
-
 
 } // namespace vats

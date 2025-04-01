@@ -99,7 +99,7 @@
     },
     "ModuleMeta": {
         "displayName": "MDPP-32_QDC",
-        "eventHeadersFilters": [
+        "eventHeaderFilters": [
             {
                 "filter": "0100 XXX0 MMMM MMMM XXXX XXSS SSSS SSSS",
                 "description": "Event size filter for the classic, non-sampling mode."
