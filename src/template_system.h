@@ -88,7 +88,7 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QString displayName;
     QString vendorName;
     VMEModuleTemplates templates;
-    QVector<VMEModuleEventHeaderFilter> eventSizeFilters;
+    std::vector<VMEModuleEventHeaderFilter> eventHeaderFilters;
     u32 vmeAddress = 0u;
     QJsonArray variables;
 

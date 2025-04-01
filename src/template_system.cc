@@ -170,7 +170,7 @@ bool operator==(const VMEModuleMeta &mma, const VMEModuleMeta &mmb)
             && mma.displayName == mmb.displayName
             && mma.vendorName == mmb.vendorName
             && mma.templates == mmb.templates
-            && mma.eventSizeFilters == mmb.eventSizeFilters
+            && mma.eventHeaderFilters == mmb.eventHeaderFilters
             && mma.vmeAddress == mmb.vmeAddress
             && mma.templatePath == mmb.templatePath
            );
@@ -226,7 +226,7 @@ VMEModuleMeta modulemeta_from_json(const QJsonObject &json)
             VMEModuleEventHeaderFilter filter;
             filter.filterString = filterDef.toObject()["filter"].toString().toLocal8Bit();
             filter.description = filterDef.toObject()["description"].toString();
-            mm.eventSizeFilters.push_back(filter);
+            mm.eventHeaderFilters.push_back(filter);
         }
     }
     else if (json.contains("eventHeaderFilter"))
@@ -235,7 +235,7 @@ VMEModuleMeta modulemeta_from_json(const QJsonObject &json)
         VMEModuleEventHeaderFilter filter;
         filter.filterString = json["eventHeaderFilter"].toString().toLocal8Bit();
         filter.description = QSL("Default event header filter for %1").arg(mm.typeName);
-        mm.eventSizeFilters.push_back(filter);
+        mm.eventHeaderFilters.push_back(filter);
     }
     mm.vmeAddress = json["vmeAddress"].toString().toUInt(nullptr, 0);
     mm.variables = json["variables"].toArray();
@@ -250,7 +250,7 @@ QJsonObject modulemeta_to_json(const VMEModuleMeta &mm)
     metaJ["displayName"] = mm.displayName;
     metaJ["vendorName"] = mm.vendorName;
     QJsonArray filtersJ;
-    for (const auto &filterDef: mm.eventSizeFilters)
+    for (const auto &filterDef: mm.eventHeaderFilters)
     {
         QJsonObject filterJ;
         filterJ["filter"] = QString::fromLocal8Bit(filterDef.filterString);
@@ -394,7 +394,7 @@ static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int ind
     do_indent(out, indent) << "typeName=" << module.typeName << endl;
     do_indent(out, indent) << "displayName=" << module.displayName << endl;
 
-    for (const auto &filterDef: module.eventSizeFilters)
+    for (const auto &filterDef: module.eventHeaderFilters)
     {
         do_indent(out, indent) << "eventHeaderFilters=" << filterDef.filterString
             << ", description=" << filterDef.description << endl;
