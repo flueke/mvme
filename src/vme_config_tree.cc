@@ -1121,7 +1121,7 @@ void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
             << "item=" << item
             << "column=" << column
             << "nodeForItem=" << *it;
-        if (auto moduleConfig = get_pointer<ModuleConfig>(item, DataRole_Pointer))
+        if (auto moduleConfig = get_qobject<ModuleConfig>(item, DataRole_Pointer))
         {
             auto mmJ = vats::modulemeta_to_json(moduleConfig->getModuleMeta());
             qDebug() << "ModuleMeta: " << QJsonDocument(mmJ).toJson();
