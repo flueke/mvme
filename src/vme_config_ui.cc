@@ -29,6 +29,7 @@
 #include <QFile>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHeaderView>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLineEdit>
@@ -49,6 +50,7 @@
 #include "data_filter_edit.h"
 #include "mvlc/mvlc_trigger_io.h"
 #include "qt-collapsible-section/Section.h"
+#include "util/qt_font.h"
 #include "vme_config.h"
 #include "vme_config_ui_variable_editor.h"
 #include "vme_config_util.h"
@@ -877,5 +879,63 @@ QWidget *DataFilterEditItemDelegate::createEditor(QWidget *parent,
                                                   const QModelIndex &index) const
 {
     auto result = new DataFilterEdit(parent);
+    return result;
+}
+
+ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
+    : QTableWidget(parent)
+{
+    setColumnCount(2);
+    setHorizontalHeaderLabels({QSL("Filter String"), QSL("Description")});
+    horizontalHeader()->setStretchLastSection(true);
+    verticalHeader()->setVisible(false);
+    setItemDelegateForColumn(0, new DataFilterEditItemDelegate(this));
+}
+
+void ModuleEventHeaderFiltersTable::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
+{
+    clearContents();
+
+    for (const auto &filterDef: filterDefs)
+        appendRow(filterDef);
+}
+
+void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFilter &filterDef)
+{
+    auto row = rowCount();
+    setRowCount(row + 1);
+    auto theFont = make_monospace_font();
+    theFont.setPointSize(9);
+
+    auto item = new QTableWidgetItem;
+    item->setData(Qt::DisplayRole, generate_pretty_filter_string(filterDef.filterString));
+    item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    item->setFont(theFont);
+    setItem(row, 0, item);
+
+    auto item2 = new QTableWidgetItem;
+    item2->setData(Qt::DisplayRole, filterDef.description);
+    setItem(row, 1, item2);
+}
+
+std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersTable::getData() const
+{
+    std::vector<vats::VMEModuleEventHeaderFilter> result;
+    result.reserve(rowCount());
+
+    for (int i = 0; i < rowCount(); ++i)
+    {
+        auto item = this->item(i, 0);
+        auto item2 = this->item(i, 1);
+
+        if (item && item2)
+        {
+            vats::VMEModuleEventHeaderFilter filterDef;
+            filterDef.filterString = item->text().toLocal8Bit();
+            filterDef.description = item2->text();
+            result.push_back(filterDef);
+        }
+    }
+
     return result;
 }

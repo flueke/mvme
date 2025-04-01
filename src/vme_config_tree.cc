@@ -1832,7 +1832,6 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         auto le_typeName = new QLineEdit;
         auto le_displayName = new QLineEdit;
         auto le_vendorName = new QLineEdit;
-        auto tw_headerFilters = new QTableWidget;
         // Use the modules current VME address as a suggestion for the new default address.
         auto le_vmeAddress = make_vme_address_edit(mod->getBaseAddress());
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -1840,31 +1839,9 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         le_typeName->setText(meta.typeName);
         le_displayName->setText(meta.displayName);
         le_vendorName->setText(meta.vendorName);
-        tw_headerFilters->setColumnCount(2);
-        tw_headerFilters->setHorizontalHeaderLabels({"Filter String", "Description"});
-        tw_headerFilters->horizontalHeader()->setStretchLastSection(true);
-        tw_headerFilters->verticalHeader()->setVisible(false);
-        tw_headerFilters->setRowCount(meta.eventSizeFilters.size());
-        tw_headerFilters->setItemDelegateForColumn(0, new DataFilterEditItemDelegate(tw_headerFilters));
 
-        int row = 0;
-        for (const auto &filterDef: meta.eventSizeFilters)
-        {
-            auto item = new QTableWidgetItem;
-            item->setData(Qt::DisplayRole, generate_pretty_filter_string(filterDef.filterString));
-            item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            auto f = make_monospace_font();
-            f.setPointSize(9);
-            item->setFont(f);
-            tw_headerFilters->setItem(row, 0, item);
-
-            auto item2 = new QTableWidgetItem;
-            item2->setData(Qt::DisplayRole, filterDef.description);
-            tw_headerFilters->setItem(row, 1, item2);
-
-            ++row;
-        }
-
+        auto tw_headerFilters = new ModuleEventHeaderFiltersTable;
+        tw_headerFilters->setData(meta.eventHeaderFilters);
         tw_headerFilters->resizeColumnsToContents();
         tw_headerFilters->resizeRowsToContents();
 
@@ -1876,7 +1853,7 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         l->addRow("Display Name", le_displayName);
         l->addRow("Vendor Name", le_vendorName);
         l->addRow("Default VME Address", le_vmeAddress);
-        l->addRow("MultiEvent Header Filters", tw_headerFilters);
+        l->addRow("Event Header Filters", tw_headerFilters);
         l->addRow(bb);
 
         QObject::connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
@@ -1889,19 +1866,7 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         meta.typeId = VMEModuleMeta::InvalidTypeId;
         meta.displayName = le_displayName->text();
         meta.vendorName = le_vendorName->text();
-        meta.eventSizeFilters.clear();
-        for (int row=0; row<tw_headerFilters->rowCount(); ++row)
-        {
-            auto filterString = tw_headerFilters->item(row, 0)->text();
-            auto description = tw_headerFilters->item(row, 1)->text();
-            if (!filterString.isEmpty())
-            {
-                VMEModuleEventHeaderFilter filterDef;
-                filterDef.filterString = filterString.toLocal8Bit();
-                filterDef.description = description;
-                meta.eventSizeFilters.push_back(filterDef);
-            }
-        }
+        meta.eventHeaderFilters = tw_headerFilters->getData();
         meta.vmeAddress = le_vmeAddress->text().toUInt(nullptr, 16);
     }
 

@@ -24,6 +24,7 @@
 #include "vme_config.h"
 #include <QDialog>
 #include <QStyledItemDelegate>
+#include <QTableWidget>
 #include <memory>
 
 
@@ -113,6 +114,20 @@ class DataFilterEditItemDelegate: public QStyledItemDelegate
         using QStyledItemDelegate::QStyledItemDelegate;
         virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option,
                                       const QModelIndex &index) const;
+};
+
+// Table to display and edit vme module event header filters. Allows adding,
+// removing and editing of filters and their descriptions.
+class ModuleEventHeaderFiltersTable: public QTableWidget
+{
+    Q_OBJECT
+    public:
+        ModuleEventHeaderFiltersTable(QWidget *parent = nullptr);
+
+        void setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs);
+        std::vector<vats::VMEModuleEventHeaderFilter> getData() const;
+
+        void appendRow(const vats::VMEModuleEventHeaderFilter &filterDef);
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */
