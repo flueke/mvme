@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QThread>
+#include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "git_sha1.h"
 #include "mvlc/mvlc_vme_controller.h"
@@ -328,11 +329,14 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                 std::vector<u32> destBuffer;
                 auto ec = mvlc->getMVLC().stackTransaction(stack, destBuffer);
 
+                mesytec::mvlc::util::log_buffer(std::cerr, destBuffer.data(), destBuffer.size(), "vme_script::MVLC_InlineStack response");
+
                 if (ec)
                 {
                     result.error = VMEError(ec);
                 }
-                else if (!destBuffer.empty())
+
+                if (!destBuffer.empty())
                 {
                     // Check the stack header for error flags. Translate the
                     // flags to MVLCErrorCodes and store in the result.
@@ -437,9 +441,10 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
 
 QString format_result(const Result &result)
 {
+    QString ret;
+
     if (result.error.isError() || result.error.isWarning())
     {
-        QString ret;
         const QString prefix = result.error.isWarning() ? "Warning" : "Error";
         if (result.command.type == CommandType::Accu_Test)
         {
@@ -457,20 +462,10 @@ QString format_result(const Result &result)
                 .arg(to_string(result.command))
                 .arg(result.error.toString());
         }
-
-        return ret;
-#if 0 // too verbose but also possible
-        if (auto ec = result.error.getStdErrorCode())
-        {
-            ret += QString(" (std::error_code: msg=%1, value=%2, cat=%3)")
-                .arg(ec.message().c_str())
-                .arg(ec.value())
-                .arg(ec.category().name());
-        }
-#endif
     }
 
-    QString ret(to_string(result.command, true));
+    if (ret.isEmpty())
+        ret = to_string(result.command, true);
 
     switch (result.command.type)
     {
