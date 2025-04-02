@@ -511,7 +511,8 @@ std::error_code ModuleConfig::read_impl(const QJsonObject &json)
     //    have been manually modified.
     // 2. If "ModuleMeta" is not present lookup the module typeName in the
     //    template database. Use that information to fill m_meta.
-    // When saving somehow decide if m_meta should be written to 'ModuleMeta'.
+    //
+    // When saving decide if m_meta should be written to 'ModuleMeta'.
     // This should only happen if the user actually modified the stored meta
     // info.
 

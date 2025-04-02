@@ -51,6 +51,7 @@
 #include "histo_util.h"
 #include "mvlc_stream_worker.h"
 #include "qt_util.h"
+#include "vme_config_ui.h"
 
 class ModuleConfig;
 
@@ -528,17 +529,13 @@ class ModuleSettingsDialog: public QDialog
 {
     Q_OBJECT
     public:
-        ModuleSettingsDialog(const ModuleConfig *moduleConfig,
-                             const QVariantMap &settings,
-                             QWidget *parent = nullptr);
-
-        QVariantMap getSettings() const { return m_settings; }
+        ModuleSettingsDialog(ModuleConfig *moduleConfig, QWidget *parent = nullptr);
 
         virtual void accept() override;
 
     private:
-        QVariantMap m_settings;
-        QTableWidget *m_filtersTable;
+        ModuleConfig *m_moduleConfig;
+        ModuleEventHeaderFiltersEditor *m_filtersEditor;
 };
 
 QString make_input_source_text(Slot *slot);

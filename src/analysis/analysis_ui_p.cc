@@ -4135,29 +4135,20 @@ Analysis::VMEObjectSettings EventSettingsDialog::getSettings() const
 // ModuleSettingsDialog
 //
 
-ModuleSettingsDialog::ModuleSettingsDialog(const ModuleConfig *moduleConfig,
-                                           const QVariantMap &moduleSettings,
+ModuleSettingsDialog::ModuleSettingsDialog(ModuleConfig *moduleConfig,
                                            QWidget *parent)
     : QDialog(parent)
-    , m_settings(moduleSettings)
-    , m_filtersTable(new QTableWidget)
+    , m_moduleConfig(moduleConfig)
+    , m_filtersEditor(new ModuleEventHeaderFiltersEditor)
 {
     setWindowTitle(QSL("Analysis Module Settings"));
+    resize(800, 400);
 
     auto gbSettings = new QGroupBox(QSL("Module settings"));
     auto settingsLayout = new QFormLayout(gbSettings);
-    settingsLayout->addRow(QSL("Multi Event Header Filters"), m_filtersTable);
-    auto label = new QLabel(QSL(
-            "Used to split incoming multi-event module data into individual events.<br/>"
-            "The first matching filter is used to split the module data at event size boundaries.<br/>"
-            "Only has an effect if Multi Event Processing is enabled for the current event.<br/>"
-            "Changes become active on the next DAQ/Replay start."
-            ));
-    label->setWordWrap(true);
+    settingsLayout->addRow(QSL("Multi Event Header Filters"), m_filtersEditor);
 
-    set_widget_font_pointsize_relative(label, -1);
-    settingsLayout->addRow(label);
-    settingsLayout->addRow(m_filtersTable);
+    settingsLayout->addRow(m_filtersEditor);
 
     auto dialogLayout = new QVBoxLayout(this);
 
@@ -4173,33 +4164,14 @@ ModuleSettingsDialog::ModuleSettingsDialog(const ModuleConfig *moduleConfig,
     QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    auto filters = vme_module_event_size_filters_from_object_settings(moduleSettings);
-
-    // setup and populate the filters table
-    m_filtersTable->setColumnCount(2);
-    m_filtersTable->setHorizontalHeaderLabels({"Filter String", "Description"});
-    m_filtersTable->horizontalHeader()->setStretchLastSection(true);
-    m_filtersTable->verticalHeader()->setVisible(false);
-    m_filtersTable->setRowCount(filters.size());
-    int row = 0;
-
-    for (const auto &filterDef: filters)
-    {
-        auto item = new QTableWidgetItem;
-        item->setData(Qt::DisplayRole, filterDef.filterString);
-        m_filtersTable->setItem(row, 0, item);
-
-        item = new QTableWidgetItem;
-        item->setData(Qt::DisplayRole, filterDef.description);
-        m_filtersTable->setItem(row, 1, item);
-
-        ++row;
-    }
+    m_filtersEditor->setData(moduleConfig->getModuleMeta().eventHeaderFilters);
 }
 
 void ModuleSettingsDialog::accept()
 {
-    //m_settings.insert(QSL("MultiEventHeaderFilter"), m_filterEdit->text().trimmed());
+    auto mm = m_moduleConfig->getModuleMeta();
+    mm.eventHeaderFilters = m_filtersEditor->getData();
+    m_moduleConfig->setModuleMeta(mm);
 
     QDialog::accept();
 }

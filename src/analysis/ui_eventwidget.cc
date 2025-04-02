@@ -3141,18 +3141,8 @@ void EventWidgetPrivate::doDataSourceOperatorTreeContextMenu(
             menu.addAction(
                 QIcon(QSL(":/gear.png")), QSL("Module Settings"),
                 &menu, [this, moduleConfig]() {
-
-                    auto analysis = m_serviceProvider->getAnalysis();
-                    auto moduleSettings = analysis->getVMEObjectSettings(
-                        moduleConfig->getId());
-
-                    ModuleSettingsDialog dialog(moduleConfig, moduleSettings, m_q);
-
-                    if (dialog.exec() == QDialog::Accepted)
-                    {
-                        analysis->setVMEObjectSettings(
-                            moduleConfig->getId(), dialog.getSettings());
-                    }
+                    ModuleSettingsDialog dialog(moduleConfig, m_q);
+                    dialog.exec();
                 });
 
             auto actionNew = menu.addAction(QSL("New"));

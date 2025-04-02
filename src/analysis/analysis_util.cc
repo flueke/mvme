@@ -607,31 +607,6 @@ bool LIBMVME_EXPORT uses_event_builder(const VMEConfig &vmeConfig, const Analysi
     return usesEventBuilder;
 }
 
-std::vector<vats::VMEModuleEventHeaderFilter> vme_module_event_size_filters_from_object_settings(
-    const QVariantMap &moduleSettings)
-{
-    std::vector<vats::VMEModuleEventHeaderFilter> result;
-
-    if (moduleSettings.contains("MultiEventHeaderFilters"))
-    {
-        // New style, multi filter definition structs.
-        for (const auto &filterDef: moduleSettings["MultiEventHeaderFilters"].toList())
-        {
-            auto filterString = filterDef.toMap().value("filter").toByteArray();
-            auto filterDescription = filterDef.toMap().value("description").toString();
-            result.emplace_back(vats::VMEModuleEventHeaderFilter{filterString, filterDescription});
-        }
-    }
-    else
-    {
-        // Old-style, single filter string.
-        auto filterString = moduleSettings.value("MultiEventHeaderFilter").toByteArray();
-        result.emplace_back(vats::VMEModuleEventHeaderFilter{filterString, "default header size filter (old-style)"});
-    }
-
-    return result;
-}
-
 std::vector<std::vector<std::vector<vats::VMEModuleEventHeaderFilter>>>
 collect_multi_event_splitter_filters(
     const VMEConfig &vmeConfig, const Analysis &analysis)
@@ -653,8 +628,7 @@ collect_multi_event_splitter_filters(
 
             if (enabledForEvent)
             {
-                auto moduleFilters = vme_module_event_size_filters_from_object_settings(
-                    analysis.getVMEObjectSettings(moduleConfig->getId()));
+                auto moduleFilters = moduleConfig->getModuleMeta().eventHeaderFilters;
                 eventFilters.emplace_back(moduleFilters);
             }
             else

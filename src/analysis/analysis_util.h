@@ -226,14 +226,6 @@ size_t LIBMVME_EXPORT disconnect_outputs(PipeSourceInterface *pipeSource);
 bool LIBMVME_EXPORT uses_multi_event_splitting(const VMEConfig &vmeConfig, const Analysis &analysis);
 bool LIBMVME_EXPORT uses_event_builder(const VMEConfig &vmeConfig, const Analysis &analysis);
 
-// Interprets the information stored in 'analysis.getVMEObjectSettings(moduleConfig->getId()'
-// to fill and return a vector of vats::VMEModuleEventHeaderFilter structure.
-// Handles both the old-style, single filter string values and the new style
-// [{ filter, description }] information.
-std::vector<vats::VMEModuleEventHeaderFilter> LIBMVME_EXPORT
-vme_module_event_size_filters_from_object_settings(
-    const QVariantMap &moduleSettings);
-
 // Tree of module header event size extraction filters. Index hierarchy is:
 // eventIndex, moduleIndex, filterIndex
 std::vector<std::vector<std::vector<vats::VMEModuleEventHeaderFilter>>> LIBMVME_EXPORT
