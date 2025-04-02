@@ -944,7 +944,7 @@ std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersTable::get
             auto filterString = item->text();
             filterString.remove(QChar(' '));
 
-            if (filterString.isEmpty() || filterString.count('S') == 0)
+            if (filterString.isEmpty())
                 continue;
 
             filterDef.filterString = filterString.toLocal8Bit();
