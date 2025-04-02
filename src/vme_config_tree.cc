@@ -1834,26 +1834,23 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         auto le_vendorName = new QLineEdit;
         // Use the modules current VME address as a suggestion for the new default address.
         auto le_vmeAddress = make_vme_address_edit(mod->getBaseAddress());
+        auto headerFiltersEditor = new ModuleEventHeaderFiltersEditor;
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
         le_typeName->setText(meta.typeName);
         le_displayName->setText(meta.displayName);
         le_vendorName->setText(meta.vendorName);
-
-        auto tw_headerFilters = new ModuleEventHeaderFiltersTable;
-        tw_headerFilters->setData(meta.eventHeaderFilters);
-        tw_headerFilters->resizeColumnsToContents();
-        tw_headerFilters->resizeRowsToContents();
+        headerFiltersEditor->setData(meta.eventHeaderFilters);
 
         QDialog d;
         d.setWindowTitle("Save VME Module to File");
-        d.resize(800, 400);
+        d.resize(900, 500);
         auto l = new QFormLayout(&d);
         l->addRow("Type Name", le_typeName);
         l->addRow("Display Name", le_displayName);
         l->addRow("Vendor Name", le_vendorName);
         l->addRow("Default VME Address", le_vmeAddress);
-        l->addRow("Event Header Filters", tw_headerFilters);
+        l->addRow("Event Header Filters", headerFiltersEditor);
         l->addRow(bb);
 
         QObject::connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
@@ -1866,14 +1863,16 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         meta.typeId = VMEModuleMeta::InvalidTypeId;
         meta.displayName = le_displayName->text();
         meta.vendorName = le_vendorName->text();
-        meta.eventHeaderFilters = tw_headerFilters->getData();
+        meta.eventHeaderFilters = headerFiltersEditor->getData();
         meta.vmeAddress = le_vmeAddress->text().toUInt(nullptr, 16);
     }
 
     // Update the clone with information from the dialog. Note: the clone will
     // be a different module type than the source module. Not sure how to handle
     // this. Could update the source module too but that would be unexpected
-    // behavior when just saving the module to file.
+    // behavior when just saving the module to file. On the other hand, saving
+    // the module, then creating instances of it and finally figuring out that
+    // the original source module and the new instances differ is pretty bad.
     mod->setModuleMeta(meta);
     mod->setBaseAddress(meta.vmeAddress);
 

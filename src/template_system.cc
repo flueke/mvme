@@ -502,7 +502,7 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
     return out;
 }
 
-VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates,
+std::optional<VMEModuleMeta> get_module_meta_by_typename(const MVMETemplates &templates,
                                           const QString &moduleTypeName)
 {
     for (auto mm: templates.moduleMetas)
@@ -513,7 +513,7 @@ VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates,
     return {};
 }
 
-VMEModuleMeta get_module_meta_by_typeId(const MVMETemplates &templates, u8 typeId)
+std::optional<VMEModuleMeta> get_module_meta_by_typeId(const MVMETemplates &templates, u8 typeId)
 {
     for (auto mm: templates.moduleMetas)
     {

@@ -377,9 +377,7 @@ void LIBMVME_EXPORT load_moduleconfig_from_modulejson(ModuleConfig &mod, const Q
 {
     mod.read(json["ModuleConfig"].toObject());
     mvme::vme_config::generate_new_object_ids(&mod);
-    auto mm = vats::modulemeta_from_json(json["ModuleMeta"].toObject());
-    mod.setModuleMeta(mm);
-    mod.setObjectName(mm.typeName);
+    mod.setObjectName(mod.getModuleMeta().typeName);
 }
 
 std::unique_ptr<EventConfig> eventconfig_from_eventjson(const QJsonObject &json)

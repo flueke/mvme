@@ -126,8 +126,22 @@ class ModuleEventHeaderFiltersTable: public QTableWidget
 
         void setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs);
         std::vector<vats::VMEModuleEventHeaderFilter> getData() const;
-
         void appendRow(const vats::VMEModuleEventHeaderFilter &filterDef);
+};
+
+class ModuleEventHeaderFiltersEditor: public QWidget
+{
+    Q_OBJECT
+    public:
+        ModuleEventHeaderFiltersEditor(QWidget *parent = nullptr);
+
+        void setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs);
+        std::vector<vats::VMEModuleEventHeaderFilter> getData() const;
+
+        ModuleEventHeaderFiltersTable *getTable() const { return m_table; }
+
+    private:
+        ModuleEventHeaderFiltersTable *m_table;
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */

@@ -21,6 +21,7 @@
 #include "vme_config_ui.h"
 
 #include <QCheckBox>
+#include <QClipboard>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDebug>
@@ -29,6 +30,7 @@
 #include <QFile>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QHeaderView>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -690,38 +692,6 @@ ModuleConfigDialog::~ModuleConfigDialog() {}
 
 void ModuleConfigDialog::accept()
 {
-    auto typeName = typeCombo->currentData().toString();
-
-    auto it = std::find_if(m_moduleMetas.begin(), m_moduleMetas.end(),
-                           [typeName](const auto &mm) { return mm.typeName == typeName; });
-
-    if (it != m_moduleMetas.end())
-    {
-        const auto &mm(*it);
-        m_module->setModuleMeta(mm);
-
-        if (!mm.moduleJson.empty())
-        {
-            // New style template from a single json file.
-            mvme::vme_config::load_moduleconfig_from_modulejson(*m_module, mm.moduleJson);
-        }
-        else
-        {
-            // Old style template from multiple .vme files
-            m_module->getReadoutScript()->setObjectName(mm.templates.readout.name);
-            m_module->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
-
-            m_module->getResetScript()->setObjectName(mm.templates.reset.name);
-            m_module->getResetScript()->setScriptContents(mm.templates.reset.contents);
-
-            for (const auto &vmeTemplate: mm.templates.init)
-            {
-                m_module->addInitScript(
-                    new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
-            }
-        }
-    }
-
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
     m_module->setVariables(m_d->variableEditor->getVariables());
@@ -878,8 +848,9 @@ QWidget *DataFilterEditItemDelegate::createEditor(QWidget *parent,
                                                   const QStyleOptionViewItem &option,
                                                   const QModelIndex &index) const
 {
-    auto result = new DataFilterEdit(parent);
-    return result;
+    Q_UNUSED(option);
+    Q_UNUSED(index);
+    return new DataFilterEdit(parent);
 }
 
 ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
@@ -890,14 +861,42 @@ ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
     horizontalHeader()->setStretchLastSection(true);
     verticalHeader()->setVisible(false);
     setItemDelegateForColumn(0, new DataFilterEditItemDelegate(this));
-}
+    setContextMenuPolicy(Qt::CustomContextMenu);
 
-void ModuleEventHeaderFiltersTable::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
-{
-    clearContents();
+    auto add_entry = [this]
+    {
+        appendRow({QByteArray(32, 'X'), {}});
+        resizeColumnToContents(0);
+        resizeRowsToContents();
+    };
 
-    for (const auto &filterDef: filterDefs)
-        appendRow(filterDef);
+    auto remove_entry = [this]
+    {
+        auto sm = this->selectionModel();
+        auto idx = sm->currentIndex();
+
+        if (!idx.isValid())
+            return;
+
+        removeRow(idx.row());
+    };
+
+    auto context_menu_handler = [this, add_entry, remove_entry] (const QPoint &pos)
+    {
+        QMenu menu;
+        auto item = itemAt(pos);
+
+        if (item)
+            menu.addAction(make_copy_to_clipboard_action(this, &menu));
+        menu.addAction(QIcon::fromTheme("list-add"), QSL("Add entry"), this, add_entry);
+        if (item)
+            menu.addAction(QIcon::fromTheme("list-remove"), QSL("Remove entry"), this, remove_entry);
+
+        if (!menu.isEmpty())
+            menu.exec(this->mapToGlobal(pos));
+    };
+
+    connect(this, &QTableWidget::customContextMenuRequested, this, context_menu_handler);
 }
 
 void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFilter &filterDef)
@@ -918,6 +917,17 @@ void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFi
     setItem(row, 1, item2);
 }
 
+void ModuleEventHeaderFiltersTable::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
+{
+    clearContents();
+
+    for (const auto &filterDef: filterDefs)
+        appendRow(filterDef);
+
+    resizeColumnsToContents();
+    resizeRowsToContents();
+}
+
 std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersTable::getData() const
 {
     std::vector<vats::VMEModuleEventHeaderFilter> result;
@@ -931,11 +941,47 @@ std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersTable::get
         if (item && item2)
         {
             vats::VMEModuleEventHeaderFilter filterDef;
-            filterDef.filterString = item->text().toLocal8Bit();
+            auto filterString = item->text();
+            filterString.remove(QChar(' '));
+
+            if (filterString.isEmpty() || filterString.count('S') == 0)
+                continue;
+
+            filterDef.filterString = filterString.toLocal8Bit();
             filterDef.description = item2->text();
             result.push_back(filterDef);
         }
     }
 
     return result;
+}
+
+ModuleEventHeaderFiltersEditor::ModuleEventHeaderFiltersEditor(QWidget *parent)
+    : QWidget(parent)
+    , m_table(new ModuleEventHeaderFiltersTable(this))
+{
+    auto label = new QLabel(QSL(
+            "Used to split incoming multi-event module data into individual events.<br/>"
+            "The marker 'S' is used to extract the number of data words contained in the event. "
+            "If multiple filters are defined, they are tried in order until one matches. "
+            "Only has an effect if 'Multi Event Processing' is enabled in the analysis. "
+            "Changes become active on the next DAQ/Replay start."
+            ));
+    label->setWordWrap(true);
+    auto layout = new QVBoxLayout(this);
+    layout->setContentsMargins(2, 2, 2, 2);
+    layout->addWidget(label);
+    layout->addWidget(m_table);
+    setLayout(layout);
+}
+
+
+void ModuleEventHeaderFiltersEditor::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
+{
+    m_table->setData(filterDefs);
+}
+
+std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersEditor::getData() const
+{
+    return m_table->getData();
 }

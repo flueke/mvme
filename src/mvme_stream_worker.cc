@@ -264,7 +264,10 @@ log_processing_step(QTextStream &out, const ProcessingState &procState,
 
                     u32 moduleSectionSize = (moduleSectionHeader & lfc.ModuleDataSizeMask) >> lfc.ModuleDataSizeShift;
                     u32 moduleType = (moduleSectionHeader & lfc.ModuleTypeMask) >> lfc.ModuleTypeShift;
-                    QString moduleTypeString = vats::get_module_meta_by_typeId(vatsTemplates, moduleType).typeName;
+                    QString moduleTypeString;
+
+                    if (auto mm = vats::get_module_meta_by_typeId(vatsTemplates, moduleType))
+                        moduleTypeString = mm->typeName;
 
                     if (endlFlag) out << endl;
 
