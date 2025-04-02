@@ -22,6 +22,7 @@
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_util.h"
 #include "databuffer.h"
 #include "mvme_listfile.h"
 #include "mesytec_diagnostics.h"
@@ -152,70 +153,66 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     // build info for multievent processing
     //
 
-    auto eventConfigs = vmeConfig->getEventConfigs();
-
-    for (s32 eventIndex = 0;
-         eventIndex < eventConfigs.size();
-         ++eventIndex)
+    if (analysis::uses_multi_event_splitting(*vmeConfig, *analysis))
     {
-        auto eventConfig = eventConfigs[eventIndex];
-        auto moduleConfigs = eventConfig->getModuleConfigs();
+        auto eventConfigs = vmeConfig->getEventConfigs();
 
-        // multievent enable: start out using the setting from the analysis side
-        auto eventSettings = analysis->getVMEObjectSettings(eventConfig->getId());
+        auto filterDefs = collect_multi_event_splitter_filters(*vmeConfig, *analysis);
 
-        m_d->doMultiEventProcessing[eventIndex] =
-            eventSettings.value("MultiEventProcessing").toBool();
-
-        for (s32 moduleIndex = 0;
-             moduleIndex < moduleConfigs.size();
-             ++moduleIndex)
+        for (s32 eventIndex = 0;
+            eventIndex < eventConfigs.size();
+            ++eventIndex)
         {
-            auto moduleConfig = moduleConfigs[moduleIndex];
-            auto moduleSettings = analysis->getVMEObjectSettings(moduleConfig->getId());
-            MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
+            auto eventConfig = eventConfigs[eventIndex];
+            auto moduleConfigs = eventConfig->getModuleConfigs();
 
-            // Check the analysis side module settings for the multi event header filter.
-            // If none is found use the moduleConfig to get the default filter for the
-            // module type.
+            m_d->doMultiEventProcessing[eventIndex] = false;
 
-            auto moduleEventHeaderFilter = moduleSettings.value(
-                QSL("MultiEventHeaderFilter")).toString();
-
-            if (moduleEventHeaderFilter.isEmpty())
+            try
             {
-                // Note (flueke, 3/2025): This code was written for the single-filter string case. To avoid touching
-                // any of this the first filter string in the new list of filters is picked and used as before.
-                auto mm = moduleConfig->getModuleMeta();
-                if (!mm.eventHeaderFilters.empty())
-                    moduleEventHeaderFilter = moduleConfig->getModuleMeta().eventHeaderFilters.at(0).filterString;
+                m_d->doMultiEventProcessing[eventIndex] = !filterDefs.at(eventIndex).empty();
+            }
+            catch(const std::exception&)
+            {
             }
 
-            if (moduleEventHeaderFilter.isEmpty() || !moduleConfig->isEnabled())
+            for (s32 moduleIndex = 0;
+                moduleIndex < moduleConfigs.size();
+                ++moduleIndex)
             {
-                // FIXME: why does mutli event for the whole event get disabled if one of
-                // the modules disabled? This does seem unnecessary.
+                auto moduleConfig = moduleConfigs[moduleIndex];
+                MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
+                modInfo.moduleConfig = moduleConfig;
 
-                // multievent enable: override the event setting as we don't
-                // have a filter for splitting the event data
-                m_d->doMultiEventProcessing[eventIndex] = false;
+                auto moduleFilterDefs = filterDefs.at(eventIndex).at(moduleIndex);
+
+                if (!moduleFilterDefs.empty())
+                {
+                    auto filterDef = moduleFilterDefs.at(0);
+
+                    if (filterDef.filterString.isEmpty())
+                    {
+                        // FIXME: why does mutli event for the whole event get disabled if one of
+                        // the modules is disabled? This does seem unnecessary.
+
+                        // multievent enable: override the event setting as we don't
+                        // have a filter for splitting the event data
+                        m_d->doMultiEventProcessing[eventIndex] = false;
+                    }
+                    else
+                    {
+                        modInfo.moduleHeaderFilter = a2::data_filter::make_filter(filterDef.filterString.toStdString());
+                        modInfo.filterCacheModuleSectionSize = a2::data_filter::make_cache_entry(
+                            modInfo.moduleHeaderFilter, 'S');
+                    }
+                }
+
+                qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() <<
+                    a2::data_filter::to_string(modInfo.moduleHeaderFilter).c_str();
             }
-            else
-            {
-                modInfo.moduleHeaderFilter = a2::data_filter::make_filter(
-                    moduleEventHeaderFilter.toStdString());
 
-                modInfo.filterCacheModuleSectionSize = a2::data_filter::make_cache_entry(
-                    modInfo.moduleHeaderFilter, 'S');
-            }
-
-            modInfo.moduleConfig = moduleConfig;
-
-            qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() <<
-                a2::data_filter::to_string(modInfo.moduleHeaderFilter).c_str();
+            m_d->eventConfigs[eventIndex] = eventConfig;
         }
-
-        m_d->eventConfigs[eventIndex] = eventConfig;
     }
 
     // TODO: check that the analysis has been built (no object needs a rebuild)
