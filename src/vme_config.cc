@@ -502,21 +502,26 @@ std::error_code ModuleConfig::read_impl(const QJsonObject &json)
         m_initScripts.push_back(cfg);
     }
 
-    // Use the typeName to load (and update) module meta info from the template system.
-    const auto moduleMetas = read_templates().moduleMetas;
-    auto it = std::find_if(moduleMetas.begin(), moduleMetas.end(), [typeName](const VMEModuleMeta &mm) {
-        return mm.typeName == typeName;
-    });
+    // Handling of module meta info:
+    // There are two places for meta info: in the json data under "ModuleMeta"
+    // and in the runtime object in m_meta.
+    //
+    // 1. Load info from the "ModuleMeta" key in the json data. This key is only
+    //    written for .mvmemodule exports and for modules whose header filters
+    //    have been manually modified.
+    // 2. If "ModuleMeta" is not present lookup the module typeName in the
+    //    template database. Use that information to fill m_meta.
+    // When saving somehow decide if m_meta should be written to 'ModuleMeta'.
+    // This should only happen if the user actually modified the stored meta
+    // info.
 
-    if (it != moduleMetas.end())
+    if (json.contains("ModuleMeta"))
     {
-        m_meta = *it; // use the found meta info
-    }
-    else if (json.contains("ModuleMeta"))
-    {
-        // Must be a user defined module as the template system does not know
-        // the typeName. Use the stored meta info.
         m_meta = vats::modulemeta_from_json(json["ModuleMeta"].toObject());
+    }
+    else if (auto mm = get_module_meta_by_typename(read_templates(), typeName))
+    {
+        m_meta = mm.value();
     }
 
     return {};
@@ -553,8 +558,11 @@ std::error_code ModuleConfig::write_impl(QJsonObject &json) const
         json["initScripts"] = dstArray;
     }
 
-    // module meta (since mvme-1.17)
-    json["moduleMeta"] = vats::modulemeta_to_json(m_meta);
+    // write module meta info if it's not present in the template system or has been modified
+    auto mm = get_module_meta_by_typename(read_templates(), m_meta.typeName);
+
+    if (!mm || mm.value() != m_meta)
+        json["ModuleMeta"] = vats::modulemeta_to_json(m_meta);
 
     return {};
 }
