@@ -22,10 +22,12 @@
 #define __QT_UTIL_H__
 
 #include <memory>
+#include <QClipboard>
 #include <QEventLoop>
 #include <QFormLayout>
 #include <QFrame>
 #include <QFutureWatcher>
+#include <QGuiApplication>
 #include <QHash>
 #include <QJsonObject>
 #include <QKeySequence>
@@ -276,5 +278,36 @@ void append_lines(std::stringstream &oss, TextEdit *textEdit, unsigned indent = 
     }
 }
 
+template<typename ItemWidget>
+auto make_copy_to_clipboard_handler(ItemWidget *itemWidget)
+{
+    auto copy_to_clipboard = [itemWidget]
+    {
+        auto sm = itemWidget->selectionModel();
+        auto idx = sm->currentIndex();
+
+        if (!idx.isValid())
+            return;
+
+        auto item = itemWidget->item(idx.row(), idx.column());
+
+        if (!item)
+            return;
+
+        auto text = item->data(Qt::EditRole).toString();
+        QGuiApplication::clipboard()->setText(text);
+    };
+
+    return copy_to_clipboard;
+}
+
+template<typename ItemWidget>
+QAction *make_copy_to_clipboard_action(ItemWidget *widget, QWidget *actionParent = nullptr)
+{
+    auto result = new QAction(QIcon::fromTheme("edit-copy"), QSL("Copy"), actionParent);
+    result->setShortcuts(QKeySequence::Copy);
+    QObject::connect(result, &QAction::triggered, widget, make_copy_to_clipboard_handler(widget));
+    return result;
+}
 
 #endif /* __QT_UTIL_H__ */
