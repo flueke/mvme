@@ -75,7 +75,18 @@ int main(int argc, char *argv[])
         mm_out["type_name"] = mm.typeName;
         mm_out["vendor_name"] = mm.vendorName;
         mm_out["display_name"] = mm.displayName;
-        mm_out["header_filter"] = QString::fromLocal8Bit(mm.eventHeaderFilter);
+
+        QJsonArray headerFilters_out;
+
+        for (const auto &filterDef: mm.eventHeaderFilters)
+        {
+            QJsonObject jFilterDef;
+            jFilterDef["filter"] = QString::fromLocal8Bit(filterDef.filterString);
+            jFilterDef["description"] = filterDef.description;
+            headerFilters_out.append(jFilterDef);
+        }
+
+        mm_out["header_filters"] = headerFilters_out;
         mm_out["vme_address"] = QString("0x%1").arg(mm.vmeAddress, 8, 16, QLatin1Char('0'));
         mm_out["data_sources"] = sources_out;
         modules_out.append(mm_out);
