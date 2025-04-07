@@ -85,7 +85,7 @@ configure_file("build_info.cc.in" "build_info.cc" @ONLY)
 # liba2 - Analysis runtime system
 #
 add_subdirectory(analysis/a2)
-include_directories(analysis/a2)
+#include_directories(analysis/a2)
 
 # Enable WIENER VMUSB support using libusb0. This can be changed to make use of
 # libusb1.
@@ -108,6 +108,9 @@ install(TARGETS libmvme_resources
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib)
 
+#
+# libmvme_mdpp_decode
+#
 add_library(libmvme_mdpp_decode SHARED
     mdpp-sampling/mdpp_decode.cc
     )
@@ -331,7 +334,7 @@ target_link_libraries(libmvme
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
-    PRIVATE liba2_static
+    PUBLIC liba2_static
     PRIVATE nlohmann-json
     PRIVATE qgvcore
     PUBLIC ${QUAZIP_QT5}
@@ -361,6 +364,8 @@ target_compile_options(libmvme
     PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
     PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
     )
+
+#target_include_directories(libmvme PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/analysis/a2)
 
 find_package(prometheus-cpp CONFIG)
 
@@ -561,6 +566,7 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
+add_subdirectory(gsi-mbs-api)
 #add_subdirectory(listfile_reader)
 
 add_mvme_exe(mvme_histo_viewer mvme_histo_viewer_main.cc)
@@ -602,6 +608,10 @@ add_dependencies(multicrate2_dev_tools
     statemachine_test
 )
 
+# handling of GSI MBS/LMD files
+add_mvme_exe(dev_read_lmd_file "dev_read_lmd_file.cc")
+target_link_libraries(dev_read_lmd_file PRIVATE gsi-mbs-api)
+
 # automated gtests
 if(MVME_BUILD_TESTS)
 
@@ -639,7 +649,6 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_template_system template_system.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
-
 endif(MVME_BUILD_TESTS)
 
 # vim:tw=0

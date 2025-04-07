@@ -122,6 +122,10 @@ if (A2_BUILD_STATIC)
         POSITION_INDEPENDENT_CODE ON)
 
     target_compile_options(liba2_static PRIVATE -Wall -Wextra -Wno-format)
+    target_include_directories(liba2_static PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    )
 
     if (A2_HUGE_PAGES)
         target_compile_definitions(liba2_static PUBLIC -DA2_HUGE_PAGES)
