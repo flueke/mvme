@@ -112,8 +112,8 @@ class DataFilterEditItemDelegate: public QStyledItemDelegate
 {
     public:
         using QStyledItemDelegate::QStyledItemDelegate;
-        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option,
-                                      const QModelIndex &index) const;
+        QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                                      const QModelIndex &index) const override;
 };
 
 // Table to display and edit vme module event header filters. Allows adding,
