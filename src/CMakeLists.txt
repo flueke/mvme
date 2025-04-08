@@ -608,9 +608,11 @@ add_dependencies(multicrate2_dev_tools
     statemachine_test
 )
 
-# handling of GSI MBS/LMD files
+# handling of GSI MBS LMD files
 add_mvme_exe(dev_read_lmd_file "dev_read_lmd_file.cc")
 target_link_libraries(dev_read_lmd_file PRIVATE gsi-mbs-api)
+add_mvme_exe(lmd2mvme "lmd2mvme.cc")
+target_link_libraries(lmd2mvme PRIVATE gsi-mbs-api)
 
 # automated gtests
 if(MVME_BUILD_TESTS)
