@@ -7,6 +7,7 @@
 ################################################################################
 
 # Modified for mvme by f.lueke@mesytec.com, 4/2025
+# Taken from the FairRoot repo: https://github.com/FairRootGroup
 
 set(target gsi-mbs-api)
 

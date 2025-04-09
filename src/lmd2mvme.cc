@@ -1,180 +1,41 @@
-//#include "mvme_session.h"
+// #include "mvme_session.h"
 #include <argh.h>
+#include <filesystem>
 #include <iostream>
 #include <spdlog/spdlog.h>
-#include <mesytec-mvlc/util/fmt.h>
-#include <filesystem>
+#include <QCoreApplication>
 
-extern "C"
-{
-//#include <gsi-mbs-api/fLmd.h>
-#include <gsi-mbs-api/f_evt.h>
-#include <gsi-mbs-api/s_filhe.h>
-}
+#include "mbs_wrappers.h"
+#include "mvlc_daq.h"
+#include "mvlc/vmeconfig_to_crateconfig.h"
+#include "mvme_mvlc_listfile.h"
+#include "mvme_session.h"
+#include "vme_config.h"
 
-std::ostream &operator<<(std::ostream &os, const s_bufhe &buf)
-{
-    os << "s_bufhe { l_dlen=" << buf.l_dlen
-       << ", i_type=" << buf.i_type
-       << ", i_subtype=" << buf.i_subtype
-       << ", h_begin=" << static_cast<int>(buf.h_begin)
-       << ", h_end=" << static_cast<int>(buf.h_end)
-       << ", i_used=" << buf.i_used
-       << ", l_buf=" << buf.l_buf
-       << ", l_evt=" << buf.l_evt
-       << ", l_current_i=" << buf.l_current_i
-       << ", l_time[0]=" << buf.l_time[0]
-       << ", l_time[1]=" << buf.l_time[1]
-       << " }";
-    return os;
-}
-
-std::ostream &operator<<(std::ostream &os, const s_ve10_1 &event)
-{
-    os << "s_ve10_1 { l_dlen=" << event.l_dlen
-       << ", i_type=" << event.i_type
-       << ", i_subtype=" << event.i_subtype
-       << ", i_trigger=" << event.i_trigger
-       << ", i_dummy=" << event.i_dummy
-       << ", l_count=" << event.l_count
-       << " }";
-    return os;
-}
-
-std::ostream &operator<<(std::ostream &os, const s_ves10_1 &event)
-{
-    os << "s_ves10_1 { l_dlen=" << event.l_dlen
-       << ", i_type=" << event.i_type
-       << ", i_subtype=" << event.i_subtype
-       << ", i_procid=" << event.i_procid
-       << ", h_subcrate=" << static_cast<int>(event.h_subcrate)
-       << ", h_control=" << static_cast<int>(event.h_control)
-       << " }";
-    return os;
-}
-
-using u8 = std::uint8_t;
-using u16 = uint16_t;
-using u32 = uint32_t;
-
-struct LmdWrapper
-{
-    s_evt_channel *eventChannel = nullptr;
-    s_filhe *fileHeaderPtr = nullptr;
-    s_bufhe *bufferPtr = nullptr;
-    s_ve10_1 *eventPtr = nullptr;
-    s_ves10_1 *subEventPtr = nullptr;
-    size_t subEventIndex = 1; // first valid subevent index is 1
-    size_t subEventCount_ = 0;
-    std::basic_string_view<const u32> subEventView_;
-
-    LmdWrapper()
-    {
-        eventChannel = f_evt_control();
-        if (!eventChannel)
-            throw std::runtime_error("failed to create event channel");
-    }
-
-    ~LmdWrapper()
-    {
-        close();
-        free(eventChannel);
-    }
-
-    void open(const std::string &lmdFilename, bool doPrint = true)
-    {
-        auto status = f_evt_get_tagopen(
-            eventChannel,
-            nullptr, // tag file
-            const_cast<char *>(lmdFilename.c_str()), // lmd file
-            reinterpret_cast<char **>(&fileHeaderPtr), // may be null in which case no file "header or other" information is returned
-            doPrint
-        );
-        if (status) throw status;
-    }
-
-    void close()
-    {
-        auto status = f_evt_get_tagclose(eventChannel);
-        if (status) throw status;
-    }
-
-    bool nextEvent()
-    {
-        if (!eventChannel) throw std::runtime_error("file not opened");
-
-        auto status = f_evt_get_event(eventChannel, reinterpret_cast<INTS4 **>(&eventPtr), reinterpret_cast<INTS4 **>(&bufferPtr));
-        if (status == GETEVT__NOMORE)
-            return false; // no more events
-        if (status) throw status;
-        subEventCount_ = f_evt_get_subevent(eventPtr, 0, nullptr, nullptr, nullptr);
-        subEventIndex = 1; // reset to first subevent
-        return true;
-    }
-
-    bool nextSubEvent()
-    {
-        if (!eventPtr) throw std::runtime_error("no event available");
-
-        if (subEventCount_ == 0)
-            return false; // no more subevents
-
-        if (subEventIndex > subEventCount_)
-        {
-            subEventCount_ = 0;
-            return false; // no more subevents
-        }
-
-        // get the next subevent
-        u32 *dataPtr = nullptr;
-        INTS4 longwords = 0;
-        auto status = f_evt_get_subevent(eventPtr, subEventIndex,
-            reinterpret_cast<INTS4 **>(&subEventPtr),
-            reinterpret_cast<INTS4 **>(&dataPtr),
-            &longwords);
-
-        if (status == GETEVT__NOMORE)
-        {
-            subEventCount_ = 0;
-            return false; // no more subevents
-        }
-        else if (status) throw status;
-        subEventView_ = std::basic_string_view<const u32>(dataPtr, longwords);
-        ++subEventIndex;
-        return true;
-    }
-
-    size_t subEventCount() const { return subEventCount_; }
-    std::basic_string_view<const u32> subEventView() const { return subEventView_; }
-
-    std::ostream &dumpState(std::ostream &out)
-    {
-        out << "LmdWrapper state:\n";
-        out << "  eventChannel: " << eventChannel << "\n";
-        out << "  fileHeaderPtr: " << fileHeaderPtr << "\n";
-        out << "  bufferPtr: " << bufferPtr << "\n";
-        out << "  eventPtr: " << eventPtr << "\n";
-        out << "  subEventPtr: " << subEventPtr << "\n";
-        out << "  subEventIndex: " << subEventIndex << "\n";
-        out << "  subEventCount: " << subEventCount_ << "\n";
-        return out;
-    }
-};
+using namespace mesytec::mvme::mbs;
+using namespace mesytec;
 
 int main(int argc, char *argv[])
 {
+    mvme_init("lmd2mvme", false);
+    QCoreApplication theQApp(argc, argv);
     spdlog::set_level(spdlog::level::info);
 
-    fmt::print("Struct sizes: s_ve10_1={}, s_ves10_1={}, s_bufhe={}\n",
-                sizeof(s_ve10_1), sizeof(s_ves10_1), sizeof(s_bufhe));
+    fmt::print("Struct sizes: s_ve10_1={}, s_ves10_1={}, s_bufhe={}\n", sizeof(s_ve10_1),
+               sizeof(s_ves10_1), sizeof(s_bufhe));
 
     argh::parser parser;
-    parser.parse(argc, argv, argh::parser::PREFER_FLAG_FOR_UNREG_OPTION | argh::parser::SINGLE_DASH_IS_MULTIFLAG);;
+    parser.parse(argc, argv,
+                 argh::parser::PREFER_FLAG_FOR_UNREG_OPTION |
+                     argh::parser::SINGLE_DASH_IS_MULTIFLAG);
+    ;
     auto optOverwrite = parser.flags().count("f");
+    bool optPrintData = parser["--print-data"];
 
     if (parser.pos_args().size() < 3)
     {
-        std::cerr << "Usage: " << argv[0] << " <input-file.lmd> <mvme-vme-config.vme> [mvme-output-file.zip]" << std::endl;
+        std::cerr << "Usage: " << argv[0]
+                  << " <input-file.lmd> <mvme-vme-config.vme> [mvme-output-file.zip]" << std::endl;
         return 1;
     }
 
@@ -185,7 +46,8 @@ int main(int argc, char *argv[])
         outputFilename = parser.pos_args().at(3);
 
     if (outputFilename.empty() || outputFilename.length() == 0)
-        outputFilename = std::filesystem::path(mvmeVmeConfigFilename).filename().stem().string() + ".zip";
+        outputFilename =
+            std::filesystem::path(mvmeVmeConfigFilename).filename().stem().string() + ".zip";
 
     if (!optOverwrite && std::filesystem::exists(outputFilename))
     {
@@ -193,241 +55,255 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    LmdWrapper lmdWrapper;
-    lmdWrapper.open(lmdFilename);
+    // ########## Read the mvme VME config file and perform some checks.
+    spdlog::info("Reading and checking mvme VME config...");
+    auto [vmeConfig, error] = read_vme_config_from_file(mvmeVmeConfigFilename.c_str());
+    if (!vmeConfig)
+    {
+        spdlog::error("Error reading VME config file {}: {}", mvmeVmeConfigFilename,
+                      error.toLocal8Bit().constData());
+    }
 
-    size_t eventCount = 0;
+    auto mvlcCrateConfig = mvme::vmeconfig_to_crateconfig(vmeConfig.get());
+
+    // Events in the base GSI config are: dispatch, start_acq, stop_acq, trigger1, trigger2, trigger3, trigger4
+    // Expected event irq trigger values. The array is indexed by one-based readout_stack/event number.
+    static const std::vector<int> expectedIrqTriggers = {4, 14, 15, 8, 9, 10, 11};
+    static const std::vector<int> mbsTriggerToStackNum =
+    {
+         -1, // 0 is not a valid mbs trigger number
+          3, // trigger 1 is read out using stack 3
+          4, // trigger 2 is not present in the MUSIC CaveC run
+          3, // trigger 3 should be read out by stack 5 but it's likely from a TRIVA bug where multiple bits are or'red to form the trigger value or similar. => map it to 3 too
+          6, // trigger 4 is not present in the MUSIC CaveC run
+    };
+    static const int outputCrateIndex = 0;
+    static const int dispatchEventIndex = 0;
+
+    if (mvlcCrateConfig.stacks.size() != expectedIrqTriggers.size() ||
+        mvlcCrateConfig.triggers.size() != expectedIrqTriggers.size())
+    {
+        spdlog::error("Structural error: Expected to find {} IRQ triggered readout stacks in VME "
+                      "config, found {}.",
+                      expectedIrqTriggers.size(), mvlcCrateConfig.stacks.size());
+        return 1;
+    }
+
+    for (size_t stackIndex = 0; stackIndex < expectedIrqTriggers.size(); ++stackIndex)
+    {
+        mvlc::stacks::Trigger trigger;
+        trigger.value = mvlcCrateConfig.triggers[stackIndex];
+        if (trigger.type != mvlc::stacks::TriggerType::IRQWithIACK &&
+            trigger.type != mvlc::stacks::TriggerType::IRQNoIACK)
+        {
+            spdlog::error("Structural error: Expected IRQ trigger type, found {}.",
+                mvlc::trigger_to_string(trigger));
+
+            return 1;
+        }
+
+        auto irqValue = mvlc::get_trigger_irq_value(trigger);
+        assert(irqValue.has_value());
+
+        if (irqValue.value() != expectedIrqTriggers[stackIndex])
+        {
+            spdlog::error("Structural error: Expected IRQ{} to trigger event{} but got IRQ{}",
+                expectedIrqTriggers[stackIndex], stackIndex, irqValue.value());
+            return 1;
+        }
+    }
+
+    auto rdoStructure = mvlc::readout_parser::build_readout_structure(mvlcCrateConfig.stacks);
+    // How many words are read out by the modules in the dispatch stacks. This
+    // is the number of words to remove from the front of each MBS subevent and
+    // put into the generated output frame for the dispatch event.
+    size_t dispatchReadoutDataWords = 0;
+    try
+    {
+        auto dispatchEventName = mvlcCrateConfig.stacks.at(0).getName();
+        for (auto &moduleReadout: rdoStructure.at(0))
+        {
+            if (moduleReadout.hasDynamic)
+            {
+                spdlog::error("Structural error: the dispatch event {} contains a VME block read command",
+                    dispatchEventName);
+                return 1;
+            }
+
+            dispatchReadoutDataWords += moduleReadout.prefixLen + moduleReadout.suffixLen;
+        }
+
+        // The first data word from the dispatch event (0x12..78) marker is not
+        // present in the mbs subevent readout data. Is probably is used and
+        // swallowed by the m_readout_mvlc program.
+        //spdlog::info("The dispatch event {} produces {} words of data, adjusting to {} to account for the missing marker word.",
+        //     dispatchEventName, dispatchReadoutDataWords, dispatchReadoutDataWords-1);
+        spdlog::info("Size of the TRIVA dispatch readout: {} words", dispatchReadoutDataWords);
+    }
+    catch(const std::exception& e)
+    {
+        spdlog::error("Unexpected readout structure in input VME config: {}", e.what());
+        return 1;
+    }
+
+    // This many words from the dispatch stack are present in the mbs subevent
+    // data. The rest must have been swallowed by the m_readout_mvlc program.
+    static const size_t dispatchDataWordsInMbsEvent = 5;
+
+    // ########## Quick scan of the LMD file
+    spdlog::info("Scanning LMD file...");
+    mvlc::util::Stopwatch swQuickScan;
+    auto scanResult = scan_lmd_file(lmdFilename);
+    auto dtQuickScan = swQuickScan.interval();
+    auto lmdFilesize = std::filesystem::file_size(lmdFilename);
+    auto scanRate =
+        (lmdFilesize / (1024.0 * 1024)) /
+        (std::chrono::duration_cast<std::chrono::milliseconds>(dtQuickScan).count() / 1000);
+    spdlog::info("Scan of LMD file {} took {} ms, rate={} MB/s", lmdFilename,
+                 std::chrono::duration_cast<std::chrono::milliseconds>(dtQuickScan).count(),
+                 scanRate);
+    spdlog::info("Scan result: {}", scanResult);
+
+    if (scanResult.subcrates.size() == 0)
+    {
+        spdlog::error("No subcrates found in LMD file. Exiting.");
+        return 1;
+    }
+
+    if (scanResult.subcrates.size() > 1)
+    {
+        spdlog::error("Found {} subcrates in LMD file, expected only one subcrate.",
+                      scanResult.subcrates.size());
+        return 1;
+    }
+
+    // Do some work
+    // Do some more work
+    // Take a break from all the work
+    // Coffee
+    // Bliss
+
+    LmdWrapper lmdWrapper;
+    lmdWrapper.open(lmdFilename, false);
+
+    spdlog::info("Processing LMD file: {}. file header: {}", lmdFilename, *lmdWrapper.fileHeaderPtr);
+
+    auto make_listfile_preamble = [vmeConfig=vmeConfig.get()]() -> std::vector<u8>
+    {
+        using namespace mvlc;
+        listfile::BufferedWriteHandle bwh;
+        listfile::listfile_write_magic(bwh, ConnectionType::USB);
+        auto crateConfig = mesytec::mvme::vmeconfig_to_crateconfig(vmeConfig);
+        // Removes non-output-producing command groups from each of the readout
+        // stacks. Mirrors the setup done in MVLC_StreamWorker::start().
+        //crateConfig.stacks = mvme_mvlc::sanitize_readout_stacks(crateConfig.stacks);
+        listfile::listfile_write_endian_marker(bwh, crateConfig.crateId);
+        listfile::listfile_write_crate_config(bwh, crateConfig);
+        static const u8 crateId = 0; // FIXME: single crate only!
+        mvme_mvlc::listfile_write_mvme_config(bwh, crateId, *vmeConfig);
+        return bwh.getBuffer();
+    };
+
+    ListFileOutputInfo lfOutInfo;
+    lfOutInfo.format = ListFileFormat::ZIP;
+    auto lfSetup = mvme_mvlc::make_listfile_setup(lfOutInfo, make_listfile_preamble());
+    lfSetup.filenamePrefix = std::filesystem::path(outputFilename).filename().stem().string();
+    auto zipCreator = std::make_unique<mvlc::listfile::SplitZipCreator>();
+    std::unique_ptr<mvlc::listfile::WriteHandle> lfWriteHandle = nullptr;
+    try
+    {
+        zipCreator->createArchive(lfSetup);
+        lfWriteHandle = zipCreator->createListfileEntry();
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("Error creating output listfile {}: {}", outputFilename, e.what());
+        return 1;
+    }
+
+    mvlc::ReadoutBuffer outputBuffer(mvlc::util::Megabytes(1));
+    std::vector<u32> tmpBuffer;
+
+    auto maybe_flush_buffer = [&]
+    {
+        if (const auto used = outputBuffer.used(); used > mvlc::util::Megabytes(1) - 256)
+        {
+            lfWriteHandle->write(outputBuffer.data(), used);
+            outputBuffer.clear();
+        }
+    };
+
+
+    size_t inputEventCount = 0;
+    size_t outputDispatchEvents = 0;
+    size_t outputDataEvents = 0;
+
+    // Walk trough the input file and for each mbs subevent:
+    // - Generate an output event for the dispatch event. Copy the first
+    //   dispatchReadoutDataWords words to this event.
+    // - Generate an output event for the actual trigger stack. The stack index is based on the input events i_trigger value.
+    //   Copy the rest of the data into this event.
+    // - Done with the subevent, go to the next one.
 
     while (lmdWrapper.nextEvent())
     {
+        //spdlog::info("  Event{}: {}", eventCount, *lmdWrapper.eventPtr);
         if (lmdWrapper.subEventCount() == 0)
         {
-            spdlog::warn("Event {} has 0 subevents.", eventCount);
+            spdlog::warn("Event {} has 0 subevents.", inputEventCount);
             continue;
         }
 
         if (lmdWrapper.subEventCount() > 1)
         {
-            spdlog::warn("Event {} has {} subevents, only handling the first one", eventCount, lmdWrapper.subEventCount());
+            spdlog::warn("Event {} has {} subevents, only handling the first one!", inputEventCount,
+                         lmdWrapper.subEventCount());
         }
 
         if (!lmdWrapper.nextSubEvent())
             throw std::runtime_error("error getting first subevent");
 
+        //spdlog::info("    SubEvent: {}", *lmdWrapper.subEventPtr);
+
         auto subEventView = lmdWrapper.subEventView();
-        fmt::print("Subevent ({} words, {} bytes): {:#010x}\n",
-            subEventView.size(), subEventView.size() * sizeof(u32),
-            fmt::join(subEventView, ", "));
+        if (optPrintData)
+            fmt::print("Subevent ({} words, {} bytes): {:#010x}\n", subEventView.size(),
+                    subEventView.size() * sizeof(u32), fmt::join(subEventView, ", "));
 
-        ++eventCount;
+        if (subEventView.size() < dispatchReadoutDataWords)
+            spdlog::warn("Subevent data too short, skipping event.");
+
+        // add fake data for stuff that was swallowed by mbs
+
+        auto fillerWordCount = dispatchReadoutDataWords - dispatchDataWordsInMbsEvent;
+        auto wordsToCopy = std::min(subEventView.size(), dispatchDataWordsInMbsEvent);
+        tmpBuffer.resize(fillerWordCount);
+        std::fill(tmpBuffer.begin(), tmpBuffer.end(), 0xdeadbeef);
+        std::copy(std::begin(subEventView), std::begin(subEventView) + wordsToCopy, std::back_inserter(tmpBuffer));
+        subEventView.remove_prefix(wordsToCopy);
+
+        mvlc::listfile::write_event_data(outputBuffer, outputCrateIndex, dispatchEventIndex, tmpBuffer.data(), tmpBuffer.size());
+        ++outputDispatchEvents;
+
+        auto mbsTrigger = lmdWrapper.eventPtr->i_trigger;
+
+        if (!subEventView.empty() && 1 <= mbsTrigger && static_cast<size_t>(mbsTrigger) < mbsTriggerToStackNum.size())
+        {
+            auto outputEventIndex = mbsTriggerToStackNum[lmdWrapper.eventPtr->i_trigger];
+            mvlc::listfile::write_event_data(outputBuffer, 0, outputEventIndex, subEventView.data(), subEventView.size());
+            ++outputDataEvents;
+        }
+        else
+            spdlog::warn("Not writing output readout event for mbs trigger {}", mbsTrigger);
+
+        maybe_flush_buffer();
+        ++inputEventCount;
     }
 
-    spdlog::info("eventCount={}", eventCount);
-
-    return 0;
-
-    // open
-    void *headPtr = nullptr;
-    auto eventChannel = f_evt_control();
-    bool doPrint = true; // make the f_evt_get_tagopen() print file info using f_evt_type()
-
-    // No real difference between the calls except that f_evt_get_tagopen()
-    #if 1
-    auto status = f_evt_get_tagopen(
-        eventChannel,
-        nullptr, // tag file
-        const_cast<char *>(lmdFilename.c_str()), // lmd file
-        reinterpret_cast<char **>(&headPtr), // may be null in which case no file "header or other" information is returned
-        doPrint
-    );
-    #else
-    auto status = f_evt_get_open(
-        GETEVT__FILE,  // mode flag: file, stream, transport, event_server, remote event_server
-        const_cast<char *>(lmdFilename.c_str()), // lmd file
-        eventChannel,
-        reinterpret_cast<char **>(&headPtr), // may be null in which case no file "header or other" information is returned
-        0, // l_sample: tell server to send only every nth event
-        0 // l_para: not used
-    );
-    #endif
-
-    if (status) return status;
-
-    // event loop
-
-    struct State
-    {
-        size_t eventIndex = 0;
-        std::map<int, size_t> triggerCounts;
-    };
-
-    State state;
-
-    while (true)
-    {
-        s_ve10_1 *eventPtr = nullptr;
-        s_bufhe *bufferPtr = nullptr;
-        auto status = f_evt_get_event(eventChannel, reinterpret_cast<INTS4 **>(&eventPtr), reinterpret_cast<INTS4 **>(&bufferPtr));
-
-        if (status)
-        {
-            if (status == GETEVT__NOMORE)
-                break;
-            else
-            {
-                spdlog::error("f_evt_get_event() failed with status {}", status);
-                return status;
-            }
-        }
-
-        if (!bufferPtr)
-        {
-            spdlog::error("f_evt_get_event() returned nullptr for s_bufhe bufferPtr");
-            return 1;
-        }
-
-        if (!eventPtr)
-        {
-            spdlog::error("f_evt_get_event() returned nullptr for s_ve10_1 eventPtr");
-            return 1;
-        }
-
-        //if (bufferPtr && verbosity > 1)
-        //    std::cout << "Buffer: " << *bufferPtr << "\n";
-
-        //if (eventPtr && verbosity > 1)
-        //    std::cout << fmt::format("Event #{}:", state.eventIndex) << *eventPtr << "\n";
-
-        //std::cout << fmt::format(">>> Buffer:   ") << *bufferPtr << "\n";
-        std::cout << fmt::format(">>> Event#{}: ", state.eventIndex) << *eventPtr << "\n";
-        f_evt_type(bufferPtr, reinterpret_cast<s_evhe *>(eventPtr), -1, 1, 1, 1);
-
-        if (eventPtr)
-        {
-            #if 0
-            // Source: https://github.com/gsi-ee/go4/blob/7b0b86c929a16c94472b4c189ab1af12213ba8eb/Go4EventServer/TGo4MbsSource.cxx#L146
-            //   Char_t *endofevent = (Char_t *) (fxEvent) + (fxEvent->l_dlen) * fguSHORTBYCHAR + fguEVHEBYCHAR;
-            auto firstSubEvent = reinterpret_cast<const s_ves10_1 *>(eventPtr + 1);
-            assert(eventPtr->l_dlen >= firstSubEvent->l_dlen);
-
-            auto subEventBytes = (firstSubEvent->l_dlen - 2) * sizeof(u16); // the magic -2 comes from gsi code
-            auto startOfSubEvent = reinterpret_cast<const u8 *>(firstSubEvent+1);
-            //auto endOfSubEvent = startOfSubEvent + subEventBytes;
-            auto subEventWords = subEventBytes / sizeof(u32);
-            auto subEventRemainder = subEventBytes % sizeof(u32);
-            assert(subEventRemainder == 0);
-
-            std::basic_string_view<const u32> subEventData(reinterpret_cast<const u32 *>(startOfSubEvent), subEventWords);
-
-            std::cout << fmt::format(">>>>>> First Subevent: ") << *firstSubEvent << "\n";
-            std::cout << fmt::format(">>>>>> Subevent data (size={} words, {} bytes): {:#010x}\n",
-                subEventData.size(), subEventData.size() * sizeof(u32), fmt::join(subEventData, ", "));
-            //f_evt_type(nullptr, reinterpret_cast<s_evhe *>(const_cast<s_ves10_1 *>(firstSubEvent)), -1, 1, 1, 1);
-
-            std::cout << "\n";
-
-            #if 0
-            auto startOfEvent = reinterpret_cast<const u8 *>(eventPtr + 1);
-            auto endOfEvent = reinterpret_cast<const u8 *>(eventPtr) + eventPtr->l_dlen * sizeof(u16) + sizeof(u32);
-            auto eventBytes = endOfEvent - startOfEvent;
-            auto eventWords = eventBytes / sizeof(u32);
-            auto remainder = eventBytes % sizeof(u32);
-            if (remainder)
-                std::terminate();
-
-            std::basic_string_view<const u8> eventData(startOfEvent, eventWords);
-            std::cout << fmt::format(">>> Event data (size={}): {:#010x}\n", eventData.size(), fmt::join(eventData, ", "));
-
-            //auto startOfData = reinterpret_cast<const u32*>(startOfEvent);
-            //auto endOfData = reinterpret_cast<const u32 *>(endOfEvent);
-            //assert(endOfData >= startOfData);
-            //std::basic_string_view<const u32> eventData(startOfData, eventWords);
-            //fmt::print("Event data (size={}): {:#010x}\n", eventData.size(), fmt::join(eventData, ", "));
-            //spdlog::info("Event #{}: {} bytes, {} words, %={}", state.eventIndex, eventBytes, eventWords, remainder);
-
-            if (eventPtr->i_type == 10 && eventPtr->l_dlen > 0 && static_cast<size_t>(eventPtr->l_dlen) >= sizeof(s_ves10_1))
-            {
-                while (eventData.size() >= sizeof(s_ves10_1))
-                {
-                    auto *subevent = reinterpret_cast<const s_ves10_1 *>(eventData.data());
-                    f_evt_type(nullptr, reinterpret_cast<s_evhe *>(const_cast<s_ves10_1 *>(subevent)), -1, 1, 1, 1);
-                    auto startOfSubEvent = reinterpret_cast<const u8 *>(subevent + 1);
-                    auto endOfSubEvent = startOfSubEvent + subevent->l_dlen * sizeof(u16);
-                    std::basic_string_view<const u8> subeventData(startOfSubEvent, endOfSubEvent - startOfSubEvent);
-                    std::basic_string_view<const u32> subeventWords(reinterpret_cast<const u32 *>(startOfSubEvent), subeventData.size() / sizeof(u32));
-                    //spdlog::info("  Subevent: {} bytes, {} words", subeventData.size(), subeventWords.size());
-                    //spdlog::info("  Subevent data: {:#010x}\n", fmt::join(subeventWords, ", "));
-
-                    eventData.remove_prefix(sizeof(s_ves10_1) + subeventData.size()); // consume the subevent
-                }
-            }
-            #endif
-            #elif 0
-            auto startOfEventData = reinterpret_cast<const u8 *>(eventPtr + 1);
-            auto endOfEventData = reinterpret_cast<const u8 *>(eventPtr) + eventPtr->l_dlen * sizeof(u16) + sizeof(u32);
-            auto eventDataBytes = endOfEventData - startOfEventData;
-            auto eventDataWords = eventDataBytes / sizeof(u32);
-            auto remainder = eventDataBytes % sizeof(u32);
-            if (remainder)
-                std::terminate();
-
-            std::basic_string_view<const u8> eventData(startOfEventData, eventDataBytes);
-            std::cout << fmt::format(">>> Event data: size={} words, {} shorts, {} bytes\n",
-                eventData.size() / sizeof(u32), eventData.size() / sizeof(u16), eventData.size());
-
-            size_t subEventsSeen = 0;
-
-            while (eventData.size() >= sizeof(s_ves10_1))
-            {
-                auto subEvent = reinterpret_cast<const s_ves10_1 *>(eventData.data());
-
-                if (subEvent->l_dlen < 2)
-                {
-                    spdlog::error("Subevent {} has l_dlen < 2 ({})", subEventsSeen, subEvent->l_dlen);
-                    break;
-                }
-
-                auto subEventDataBytes = (subEvent->l_dlen - 2) * sizeof(u16); // -2 magic is from gsi code
-                auto subEventDataWords = subEventDataBytes / sizeof(u32);
-                auto startOfSubEventData = reinterpret_cast<const u8 *>(subEvent + 1);
-                std::basic_string_view<const u32> subEventData(reinterpret_cast<const u32 *>(startOfSubEventData), subEventDataWords);
-                std::cout << fmt::format(">>>>>> SubEvent {} data (size={} words, {} shorts, {} bytes): {:#010x}\n",
-                    subEventsSeen, subEventData.size(), subEventData.size() * sizeof(u16), subEventData.size() * sizeof(u32), fmt::join(subEventData, ", "));
-
-                // consume the subevent
-                auto bytesToRemove = subEventDataBytes;
-                assert(bytesToRemove % sizeof(u32) == 0);
-                assert(eventData.size() >= bytesToRemove);
-
-                eventData.remove_prefix(bytesToRemove);
-                ++subEventsSeen;
-            }
-
-            std::cout << fmt::format(">>> Event contained {} subevents\n", subEventsSeen);
-            if (!eventData.empty())
-            {
-                std::cout << fmt::format(">> event data left after consuming subevents: size={} words\n", eventData.size());
-            }
-            assert(eventData.size() == 0);
-            #else
-
-            #endif
-        }
-
-        if (status) return status;
-
-        ++state.eventIndex;
-        ++state.triggerCounts[eventPtr->i_trigger];
-    }
-
-    spdlog::info("Processed {} events", state.eventIndex);
-    spdlog::info("Trigger counts: {}", fmt::join(state.triggerCounts, ", "));
-
-    // close & cleanup
-    status = f_evt_get_tagclose(eventChannel);
-    if (status) return status;
-
-    free(eventChannel);
+    maybe_flush_buffer();
+    auto totalOutputEvents = outputDispatchEvents + outputDataEvents;
+    spdlog::info("Done processing LMD file: inputEventCount={}, outputDispatchEvents={}, outputDataEvents={}, outputTotalEvents={}",
+         inputEventCount, outputDispatchEvents, outputDataEvents, totalOutputEvents);
 
     return 0;
 }

@@ -567,6 +567,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
 add_subdirectory(gsi-mbs-api)
+
 #add_subdirectory(listfile_reader)
 
 add_mvme_exe(mvme_histo_viewer mvme_histo_viewer_main.cc)
@@ -609,10 +610,11 @@ add_dependencies(multicrate2_dev_tools
 )
 
 # handling of GSI MBS LMD files
-add_mvme_exe(dev_read_lmd_file "dev_read_lmd_file.cc")
-target_link_libraries(dev_read_lmd_file PRIVATE gsi-mbs-api)
+add_library(gsi-mbs-wrappers STATIC mbs_wrappers.cc)
+target_link_libraries(gsi-mbs-wrappers PRIVATE mesytec-mvlc PRIVATE gsi-mbs-api)
+
 add_mvme_exe(lmd2mvme "lmd2mvme.cc")
-target_link_libraries(lmd2mvme PRIVATE gsi-mbs-api)
+target_link_libraries(lmd2mvme PRIVATE gsi-mbs-wrappers)
 
 # automated gtests
 if(MVME_BUILD_TESTS)
