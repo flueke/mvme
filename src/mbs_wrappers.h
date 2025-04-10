@@ -20,10 +20,12 @@ std::ostream &operator<<(std::ostream &os, const s_bufhe &buf);
 std::ostream &operator<<(std::ostream &os, const s_ve10_1 &event);
 std::ostream &operator<<(std::ostream &os, const s_ves10_1 &event);
 
+// clang-format off
 template <> struct fmt::formatter<s_filhe>: fmt::ostream_formatter{};
 template <> struct fmt::formatter<s_bufhe>: fmt::ostream_formatter{};
 template <> struct fmt::formatter<s_ve10_1>: fmt::ostream_formatter{};
 template <> struct fmt::formatter<s_ves10_1>: fmt::ostream_formatter{};
+// clang-format on
 
 namespace mesytec::mvme::mbs
 {
@@ -132,7 +134,7 @@ struct LmdWrapper
     }
 };
 
-struct LmdQuickInfo
+struct LmdScanResult
 {
     std::map<int, size_t> triggerCounts;
     std::set<int> subcrates;
@@ -143,12 +145,12 @@ struct LmdQuickInfo
     s_filhe fileHeader;
 };
 
-LmdQuickInfo scan_lmd_file(const std::string &lmdFilename);
+LmdScanResult scan_lmd_file(const std::string &lmdFilename);
 
-std::ostream &operator<<(std::ostream &os, const LmdQuickInfo &info);
+std::ostream &operator<<(std::ostream &os, const LmdScanResult &info);
 
 }
 
-template <> struct fmt::formatter<mesytec::mvme::mbs::LmdQuickInfo>: fmt::ostream_formatter{};
+template <> struct fmt::formatter<mesytec::mvme::mbs::LmdScanResult>: fmt::ostream_formatter{};
 
 #endif /* EEE8AF02_8820_460F_828A_F7F3A9994DB7 */

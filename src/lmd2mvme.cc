@@ -1,4 +1,23 @@
-// #include "mvme_session.h"
+// lmd2mvme - GSI MBS LMD file to mvme MVLC listfile converter
+// (C) 2025 mesytec GmbH - f.lueke@mesytec.com
+// LGPLv3, MBS source code copied from the FairRoot repo: https://github.com/FairRootGroup
+//
+// Transform GSI MBS LMD formatted listfiles produced by the GSI m_readout_mvlc
+// tool into mvme compatible mvlclst listfiles.
+//
+// - input:     lmdfile
+// - input:     mvme vmeconfig
+// - hardcoded: mapping of mbs triggers to readout stacks
+// - hardcoded: expected mvme event trigger values (irqs 4, 14, 15, 8, 9, 10, 11)
+//              Used to check if the .vme config matches the GSI MBS structure.
+// - input:     number of data words produced by the dispatch stack that are present in the
+//              raw mbs subevent data.
+//
+// MVLC executes two command stacks: dispatch, then the actual readout
+// (stack "hardware_trigger"). m_mvlc_readout splits this data,
+// uses/throws aways some of it and writes the rest into the mbs
+// subevent buffer.
+
 #include <argh.h>
 #include <filesystem>
 #include <iostream>
@@ -74,7 +93,8 @@ int main(int argc, char *argv[])
          -1, // 0 is not a valid mbs trigger number
           3, // trigger 1 is read out using stack 3
           4, // trigger 2 is not present in the MUSIC CaveC run
-          3, // trigger 3 should be read out by stack 5 but it's likely from a TRIVA bug where multiple bits are or'red to form the trigger value or similar. => map it to 3 too
+          3, // trigger 3 should be read out by stack 5 but it's likely from a TRIVA
+             // bug/feature where multiple bits are or'ed to form the trigger value => map it to 3 aswell
           6, // trigger 4 is not present in the MUSIC CaveC run
     };
     static const int outputCrateIndex = 0;
@@ -133,11 +153,6 @@ int main(int argc, char *argv[])
             dispatchReadoutDataWords += moduleReadout.prefixLen + moduleReadout.suffixLen;
         }
 
-        // The first data word from the dispatch event (0x12..78) marker is not
-        // present in the mbs subevent readout data. Is probably is used and
-        // swallowed by the m_readout_mvlc program.
-        //spdlog::info("The dispatch event {} produces {} words of data, adjusting to {} to account for the missing marker word.",
-        //     dispatchEventName, dispatchReadoutDataWords, dispatchReadoutDataWords-1);
         spdlog::info("Size of the TRIVA dispatch readout: {} words", dispatchReadoutDataWords);
     }
     catch(const std::exception& e)

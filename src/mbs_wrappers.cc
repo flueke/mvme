@@ -48,11 +48,11 @@ std::ostream &operator<<(std::ostream &os, const s_ves10_1 &event)
 namespace mesytec::mvme::mbs
 {
 
-LmdQuickInfo scan_lmd_file(const std::string &lmdFilename)
+LmdScanResult scan_lmd_file(const std::string &lmdFilename)
 {
     LmdWrapper lmd;
     lmd.open(lmdFilename, false);
-    LmdQuickInfo result{};
+    LmdScanResult result{};
     result.fileHeader = *lmd.fileHeaderPtr;
 
     while (lmd.nextEvent())
@@ -75,9 +75,9 @@ LmdQuickInfo scan_lmd_file(const std::string &lmdFilename)
     return result;
 }
 
-std::ostream &operator<<(std::ostream &os, const LmdQuickInfo &info)
+std::ostream &operator<<(std::ostream &os, const LmdScanResult &info)
 {
-    os << "mesytec::mvme::mbs::LmdQuickInfo { "
+    os << "mesytec::mvme::mbs::LmdScanResult { "
        << "triggerCounts={";
     for (const auto &[trigger, count]: info.triggerCounts)
         os << " " << trigger << ":" << count;
