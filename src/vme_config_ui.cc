@@ -692,9 +692,52 @@ ModuleConfigDialog::~ModuleConfigDialog() {}
 
 void ModuleConfigDialog::accept()
 {
+    const bool isNewModule = !m_module->parent();
+
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
     m_module->setVariables(m_d->variableEditor->getVariables());
+
+    auto typeName = typeCombo->currentData().toString();
+    auto it = std::find_if(m_moduleMetas.begin(), m_moduleMetas.end(),
+                            [typeName](const auto &mm) { return mm.typeName == typeName; });
+
+    // Note: the meta info of existing modules is _not_ updated in here. Instead
+    // when loading a VMEConfig from file the meta info is updated from the
+    // template system (ModuleConfig::read_impl()).
+
+    if (isNewModule && it == m_moduleMetas.end())
+    {
+        // It's a new custom module without any meta info. This means no
+        // init scripts are added so we add one manually.
+        m_module->addInitScript(new VMEScriptConfig("Module Init", QString()));
+    }
+    else if (isNewModule)
+    {
+        const auto &mm(*it);
+        m_module->setModuleMeta(mm);
+
+        if (!mm.moduleJson.empty())
+        {
+            // New style template from a single json file.
+            mvme::vme_config::load_moduleconfig_from_modulejson(*m_module, mm.moduleJson);
+        }
+        else
+        {
+            // Old style template from multiple .vme files
+            m_module->getReadoutScript()->setObjectName(mm.templates.readout.name);
+            m_module->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
+
+            m_module->getResetScript()->setObjectName(mm.templates.reset.name);
+            m_module->getResetScript()->setScriptContents(mm.templates.reset.contents);
+
+            for (const auto &vmeTemplate: mm.templates.init)
+            {
+                m_module->addInitScript(
+                    new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
+            }
+        }
+    }
 
     QDialog::accept();
 }
