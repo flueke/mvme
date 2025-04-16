@@ -4148,8 +4148,6 @@ ModuleSettingsDialog::ModuleSettingsDialog(ModuleConfig *moduleConfig,
     auto settingsLayout = new QFormLayout(gbSettings);
     settingsLayout->addRow(QSL("Multi Event Header Filters"), m_filtersEditor);
 
-    settingsLayout->addRow(m_filtersEditor);
-
     auto dialogLayout = new QVBoxLayout(this);
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
