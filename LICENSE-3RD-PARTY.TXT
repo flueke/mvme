@@ -83,3 +83,9 @@
            documentation to satisfy this requirement:
                [program/widget] is based in part on the work of
                the Qwt project (http://qwt.sf.net).
+
+=============================================================================
+spline.h from https://kluge.in-chemnitz.de/opensource/spline/ and
+              https://github.com/ttk592/spline/
+
+     GNU GENERAL PUBLIC LICENSE Version 2, June 1991
