@@ -60,7 +60,7 @@ inline void post_process_one_trace(TraceCollectionProcessingState &state,
         #endif
 
         waveforms::scale_x_values(inputTrace, state.traceWorkBuffer_, dtSample);
-        waveforms::interpolate(state.traceWorkBuffer_, outputTrace, interpolationFactor);
+        waveforms::interpolate_sinc(state.traceWorkBuffer_, outputTrace, interpolationFactor);
         state.results[traceIndex] = TraceCollectionProcessingState::TraceUpdated;
 }
 

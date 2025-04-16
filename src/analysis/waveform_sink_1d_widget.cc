@@ -61,7 +61,7 @@ inline QComboBox *add_mode_selector(QToolBar *toolbar)
     auto boxstruct = make_vbox_container("Refresh Mode", result, 0, -2);
     toolbar->addWidget(boxstruct.container.release());
     result->setToolTip(QSL(
-        "Latest Data: Shows latest data from the module, not neccessarily belonging to the same readout event.\n"
+        "Latest Data: Buffers and displays the latest data from the module, not neccessarily belonging to the same readout event.\n"
         "Event Snapshot: Shows data originating from the same readout event."
     ));
     return result;
@@ -78,11 +78,12 @@ inline QSpinBox *add_trace_selector(QToolBar *toolbar)
     return result;
 }
 
+
 struct CurvesWithData
 {
     waveforms::WaveformCurves curves;
-    waveforms::WaveformPlotData *rawData; // owned by curves.rawCurve
-    waveforms::WaveformPlotData *interpolatedData; // owned by curves.interpolatedCurve
+    waveforms::WaveformPlotData *rawData; // owned by curves.rawCurve (qwt)
+    waveforms::WaveformPlotData *interpolatedData; // owned by curves.interpolatedCurve (qwt)
 };
 
 inline CurvesWithData make_curves_with_data()
@@ -113,13 +114,12 @@ struct WaveformSink1DWidget::Private
     QTime traceDataUpdateTime_; // when analysisTraceData_ was last updated
 
     // Post processed trace data. One history buffer per channel in the source
-    // sink. A new trace is prepended to each history buffer every ReplotInterval_ms.
+    // sink.
     waveforms::TraceHistories rawDisplayTraces_;            // x-scaling only, no interpolation
-    waveforms::TraceHistories interpolatedDisplayTraces_;   // x-scaling and interpolation
+    waveforms::TraceHistories interpolatedDisplayTraces_;   // x-scaling and interpolation and possibly more operations applied
 
     RefreshMode refreshMode_ = RefreshMode_LatestData;
     RefreshMode prevRefreshMode_ = refreshMode_;
-
 
     QwtPlotZoomer *zoomer_ = nullptr;
     QTimer replotTimer_;
@@ -134,7 +134,8 @@ struct WaveformSink1DWidget::Private
     QAction *actionHold_ = nullptr;
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
-    QSpinBox *spin_interpolationFactor_ = nullptr;
+    QAction *actionInterpolation_ = nullptr;
+    InterpolationSettingsUi *interpolationUi_ = nullptr;
     QComboBox *combo_phaseCorrection_ = nullptr;
     // set both the max number of traces to keep per channel and the number of traces to show in the plot at the same time.
     QSpinBox *spin_maxDepth_ = nullptr;
@@ -159,6 +160,30 @@ struct WaveformSink1DWidget::Private
     void printInfo();
     void exportPlotToPdf();
     void exportPlotToClipboard();
+
+    void setInterpolationUiVisible(bool visible)
+    {
+        interpolationUi_->setVisible(visible);
+        s32 x = q->width() - interpolationUi_->width();
+        s32 y = q->getToolBar()->height() + 15;
+        interpolationUi_->move(q->mapToGlobal(QPoint(x, y)));
+    }
+
+    std::unique_ptr<waveforms::IInterpolator> makeInterpolator()
+    {
+        if (interpolationUi_->getInterpolationType() == "sinc")
+        {
+            return std::make_unique<waveforms::SincInterpolator>(interpolationUi_->getInterpolationFactor());
+        }
+        else if (interpolationUi_->getInterpolationType() == "spline")
+        {
+            return std::make_unique<waveforms::SplineInterpolator>(
+                interpolationUi_->getSplineParams(),
+                interpolationUi_->getInterpolationFactor());
+        }
+
+        return std::make_unique<waveforms::NullInterpolator>();
+    }
 };
 
 WaveformSink1DWidget::WaveformSink1DWidget(
@@ -178,7 +203,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
     auto legend = new QwtLegend;
-    getPlot()->insertLegend(legend, QwtPlot::RightLegend);
+    getPlot()->insertLegend(legend, QwtPlot::LeftLegend);
 
 
     auto tb = getToolBar();
@@ -214,8 +239,6 @@ WaveformSink1DWidget::WaveformSink1DWidget(
         replot();
     });
 
-    //histo_ui::setup_axis_scale_changer(this, QwtPlot::yLeft, "Y-Scale");
-
     {
         auto menu = new QMenu;
         auto a1 = menu->addAction("Sampled Values", this, [this] { d->showSampleSymbols_ = !d->showSampleSymbols_; replot(); });
@@ -247,7 +270,10 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     tb->addSeparator();
     d->spin_dtSample_ = add_dt_sample_setter(tb);
     tb->addSeparator();
-    d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);
+    d->interpolationUi_ = new InterpolationSettingsUi(this);
+    d->actionInterpolation_ = tb->addAction(QSL("Interpolation Settings"));
+    d->actionInterpolation_->setCheckable(true);
+    d->actionInterpolation_->setChecked(false);
     tb->addSeparator();
 
     {
@@ -287,6 +313,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     d->updateLed_ = new QLedIndicator;
     d->updateLed_->setEnabled(false); // no clicky on the thingy
     d->updateLed_->setMinimumSize(16, 16);
+    d->updateLed_->setToolTip("Indicates when new data is available");
     getStatusBar()->addPermanentWidget(d->updateLed_);
 
     connect(d->pb_printInfo_, &QPushButton::clicked, this, [this] { d->printInfo(); });
@@ -323,8 +350,15 @@ WaveformSink1DWidget::WaveformSink1DWidget(
         d->resetPlotAxes();
     });
 
-    connect(d->spin_interpolationFactor_, qOverload<int>(&QSpinBox::valueChanged),
-        this, [this] { d->interpolationFactorChanged_ = true; replot(); });
+    connect(d->actionInterpolation_, &QAction::triggered,
+        this, [this] (bool checked) { d->setInterpolationUiVisible(checked); });
+
+    connect(d->interpolationUi_, &InterpolationSettingsUi::interpolationFactorChanged, this,
+            [this]
+            {
+                d->interpolationFactorChanged_ = true;
+                replot();
+            });
 
     connect(&d->replotTimer_, &QTimer::timeout, this, &WaveformSink1DWidget::replot);
     d->replotTimer_.start();
@@ -341,6 +375,9 @@ bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
 {
     auto newAnalysisTraceData = sink_->getTraceHistories();
 
+    // Note: this makes the method return true even if no single trace was
+    // decoded. The reason is that the trace meta (module_header, timestamp)
+    // changes, so the != comparsion is true if the module produced new data.
     if (newAnalysisTraceData != analysisTraceData_)
     {
         std::swap(analysisTraceData_, newAnalysisTraceData);
@@ -356,18 +393,16 @@ void WaveformSink1DWidget::Private::postProcessData()
     spdlog::trace("WaveformSink1DWidget::Private::postProcessData()");
 
     const auto dtSample = spin_dtSample_->value();
-    const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const size_t maxDepth = spin_maxDepth_->value();
     auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
         combo_phaseCorrection_->currentData().toInt());
     const auto selectedTraceIndex = traceSelect_->value();
 
+    auto interpolator = makeInterpolator();
+
     // Note: this potentially removes Traces still referenced by underlying
     // QwtPlotCurves. Have to update/delete superfluous curves before calling
     // replot()!
-
-    // TODO: clear things on mode change
-
     switch (refreshMode_)
     {
     case RefreshMode_LatestData:
@@ -376,7 +411,7 @@ void WaveformSink1DWidget::Private::postProcessData()
             analysisTraceData_,
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
-            dtSample, interpolationFactor,
+            dtSample, *interpolator,
             maxDepth, phaseCorrection);
         break;
 
@@ -386,7 +421,7 @@ void WaveformSink1DWidget::Private::postProcessData()
             analysisTraceData_,
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
-            dtSample, interpolationFactor,
+            dtSample, *interpolator,
             selectedTraceIndex, maxDepth,
             phaseCorrection);
         break;
@@ -398,19 +433,23 @@ void WaveformSink1DWidget::Private::reprocessData()
     spdlog::trace("WaveformSink1DWidget::Private::reprocessData()");
 
     const auto dtSample = spin_dtSample_->value();
-    const auto interpolationFactor = 1 + spin_interpolationFactor_->value();
     const size_t maxDepth = spin_maxDepth_->value();
     auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
         combo_phaseCorrection_->currentData().toInt());
     const auto selectedTraceIndex = traceSelect_->value();
 
+    auto interpolator = makeInterpolator();
+
+    // Note: this potentially removes Traces still referenced by underlying
+    // QwtPlotCurves. Have to update/delete superfluous curves before calling
+    // replot()!
     switch (refreshMode_)
     {
     case RefreshMode_LatestData:
         waveforms::reprocess_waveforms(
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
-            dtSample, interpolationFactor,
+            dtSample, *interpolator,
             phaseCorrection);
         break;
 
@@ -419,7 +458,7 @@ void WaveformSink1DWidget::Private::reprocessData()
             analysisTraceData_,
             rawDisplayTraces_,
             interpolatedDisplayTraces_,
-            dtSample, interpolationFactor,
+            dtSample, *interpolator,
             selectedTraceIndex, maxDepth,
             phaseCorrection);
         break;
@@ -674,6 +713,8 @@ void WaveformSink1DWidget::replot()
             }
 
             curves.rawCurve->setItemAttribute(QwtPlotItem::Legend, false);
+            curves.interpolatedCurve->detach();
+            curves.interpolatedCurve->attach(getPlot());
             curves.interpolatedCurve->setItemAttribute(QwtPlotItem::Legend, traceIndex == 0);
             curves.interpolatedCurve->setTitle(fmt::format("Channel {}", chanIndex).c_str());
 
@@ -776,6 +817,18 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     }
 }
 
+inline std::string format_age(s64 ms)
+{
+    if (ms < 1000)
+        return fmt::format("{} ms", ms);
+    else if (ms < 1000 * 60)
+        return fmt::format("{:.1f} s", static_cast<double>(ms) / 1000.0);
+    else if (ms < 1000 * 60 * 60)
+        return fmt::format("{:.1f} min", static_cast<double>(ms) / (1000.0 * 60.0));
+    else
+        return fmt::format("{:.1f} h", static_cast<double>(ms) / (1000.0 * 60.0 * 60.0));
+}
+
 void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, const QTime &lastUpdate)
 {
     auto selectedChannel = std::to_string(spin_chanSelect->value());
@@ -794,10 +847,13 @@ void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, cons
     }
 
     auto dt_ms = lastUpdate.msecsTo(QTime::currentTime());
-    auto dt_str = lastUpdate.isValid() ? fmt::format("{} ms", dt_ms) : "unknown";
+    auto dt_str = lastUpdate.isValid() ? format_age(dt_ms) : "unknown";
 
     out << fmt::format("Channel: {}, Visible Traces: {}, Samples/Trace: {}, Data Age: {}",
          selectedChannel, visibleTraceCount, sampleCount, dt_str);
+
+    if (actionHold_->isChecked())
+        out << " (hold active)";
 }
 
 void WaveformSink1DWidget::Private::printInfo()

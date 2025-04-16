@@ -8,7 +8,7 @@
 
 using namespace mesytec::mvme;
 using std::basic_string_view;
-using waveforms::interpolate;
+using waveforms::interpolate_sinc;
 
 static const std::vector<s16> Samples = {4, 5, 6, 5, 3, 5, 23, 340, 1445, 2734, 3090, 2755, 2629, 2723, 2727, 2712, 2732, 2715, 2696, 2706, 2707, 2692, 2690, 2691, 2681, 2679, 2676, 2679};
 
@@ -25,7 +25,7 @@ TEST(MdppSampling, interpolate_no_interpolation)
 
     {
         waveforms::Trace result;
-        interpolate(samples, 1.0, 1, result);
+        interpolate_sinc(samples, 1.0, 1, result);
 
         waveforms::Trace expected(
             std::vector<double>{ 0.0, 1.0, 2.0, 3.0, 4.0 },
@@ -36,7 +36,7 @@ TEST(MdppSampling, interpolate_no_interpolation)
 
     {
         waveforms::Trace result;
-        interpolate(samples, 1.0, 2, result);
+        interpolate_sinc(samples, 1.0, 2, result);
 
         waveforms::Trace expected(
             std::vector<double>{ 0.0, 1.0, 2.0, 3.0, 4.0 },
@@ -47,7 +47,7 @@ TEST(MdppSampling, interpolate_no_interpolation)
 
     {
         waveforms::Trace result;
-        interpolate(samples, 2.0, 0, result);
+        interpolate_sinc(samples, 2.0, 0, result);
 
         waveforms::Trace expected(
             std::vector<double>{ 0.0, 2.0, 4.0, 6.0, 8.0 },
@@ -64,7 +64,7 @@ TEST(MdppSampling, interpolate_min_required_samples)
 
     {
         waveforms::Trace result;
-        interpolate(samples, 1.0, 1, result);
+        interpolate_sinc(samples, 1.0, 1, result);
 
         waveforms::Trace expected(
             std::vector<double>{ 0.0, 1.0, 2.0, 3.0, 4.0, 5.0 },
@@ -75,7 +75,7 @@ TEST(MdppSampling, interpolate_min_required_samples)
 
     {
         waveforms::Trace result;
-        interpolate(samples, 2.0, 1, result);
+        interpolate_sinc(samples, 2.0, 1, result);
 
         waveforms::Trace expected(
             std::vector<double>{ 0.0, 2.0, 4.0, 6.0, 8.0, 10.0 },
@@ -86,7 +86,7 @@ TEST(MdppSampling, interpolate_min_required_samples)
 
     {
         waveforms::Trace result;
-        interpolate(samples, 1.0, 10, result);
+        interpolate_sinc(samples, 1.0, 10, result);
 
         waveforms::Trace expected(
             std::vector<double>{ 0.0, 1.0, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 4.0, 5.0 },
@@ -108,7 +108,7 @@ TEST(MdppSampling, interpolate_min_required_samples)
 
     {
         waveforms::Trace result;
-        interpolate(samples, 10.0, 10, result);
+        interpolate_sinc(samples, 10.0, 10, result);
 
         waveforms::Trace expected(
             std::vector<double>{ 0.0, 10.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 40.0, 50.0 },
@@ -136,7 +136,7 @@ TEST(MdppSampling, interpolate_move_window)
     {
         const basic_string_view<s16> samples(Samples.data(), 7);
         fmt::print("samples = {}\n", fmt::join(samples, " "));
-        auto result = interpolate(samples, 10, 1.0);
+        auto result = interpolate_sinc(samples, 10, 1.0);
         auto expected = QVector<std::pair<double, double>>{
         };
 

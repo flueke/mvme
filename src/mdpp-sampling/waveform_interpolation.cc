@@ -3,8 +3,9 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
-
 #include <mesytec-mvlc/util/algo.h>
+
+#include "spline.h"
 
 namespace mesytec::mvme::waveforms
 {
@@ -63,7 +64,7 @@ inline void emit(const double *xsBegin, const double *xsEnd, const double *ysBeg
 
 static const u32 MinInterpolationSamples = 6;
 
-void interpolate(const span<const double> &xs, const span<const double> &ys, u32 factor, EmitterFun emitter)
+void interpolate_sinc(const span<const double> &xs, const span<const double> &ys, u32 factor, EmitterFun emitter)
 {
     using mvlc::util::span;
 
@@ -117,7 +118,7 @@ void interpolate(const span<const double> &xs, const span<const double> &ys, u32
     emit(windowStart+WindowMid, samplesEnd, std::begin(ys) + windowOffset + WindowMid, emitter);
 }
 
-void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter)
+void interpolate_sinc(const mvlc::util::span<const s16> &samples, double dtSample, u32 factor, EmitterFun emitter)
 {
     std::vector<double> xs(samples.size());
     std::vector<double> ys(samples.size());
@@ -128,10 +129,10 @@ void interpolate(const mvlc::util::span<const s16> &samples, double dtSample, u3
     std::generate(std::begin(xs), std::end(xs), fill_x);
     std::transform(std::begin(samples), std::end(samples), std::begin(ys), fill_y);
 
-    interpolate(xs, ys, factor, emitter);
+    interpolate_sinc(xs, ys, factor, emitter);
 }
 
-void interpolate(const waveforms::Trace &input, waveforms::Trace &output, u32 factor)
+void interpolate_sinc(const waveforms::Trace &input, waveforms::Trace &output, u32 factor)
 {
     auto emitter = [&output] (double x, double y)
     {
@@ -139,11 +140,11 @@ void interpolate(const waveforms::Trace &input, waveforms::Trace &output, u32 fa
     };
 
     output.clear();
-    waveforms::interpolate(input.xs, input.ys, factor, emitter);
+    waveforms::interpolate_sinc(input.xs, input.ys, factor, emitter);
     output.meta = input.meta;
 }
 
-void interpolate(const span<const s16> &samples, double dtSample, u32 factor, waveforms::Trace &output)
+void interpolate_sinc(const span<const s16> &samples, double dtSample, u32 factor, waveforms::Trace &output)
 {
     auto emitter = [&output] (double x, double y)
     {
@@ -151,7 +152,82 @@ void interpolate(const span<const s16> &samples, double dtSample, u32 factor, wa
     };
 
     output.clear();
-    waveforms::interpolate(samples, dtSample, factor, emitter);
+    waveforms::interpolate_sinc(samples, dtSample, factor, emitter);
+}
+
+namespace
+{
+tk::spline::spline_type spline_type_from_string(const std::string &str)
+{
+    if (str == "cspline")
+        return tk::spline::spline_type::cspline;
+    else if (str == "cspline_hermite")
+        return tk::spline::spline_type::cspline_hermite;
+    else if (str == "linear")
+        return tk::spline::spline_type::linear;
+    else
+        throw std::invalid_argument("Invalid spline type: " + str);
+}
+
+tk::spline::bd_type bd_type_from_string(const std::string &str)
+{
+    if (str == "first_deriv")
+        return tk::spline::bd_type::first_deriv;
+    else if (str == "second_deriv")
+        return tk::spline::bd_type::second_deriv;
+    else if (str == "not_a_knot")
+        return tk::spline::bd_type::not_a_knot;
+    else
+        throw std::invalid_argument("Invalid boundary condition type: " + str);
+}
+}
+
+void interpolate_spline(const std::vector<double> &xs, const std::vector<double> &ys,
+                        const SplineParams &params, u32 factor, EmitterFun emitter)
+{
+    assert(xs.size() == ys.size());
+    if (xs.size() != ys.size())
+        return;
+
+    if (factor <= 1 || xs.size() < 2)
+    {
+        emit(xs.data(), xs.data() + xs.size(), ys.data(), emitter);
+        return;
+    }
+
+    auto splineType = spline_type_from_string(params.splineType);
+    auto bdLeft = bd_type_from_string(params.boundaryCondLeft);
+    auto bdRight = bd_type_from_string(params.boundaryCondRight);
+
+    tk::spline spline(xs, ys, splineType,
+        params.makeMonotonic,
+        bdLeft, params.boundaryLeft,
+        bdRight, params.boundaryRight);
+
+
+    const double factor_1 = 1.0 / factor;
+    const double dtSample = xs[1] - xs[0];
+
+    for (size_t i=0, e=xs.size(); i<e; ++i)
+    {
+        emitter(xs[i], ys[i]); // emit the original sample
+        for (size_t j=0; j<factor; ++j)
+        {
+            double x = xs[i] + (j+1) * factor_1 * dtSample;
+            double y = spline(x);
+            emitter(x, y);
+        }
+    }
+}
+
+void interpolate_spline(const waveforms::Trace &input, waveforms::Trace &output,
+                        const SplineParams &params, u32 factor)
+{
+    auto emitter = [&output] (double x, double y)
+    {
+        output.push_back(x, y);
+    };
+    waveforms::interpolate_spline(input.xs, input.ys, params, factor, emitter);
 }
 
 }

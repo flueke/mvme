@@ -1,10 +1,16 @@
 #ifndef DDCD557F_CBF3_492F_A9F4_289AC4C4F7C8
 #define DDCD557F_CBF3_492F_A9F4_289AC4C4F7C8
 
+#include <QCheckBox>
+#include <QDialog>
+#include <QComboBox>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStackedWidget>
+
 #include "qt_util.h"
 #include "mdpp-sampling/mdpp_decode.h"
+#include "mdpp-sampling/waveform_interpolation.h"
 
 namespace analysis
 {
@@ -70,6 +76,106 @@ inline QSpinBox *add_interpolation_factor_setter(QToolBar *toolbar)
     toolbar->addWidget(boxStruct.container.release());
     return result;
 }
+
+struct SplineSettingsUi: public QFrame
+{
+    QFormLayout *layout;
+    QComboBox *combo_splineType;
+    QCheckBox *cb_makeMonotonic;
+
+    SplineSettingsUi(QWidget *parent = nullptr)
+        : QFrame(parent)
+        , combo_splineType(new QComboBox(this))
+        , cb_makeMonotonic(new QCheckBox("Make Monotonic", this))
+    {
+        layout = new QFormLayout(this);
+        setLayout(layout);
+        setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+        setLineWidth(1);
+        setContentsMargins(0, 0, 0, 0);
+
+        combo_splineType->addItem("cubic", "cspline");
+        combo_splineType->addItem("cubic hermite", "cspline_hermite");
+        combo_splineType->addItem("linear", "linear");
+
+        layout->addRow("Spline Type", combo_splineType);
+        layout->addRow(cb_makeMonotonic);
+    }
+};
+
+class InterpolationSettingsUi: public QDialog
+{
+    Q_OBJECT
+    signals:
+    void interpolationTypeSelected(const QString &ipolType);
+    void interpolationFactorChanged(int factor);
+
+    public:
+
+    QFormLayout *layout;
+    QComboBox *combo_interpolationType;
+    QStackedWidget *stack_settings;
+    SplineSettingsUi *splineSettings;
+    QSpinBox *spin_factor;
+
+    InterpolationSettingsUi(QWidget *parent = nullptr)
+        : QDialog(parent)
+        , combo_interpolationType(new QComboBox)
+        , stack_settings(new QStackedWidget)
+        , splineSettings(new SplineSettingsUi)
+        , spin_factor(new QSpinBox)
+    {
+        layout = new QFormLayout(this);
+        setLayout(layout);
+        //setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+        //setLineWidth(1);
+        setContentsMargins(0, 0, 0, 0);
+
+        combo_interpolationType->addItem("sinc", "sinc");
+        combo_interpolationType->addItem("spline", "spline");
+
+        spin_factor->setMinimum(0);
+        spin_factor->setMaximum(100);
+        spin_factor->setValue(5);
+
+        stack_settings->addWidget(new QWidget);
+        stack_settings->addWidget(splineSettings);
+
+        layout->addRow("Interpolation Type", combo_interpolationType);
+        layout->addRow("Interpolation Factor", spin_factor);
+        layout->addRow(stack_settings);
+
+        connect(combo_interpolationType, qOverload<int>(&QComboBox::currentIndexChanged),
+                stack_settings, &QStackedWidget::setCurrentIndex);
+
+        connect(combo_interpolationType, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this] (int)
+        {
+            emit interpolationTypeSelected(combo_interpolationType->currentData().toString());
+        });
+
+        connect(spin_factor, qOverload<int>(&QSpinBox::valueChanged),
+            this, [this] (int value) { emit interpolationFactorChanged(value); });
+    }
+
+    int getInterpolationFactor() const
+    {
+        return spin_factor->value();
+    }
+
+    QString getInterpolationType() const
+    {
+        return combo_interpolationType->currentData().toString();
+    }
+
+    mesytec::mvme::waveforms::SplineParams getSplineParams()
+    {
+        mesytec::mvme::waveforms::SplineParams result;
+        result.splineType = splineSettings->combo_splineType->currentData().toString().toStdString();
+        result.makeMonotonic = splineSettings->cb_makeMonotonic->isChecked();
+        return result;
+    }
+};
 
 }
 

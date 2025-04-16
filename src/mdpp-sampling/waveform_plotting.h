@@ -117,7 +117,6 @@ class WaveformPlotData: public QwtSeriesData<QPointF>
 };
 
 // y axis is the trace index, x axis is trace x, z color is trace y.
-// FIXME: (not true right now) assumes uniform x step size for all traces.
 class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
 {
     public:
@@ -290,6 +289,17 @@ enum PhaseCorrectionMode
     PhaseCorrection_Off
 };
 
+class IInterpolator
+{
+    public:
+        IInterpolator() = default;
+        virtual ~IInterpolator() = default;
+        IInterpolator(const IInterpolator &) = delete;
+        IInterpolator &operator=(const IInterpolator &) = delete;
+
+        virtual void operator()(const waveforms::Trace &input, waveforms::Trace &output) = 0;
+};
+
 // For each channel in analysisTraceData:
 // - take the latest trace from the front of the channels trace history,
 // - scale x by dtSample then interpolate while limiting each channels history to maxDepth.
@@ -299,7 +309,7 @@ size_t post_process_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor,
+    IInterpolator &interpolator,
     size_t maxDepth,
     PhaseCorrectionMode phaseCorrection);
 
@@ -315,7 +325,7 @@ size_t post_process_waveform_snapshot(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor,
+    IInterpolator &interpolator,
     size_t startingTraceIndex,
     size_t maxTraceCount,
     PhaseCorrectionMode phaseCorrection);
@@ -328,9 +338,52 @@ size_t reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor,
+    IInterpolator &interpolator,
     PhaseCorrectionMode phaseCorrection);
 
-}
+class NullInterpolator: public IInterpolator
+{
+    public:
+        void operator()(const waveforms::Trace &input, waveforms::Trace &output) override
+        {
+            output = input;
+        }
+};
+
+class SincInterpolator: public IInterpolator
+{
+    public:
+        u32 factor = 1;
+
+        SincInterpolator(u32 factor_ = 1)
+            : IInterpolator()
+            , factor(factor_)
+        {}
+
+        void operator()(const waveforms::Trace &input, waveforms::Trace &output) override
+        {
+            waveforms::interpolate_sinc(input, output, factor);
+        }
+};
+
+class SplineInterpolator: public IInterpolator
+{
+    public:
+        SplineParams params;
+        u32 factor = 1;
+
+        SplineInterpolator(const SplineParams &params_, u32 factor_ = 1)
+            : IInterpolator()
+            , params(params_)
+            , factor(factor_)
+        {}
+
+        void operator()(const waveforms::Trace &input, waveforms::Trace &output)
+        {
+            waveforms::interpolate_spline(input, output, params, factor);
+        }
+};
+
+} // namespace mesytec::mvme::waveforms
 
 #endif /* F66C9539_DA00_4A40_802A_F2101420A636 */

@@ -238,7 +238,7 @@ size_t post_process_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor,
+    IInterpolator &interpolator,
     size_t maxDepth,
     PhaseCorrectionMode phaseCorrection)
 {
@@ -301,7 +301,7 @@ size_t post_process_waveforms(
             rawDestTrace.meta = inputTrace.meta;
             ipolDestTrace.meta = inputTrace.meta;
             waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample, phase);
-            waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
+            interpolator(rawDestTrace, ipolDestTrace);
 
             rawDestTraces.push_front(std::move(rawDestTrace));
             ipolDestTraces.push_front(std::move(ipolDestTrace));
@@ -321,7 +321,7 @@ size_t post_process_waveform_snapshot(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor,
+    IInterpolator &interpolator,
     size_t startingTraceIndex,  // <- first "column"
     size_t maxTraceCount,       // <- amount of "columns" to process and store in the display traces
     PhaseCorrectionMode phaseCorrection)
@@ -376,7 +376,7 @@ size_t post_process_waveform_snapshot(
             rawDestTrace.meta = inputTrace.meta;
             ipolDestTrace.meta = inputTrace.meta;
             waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample, phase);
-            waveforms::interpolate(rawDestTrace, ipolDestTrace, interpolationFactor);
+            interpolator(rawDestTrace, ipolDestTrace);
             ++tracesProcessed;
         }
     }
@@ -389,7 +389,7 @@ size_t reprocess_waveforms(
     waveforms::TraceHistories &rawDisplayTraces,
     waveforms::TraceHistories &interpolatedDisplayTraces,
     double dtSample,
-    int interpolationFactor,
+    IInterpolator &interpolator,
     PhaseCorrectionMode phaseCorrection)
 {
     interpolatedDisplayTraces.resize(rawDisplayTraces.size());
@@ -427,7 +427,7 @@ size_t reprocess_waveforms(
             }
 
             waveforms::rescale_x_values(rawTrace, dtSample, phase);
-            waveforms::interpolate(rawTrace, ipolTrace, interpolationFactor);
+            interpolator(rawTrace, ipolTrace);
             ++tracesProcessed;
         }
     }
