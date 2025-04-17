@@ -271,7 +271,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     d->spin_dtSample_ = add_dt_sample_setter(tb);
     tb->addSeparator();
     d->interpolationUi_ = new InterpolationSettingsUi(this);
-    d->actionInterpolation_ = tb->addAction(QSL("Interpolation Settings"));
+    d->actionInterpolation_ = tb->addAction(QIcon(QSL(":/interpolation.png")), QSL("Interpolation"));
     d->actionInterpolation_->setCheckable(true);
     d->actionInterpolation_->setChecked(false);
     tb->addSeparator();
@@ -353,6 +353,10 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     connect(d->actionInterpolation_, &QAction::triggered,
         this, [this] (bool checked) { d->setInterpolationUiVisible(checked); });
 
+    connect(d->interpolationUi_, &QDialog::rejected, this, [this] {
+        d->actionInterpolation_->setChecked(false);
+    });
+
     connect(d->interpolationUi_, &InterpolationSettingsUi::interpolationFactorChanged, this,
             [this]
             {
@@ -406,7 +410,7 @@ void WaveformSink1DWidget::Private::postProcessData()
     switch (refreshMode_)
     {
     case RefreshMode_LatestData:
-        spdlog::debug("WaveformSink1DWidget::Private::postProcessData(): post_process_waveforms()");
+        spdlog::trace("WaveformSink1DWidget::Private::postProcessData(): post_process_waveforms()");
         waveforms::post_process_waveforms(
             analysisTraceData_,
             rawDisplayTraces_,
@@ -416,7 +420,7 @@ void WaveformSink1DWidget::Private::postProcessData()
         break;
 
     case RefreshMode_EventSnapshot:
-        spdlog::debug("WaveformSink1DWidget::Private::postProcessData(): post_process_waveform_snapshot()");
+        spdlog::trace("WaveformSink1DWidget::Private::postProcessData(): post_process_waveform_snapshot()");
         waveforms::post_process_waveform_snapshot(
             analysisTraceData_,
             rawDisplayTraces_,
@@ -556,13 +560,13 @@ void WaveformSink1DWidget::replot()
         || d->selectedTraceChanged_
         || refreshModeChanged);
 
-    spdlog::debug("WaveformSink1DWidget::replot(): forceProcessing={}, refreshModeChanged={}, selectedChannelChanged_={}, dtSampleChanged_={}, interpolationFactorChanged_={}, selectedTraceChanged_={}",
+    spdlog::trace("WaveformSink1DWidget::replot(): forceProcessing={}, refreshModeChanged={}, selectedChannelChanged_={}, dtSampleChanged_={}, interpolationFactorChanged_={}, selectedTraceChanged_={}",
         forceProcessing, refreshModeChanged, d->selectedChannelChanged_, d->dtSampleChanged_, d->interpolationFactorChanged_, d->selectedTraceChanged_);
-    spdlog::debug("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", d->refreshMode_, holdEnabled, showAllChannels);
+    spdlog::trace("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", d->refreshMode_, holdEnabled, showAllChannels);
 
     if (refreshModeChanged)
     {
-        spdlog::debug("WaveformSink1DWidget::replot(): refreshMode changed from {} to {}, clearing trace data",
+        spdlog::trace("WaveformSink1DWidget::replot(): refreshMode changed from {} to {}, clearing trace data",
             d->prevRefreshMode_, d->refreshMode_);
         d->analysisTraceData_.clear();
     }
@@ -573,7 +577,7 @@ void WaveformSink1DWidget::replot()
 
     if (d->actionHold_->isChecked() && forceProcessing)
     {
-        spdlog::debug("WaveformSink1DWidget::replot(): hold enabled, forceProcessing is true -> reprocessData()");
+        spdlog::trace("WaveformSink1DWidget::replot(): hold enabled, forceProcessing is true -> reprocessData()");
         d->reprocessData();
     }
     else if (!d->actionHold_->isChecked())
@@ -583,17 +587,17 @@ void WaveformSink1DWidget::replot()
 
         if (updated)
         {
-            spdlog::debug("WaveformSink1DWidget::replot(): new data from analysis -> postProcessData()");
+            spdlog::trace("WaveformSink1DWidget::replot(): new data from analysis -> postProcessData()");
             d->postProcessData();
         }
         else if (forceProcessing)
         {
-            spdlog::debug("WaveformSink1DWidget::replot(): no new analysis but forceProcessing is true -> reprocessData()");
+            spdlog::trace("WaveformSink1DWidget::replot(): no new analysis but forceProcessing is true -> reprocessData()");
             d->reprocessData();
         }
         else
         {
-            spdlog::debug("WaveformSink1DWidget::replot(): no new analysis data, no forceProcessing -> return");
+            spdlog::trace("WaveformSink1DWidget::replot(): no new analysis data, no forceProcessing -> return");
         }
     }
 
@@ -615,7 +619,7 @@ void WaveformSink1DWidget::replot()
         chanMax = selectedChannel + 1;
     }
 
-    spdlog::debug("WaveformSink1DWidget::replot(): channelCount={}, chanMin={}, chanMax={}", channelCount, chanMin, chanMax);
+    spdlog::trace("WaveformSink1DWidget::replot(): channelCount={}, chanMin={}, chanMax={}", channelCount, chanMin, chanMax);
 
     size_t totalTraceEntriesNeeded = 0;
 
@@ -628,7 +632,7 @@ void WaveformSink1DWidget::replot()
         totalTraceEntriesNeeded += traceCount;
     }
 
-    spdlog::debug("WaveformSink1DWidget::replot(): totalTraceEntriesNeeded={}", totalTraceEntriesNeeded);
+    spdlog::trace("WaveformSink1DWidget::replot(): totalTraceEntriesNeeded={}", totalTraceEntriesNeeded);
 
     assert(d->waveformHandles_.size() == d->curveHelper_.size());
 

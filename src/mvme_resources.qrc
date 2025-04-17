@@ -103,6 +103,7 @@
     <file alias="scissors_plus.png">resources/scissors--plus.png</file>
     <file alias="node.png">resources/node.png</file>
     <file alias="node-select.png">resources/node-select.png</file>
+    <file alias="interpolation.png">resources/layer-shape-polyline.png</file>
 
     <!-- non icon files -->
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>

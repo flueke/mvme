@@ -2,8 +2,9 @@
 #define DDCD557F_CBF3_492F_A9F4_289AC4C4F7C8
 
 #include <QCheckBox>
-#include <QDialog>
 #include <QComboBox>
+#include <QDialog>
+#include <QGroupBox>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -127,23 +128,25 @@ class InterpolationSettingsUi: public QDialog
     {
         layout = new QFormLayout(this);
         setLayout(layout);
-        //setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-        //setLineWidth(1);
         setContentsMargins(0, 0, 0, 0);
-
-        combo_interpolationType->addItem("sinc", "sinc");
-        combo_interpolationType->addItem("spline", "spline");
+        setWindowTitle("Interpolation Settings");
 
         spin_factor->setMinimum(0);
         spin_factor->setMaximum(100);
         spin_factor->setValue(5);
 
-        stack_settings->addWidget(new QWidget);
+        combo_interpolationType->addItem("spline", "spline");
+        combo_interpolationType->addItem("sinc", "sinc");
         stack_settings->addWidget(splineSettings);
+        stack_settings->addWidget(new QWidget);
+
+        auto gb_settings = new QGroupBox("Settings");
+        auto l_settings = make_hbox(gb_settings);
+        l_settings->addWidget(stack_settings);
 
         layout->addRow("Interpolation Type", combo_interpolationType);
         layout->addRow("Interpolation Factor", spin_factor);
-        layout->addRow(stack_settings);
+        layout->addRow(gb_settings);
 
         connect(combo_interpolationType, qOverload<int>(&QComboBox::currentIndexChanged),
                 stack_settings, &QStackedWidget::setCurrentIndex);
