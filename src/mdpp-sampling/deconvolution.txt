@@ -1,0 +1,77 @@
+// 1) deconv_prediff
+// ======================
+var decay_time := 33000/12.5;  //in ns
+
+output_trail := input_trail;
+output_config := input_config;
+output_phase := input_phase;
+output_length := input_length;
+var integral := 0;
+
+for (var i := 0; i < input_trail.size; i += 1) {
+	integral := integral + input_trail[i];
+
+	output_trail[i] := input_trail[i]+ integral/decay_time;
+	output_debug[i] := integral/decay_time;
+}
+
+// 2) deconv_preamp
+// ======================
+var decay_time := 105000/12.5;  //in ns
+
+output_trail := input_trail;
+output_config := input_config;
+output_phase := input_phase;
+output_length := input_length;
+var integral := 0;
+
+for (var i := 0; i < input_trail.size; i += 1) {
+	integral := integral + input_trail[i];
+
+	output_trail[i] := input_trail[i]+ integral/decay_time;
+	output_debug[i] := integral/decay_time;
+}
+
+// 3) differential_preamp
+// ======================
+var diff_time := 1100/12.5;  //in ns
+
+output_trail := input_trail;
+output_config := input_config;
+output_phase := input_phase;
+output_length := input_length;
+
+var diff_delay;
+var differential := 0;
+
+for (var i := 0; i < input_trail.size; i += 1) {
+	if((i-diff_time)<0) { diff_delay := 0; }
+	else {diff_delay := input_trail[(i-diff_time)]};
+
+	differential := input_trail[i]-diff_delay;
+
+	output_trail[i] := differential;
+	output_debug[i] := diff_delay;
+}
+
+// 4) integral
+// ======================
+var int_time := 1000/12.5;  //in ns
+
+output_trail := input_trail;
+output_config := input_config;
+output_phase := input_phase;
+output_length := input_length;
+
+var int_delay;
+var integral := 0;
+
+for (var i := 0; i < input_trail.size; i += 1) {
+	if((i-int_time)<0) { int_delay := 0; }
+	else {int_delay := input_trail[(i-int_time)]};
+
+	integral := integral + input_trail[i]-int_delay;
+
+	output_trail[i] := integral;
+	output_debug[i] := int_delay;
+}

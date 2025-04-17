@@ -3079,6 +3079,123 @@ void ScalerOverflow::read(const QJsonObject &json)
 }
 
 //
+// MdppDeconvolution
+//
+struct MdppDeconvolution::Private
+{
+    static const int PhaseInput = 0;
+    static const int ConfigInput = 1;
+
+    QVector<std::shared_ptr<Slot>> inputs_;
+    QVector<std::shared_ptr<Pipe>> outputs_;
+};
+
+MdppDeconvolution::MdppDeconvolution(QObject *parent)
+    : OperatorInterface(parent)
+    , d(std::make_unique<Private>())
+{
+    addSlot(); // phase input
+    addSlot(); // config input
+    addSlot(); // first channel input
+}
+
+MdppDeconvolution::~MdppDeconvolution() = default;
+
+void MdppDeconvolution::beginRun(const RunInfo &, Logger)
+{
+}
+
+bool MdppDeconvolution::addSlot()
+{
+    auto inputType = InputType::Array;
+
+    QString slotName;
+
+    if (getNumberOfSlots() == Private::PhaseInput)
+        slotName = QSL("Phase Input");
+    else if (getNumberOfSlots() == Private::ConfigInput)
+        slotName = QSL("Config Input");
+    else
+        slotName = QSL("Channel #") + QString::number(getNumberOfSlots()-1);
+
+    auto slot = std::make_shared<Slot>(this, getNumberOfSlots(), slotName, inputType);
+
+    if (getNumberOfSlots() == Private::ConfigInput)
+        slot->isOptional = true;
+
+    d->inputs_.push_back(slot);
+
+    return true;
+}
+
+bool MdppDeconvolution::removeLastSlot()
+{
+    if (d->inputs_.size() > 3)
+    {
+        d->inputs_.back()->disconnectPipe();
+        d->inputs_.pop_back();
+        return true;
+    }
+
+    return false;
+}
+
+s32 MdppDeconvolution::getNumberOfSlots() const
+{
+    return d->inputs_.size();
+}
+
+Slot *MdppDeconvolution::getSlot(s32 slotIndex)
+{
+    return d->inputs_.value(slotIndex).get();
+}
+
+s32 MdppDeconvolution::getNumberOfOutputs() const
+{
+    return d->outputs_.size();
+}
+
+QString MdppDeconvolution::getOutputName(s32 index) const
+{
+    if (index == Private::PhaseInput)
+        return QSL("Phase Output");
+    else if (index == Private::ConfigInput)
+        return QSL("Config Output");
+    else if (index >= 0 && index < d->outputs_.size())
+        return QSL("Channel #") + QString::number(index - 1);
+
+    return {};
+}
+
+Pipe *MdppDeconvolution::getOutput(s32 index)
+{
+    return d->outputs_.value(index).get();
+}
+
+void MdppDeconvolution::read(const QJsonObject &json)
+{
+    for (auto &slot: d->inputs_)
+    {
+        slot->disconnectPipe();
+    }
+    d->inputs_.clear();
+
+    s32 inputCount = json["numberOfInputs"].toInt(1);
+
+    for (s32 inputIndex = 0;
+         inputIndex < inputCount;
+         ++inputIndex)
+    {
+        addSlot();
+    }
+}
+
+void MdppDeconvolution::write(QJsonObject &json) const
+{
+    json["numberOfInputs"] = getNumberOfSlots();
+}
+
+//
 // Histo1DSink
 //
 

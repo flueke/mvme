@@ -1642,6 +1642,44 @@ class LIBMVME_EXPORT ScalerOverflow: public OperatorInterface
         Pipe m_overflowCountOutput;
 };
 
+class LIBMVME_EXPORT MdppDeconvolution: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface);
+
+    public:
+        Q_INVOKABLE MdppDeconvolution(QObject *parent = 0);
+        ~MdppDeconvolution() override;
+
+        // Init and execute
+        void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
+
+        // Inputs
+        bool hasVariableNumberOfSlots() const override { return true; }
+        bool addSlot() override;
+        bool removeLastSlot() override;
+        s32 getNumberOfSlots() const override;
+        Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        bool hasVariableNumberOfOutputs() const override { return true; }
+        s32 getNumberOfOutputs() const override;
+        QString getOutputName(s32 index) const override;
+        Pipe *getOutput(s32 index) override;
+
+        // Serialization
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+
+        // Info
+        QString getDisplayName() const override { return QSL("MDPP Deconvolution"); }
+        QString getShortName() const override { return QSL("MDPP Deconv"); }
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 //
 // Conditions
 //
