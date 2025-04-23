@@ -113,6 +113,7 @@ enum OperatorType
     Operator_Expression,
     Operator_ScalerOverflow,
     Operator_ScalerOverflow_idx,
+    Operator_Deconvolution,
 
     Operator_IntervalCondition,
     Operator_PolygonCondition,

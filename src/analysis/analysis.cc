@@ -3088,6 +3088,7 @@ struct MdppDeconvolution::Private
 
     QVector<std::shared_ptr<Slot>> inputs_;
     QVector<std::shared_ptr<Pipe>> outputs_;
+    a2::DeconvolutionParams params_;
 };
 
 MdppDeconvolution::MdppDeconvolution(QObject *parent)
@@ -4447,6 +4448,7 @@ Analysis::Analysis(QObject *parent)
     m_objectFactory.registerOperator<AggregateOps>();
     m_objectFactory.registerOperator<ExpressionOperator>();
     m_objectFactory.registerOperator<ScalerOverflow>();
+    m_objectFactory.registerOperator<MdppDeconvolution>();
 #if 1
     // conditions
     m_objectFactory.registerOperator<IntervalCondition>();

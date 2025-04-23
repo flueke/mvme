@@ -537,7 +537,7 @@ struct A2;
 void expression_operator_step(Operator *op, A2 *a2 = nullptr);
 
 /* ===============================================
- * ScalerOverflow
+ * ScalerOverflow (counter wrap handling)
  * =============================================== */
 Operator make_scaler_overflow(
     memory::Arena *arena,
@@ -547,6 +547,38 @@ Operator make_scaler_overflow_idx(
     memory::Arena *arena,
     const PipeVectors &input,
     s32 inputParamIndex);
+
+/* ===============================================
+ * Deconvolution
+ * =============================================== */
+struct DeconvolutionParams
+{
+    using Duration = std::chrono::duration<double, std::chrono::nanoseconds::period>;
+
+    struct Steps
+    {
+        static const u32 Deconv0 = 1u << 0;
+        static const u32 Deconv1 = 1u << 1;
+        static const u32 Diff    = 1u << 2;
+        static const u32 Int     = 1u << 3;
+        static const u32 All     = Deconv0 | Deconv1 | Diff | Int;
+    };
+
+    u32 steps = Steps::All;
+    Duration decayTime0;
+    Duration decayTime1;
+    Duration diffTime;
+    Duration intTime;
+};
+
+Operator make_deconvolution(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const DeconvolutionParams &params);
+
+/* ===============================================
+ * ScalerOverflow
+ * =============================================== */
 
 /* ===============================================
  * Conditions

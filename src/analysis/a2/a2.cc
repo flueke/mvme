@@ -3209,6 +3209,179 @@ void scaler_overflow_step_idx(Operator *op, A2 *)
 }
 
 /* ===============================================
+ * Deconvolution
+ * =============================================== */
+struct DeconvolutionData
+{
+    static const size_t FirstTraceInputIndex = 2;
+    DeconvolutionParams params;
+    std::array<ParamVec, 3> tmpVecs; // Storage for temporary results.
+};
+
+Operator make_deconvolution(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const DeconvolutionParams &params)
+{
+    auto result = make_operator(arena, Operator_Deconvolution, inputs.size(), inputs.size());
+    auto d = arena->pushObject<DeconvolutionData>();
+    result.d = d;
+
+    d->params = params;
+    s32 maxInputLen = 0;
+
+    for (u32 i=0; i<inputs.size(); ++i)
+    {
+        assign_input(&result, inputs[i], i);
+        double lowerLimit = inputs[i].lowerLimits.size > 0 ? inputs[i].lowerLimits[0] : 0.0;
+        double upperLimit = inputs[i].upperLimits.size > 0 ? inputs[i].upperLimits[0] : 1.0;
+        push_output_vectors(arena, &result, i, inputs[i].size(), lowerLimit, upperLimit);
+        maxInputLen = std::max(maxInputLen, inputs[i].size());
+    }
+
+    for (size_t i=0; i<d->tmpVecs.size(); ++i)
+    {
+        d->tmpVecs[i] = push_param_vector(arena, maxInputLen);
+    }
+
+    return result;
+}
+
+inline void deconv(ParamVec &input, ParamVec &output, double decayTime)
+{
+    double integral = 0.0;
+
+    for (auto j=0; j<input.size; ++j)
+    {
+        if (is_param_valid(input[j]))
+        {
+            integral += input[j];
+            output[j] = input[j] + integral / decayTime;
+        }
+        else
+        {
+            output[j] = invalid_param();
+        }
+    }
+}
+
+inline void diff(ParamVec &input, ParamVec &output, double diffTime)
+{
+    for (auto j=0; j<input.size; ++j)
+    {
+        if (is_param_valid(input[j]))
+        {
+            auto diff_index = std::max(j - diffTime, 0.0);
+            double diff_delay = 0.0;
+
+            if (diff_index < input.size)
+                diff_delay = input[diff_index];
+
+            output[j] = input[j] - diff_delay;
+        }
+        else
+        {
+            output[j] = invalid_param();
+        }
+    }
+}
+
+inline void integral(ParamVec &input, ParamVec &output, double intTime)
+{
+    double integral = 0.0;
+
+    for (auto j=0; j<input.size; ++j)
+    {
+        if (is_param_valid(input[j]))
+        {
+            auto int_index = std::max(j - intTime, 0.0);
+            double int_delay = 0.0;
+
+            if (int_index < input.size)
+                int_delay = input[int_index];
+
+            integral += input[j] - int_delay;
+            output[j] = integral;
+        }
+        else
+        {
+            output[j] = invalid_param();
+        }
+    }
+}
+
+void deconvolution_step_v1(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == op->outputCount);
+    auto d = reinterpret_cast<DeconvolutionData *>(op->d);
+
+    // Copy the phase and config input data.
+    std::copy(op->inputs[0].data, op->inputs[0].data + op->inputs[0].size, op->outputs[0].data);
+    std::copy(op->inputs[1].data, op->inputs[1].data + op->inputs[1].size, op->outputs[1].data);
+
+    for (size_t i=DeconvolutionData::FirstTraceInputIndex; i<op->inputCount; ++i)
+    {
+    }
+}
+
+void deconvolution_step_v0(Operator *op, A2 *a2)
+{
+    a2_trace("\n");
+    assert(op->inputCount == op->outputCount);
+
+    auto d = reinterpret_cast<DeconvolutionData *>(op->d);
+
+    if (d->params.steps & DeconvolutionParams::Steps::Deconv0)
+    {
+        for (size_t i=0; i<op->inputCount; ++i)
+        {
+            auto input = op->inputs[i];
+            auto output = op->outputs[i];
+            assert(input.size == output.size);
+
+            deconv(input, output, d->params.decayTime0.count());
+        }
+    }
+
+    if (d->params.steps & DeconvolutionParams::Steps::Deconv1)
+    {
+        for (size_t i=0; i<op->inputCount; ++i)
+        {
+            auto input = op->inputs[i];
+            auto output = op->outputs[i];
+            assert(input.size == output.size);
+
+            deconv(input, output, d->params.decayTime1.count());
+        }
+    }
+
+    if (d->params.steps & DeconvolutionParams::Steps::Diff)
+    {
+        for (size_t i=0; i<op->inputCount; ++i)
+        {
+            auto input = op->inputs[i];
+            auto output = op->outputs[i];
+            assert(input.size == output.size);
+
+            diff(input, output, d->params.diffTime.count());
+        }
+    }
+
+    if (d->params.steps & DeconvolutionParams::Steps::Int)
+    {
+        for (size_t i=0; i<op->inputCount; ++i)
+        {
+            auto input = op->inputs[i];
+            auto output = op->outputs[i];
+            assert(input.size == output.size);
+
+            integral(input, output, d->params.intTime.count());
+        }
+    }
+}
+
+/* ===============================================
  * Conditions
  * =============================================== */
 
@@ -4619,6 +4792,7 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_Expression] = { expression_operator_step };
     result[Operator_ScalerOverflow] = { scaler_overflow_step };
     result[Operator_ScalerOverflow_idx] = { scaler_overflow_step_idx };
+    result[Operator_Deconvolution] = { deconvolution_step_v1 };
 
     result[Operator_IntervalCondition] = { interval_condition_step };
     result[Operator_PolygonCondition] = { polygon_condition_step };

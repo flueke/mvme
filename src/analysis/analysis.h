@@ -1651,6 +1651,9 @@ class LIBMVME_EXPORT MdppDeconvolution: public OperatorInterface
         Q_INVOKABLE MdppDeconvolution(QObject *parent = 0);
         ~MdppDeconvolution() override;
 
+        a2::DeconvolutionParams getDeconvolutionParams() const;
+        void setDeconvolutionParams(const a2::DeconvolutionParams &params);
+
         // Init and execute
         void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
 
