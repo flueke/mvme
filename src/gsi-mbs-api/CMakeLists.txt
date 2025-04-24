@@ -39,6 +39,10 @@ list(APPEND headers
   typedefs.h
 )
 
+if (WIN32)
+  list(APPEND headers typedefs_nt.h)
+endif()
+
 add_library(${target} STATIC ${sources} ${headers})
 
 target_compile_options(${target} PRIVATE
