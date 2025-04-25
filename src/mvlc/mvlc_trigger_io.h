@@ -43,6 +43,11 @@ namespace trigger_io
 static const size_t TimerCount = 4;
 static const size_t NIM_IO_Count = 14;
 static const size_t ECL_OUT_Count = 3;
+// Minimum durations for delay, width and holdoff parameters of gate generators.
+// Values below the minimum are either rounded up to 8 or, in the case of the
+// `width' parameter, turn the gate generator off. In this case the signal is
+// passed through unmodified.
+static const size_t GateGeneratorDurationMin = 8;
 
 struct LIBMVME_EXPORT Timer
 {
