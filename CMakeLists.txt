@@ -74,10 +74,11 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/external")
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
-    PATH_SUFFIXES quazip quazip-qt5 quazip5
+    PATH_SUFFIXES quazip quazip-qt5 quazip5 quazip1-qt5
     QuaZip-Qt5-1.1/quazip
     QuaZip-Qt5-1.3/quazip
     QuaZip-Qt5-1.4/quazip
+    QuaZip-Qt5-1.5/quazip
 )
 
 find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5 quazip1-qt5)

@@ -34,26 +34,29 @@ The install step is optional, mvme does run directly from the build directory.
 
 See the files under extras/docker for up-to-date dependencies and build steps.
 
-### Windows MSYS2
+### Windows ucrt64 via msys2 (updated 4/2025)
 
 http://www.msys2.org/
 
-#### MSYS2 dependencies
-* make
-* mingw-w64-x86_64-cmake
-* mingw-w64-x86_64-gcc
-* mingw-w64-x86_64-pkg-config
-* mingw-w64-x86_64-qt5
-* mingw-w64-x86_64-quazip
-* mingw-w64-x86_64-qwt-qt5
-* mingw-w64-x86_64-zlib
-* mingw-w64-x86_64-graphviz
+#### ucrt64 dependencies
 
-#### CMake invocation under windows
-`cmake -DCMAKE_BUILD_TYPE=Release -G"MSYS Makefiles" ../mvme`
-`make -j4`
+    mingw-w64-ucrt-x86_64-clang
+    mingw-w64-ucrt-x86_64-ninja
+    mingw-w64-ucrt-x86_64-quazip-qt5
+    mingw-w64-ucrt-x86_64-qt5-websockets
+    mingw-w64-ucrt-x86_64-qt5-svg
+    mingw-w64-ucrt-x86_64-boost
+    mingw-w64-ucrt-x86_64-qwt-qt5
+    mingw-w64-ucrt-x86_64-graphviz
+    mingw-w64-ucrt-x86_64-quazip-qt5
 
-## Mac OS X using Homebrew
+#### ucrt64 build
+
+    mkdir build; cd build
+    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
+    ninja
+
+## Mac OS X using Homebrew (out of date, needs verification)
 * Note that the OS X port has only been tested with our MVLC VME Controller via
   Ethernet. USB support has not been tested. There are also some ugly fonts and
   broken layouts which might get fixed at some point.
