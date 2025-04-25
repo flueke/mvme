@@ -1,13 +1,14 @@
 #ifndef D1DE0040_F4F2_4734_986A_FA89AED9203D
 #define D1DE0040_F4F2_4734_986A_FA89AED9203D
 
+#include "libmvme_export.h"
 #include "analysis_service_provider.h"
 #include <QMainWindow>
 
 namespace analysis
 {
 
-class EventBuilderMonitorWidget: public QMainWindow
+class LIBMVME_EXPORT EventBuilderMonitorWidget: public QMainWindow
 {
     Q_OBJECT
 
