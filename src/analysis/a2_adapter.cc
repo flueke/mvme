@@ -638,6 +638,25 @@ DEF_OP_MAGIC(scaler_overflow_magic)
     return result;
 }
 
+DEF_OP_MAGIC(deconvolution_magic)
+{
+    OP_MAGIC_NOWARN;
+    LOG("");
+
+    [[maybe_unused]] auto a1_op = qobject_cast<analysis::MdppDeconvolution *>(op.get());
+
+    assert(a1_op);
+
+    std::vector<a2::PipeVectors> inputs;
+
+    for (const auto &inputSlot: inputSlots)
+    {
+        inputs.push_back(find_output_pipe(adapterState, inputSlot).first);
+    }
+
+    return a2::make_deconvolution(arena, inputs, a1_op->getDeconvolutionParams());
+}
+
 //
 // Sinks
 //
@@ -994,6 +1013,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::Sum::staticMetaObject,                     sum_magic },
     { &analysis::ExpressionOperator::staticMetaObject,      expression_operator_magic },
     { &analysis::ScalerOverflow::staticMetaObject,          scaler_overflow_magic },
+    { &analysis::MdppDeconvolution::staticMetaObject,       deconvolution_magic },
 
     { &analysis::IntervalCondition::staticMetaObject,       interval_condition_magic },
     { &analysis::PolygonCondition::staticMetaObject,        polygon_condition_magic },

@@ -3313,8 +3313,7 @@ Operator make_deconvolution(
     return result;
 }
 
-
-void deconvolution_step_v1(Operator *op, A2 *a2)
+void deconvolution_step_v1(Operator *op, A2 */*a2*/)
 {
     a2_trace("\n");
     assert(op->inputCount == op->outputCount);
@@ -3327,90 +3326,39 @@ void deconvolution_step_v1(Operator *op, A2 *a2)
     for (size_t traceIndex=DeconvolutionData::FirstTraceInputIndex; traceIndex<op->inputCount; ++traceIndex)
     {
         size_t tmpIndex = 0;
-        auto &input = op->inputs[traceIndex];
-        auto &output = d->tmpVecs[tmpIndex++];
+        auto input = op->inputs[traceIndex];
+        ParamVec output;
 
         if (d->params.steps & DeconvolutionParams::Steps::Deconv0)
         {
+            output = d->tmpVecs[tmpIndex++];
             deconv(input, output, d->params.decayTime0.count());
             input = output;
-            output = d->tmpVecs[tmpIndex++];
         }
 
         if (d->params.steps & DeconvolutionParams::Steps::Deconv1)
         {
+            output = d->tmpVecs[tmpIndex++];
             deconv(input, output, d->params.decayTime1.count());
             input = output;
-            output = d->tmpVecs[tmpIndex++];
         }
 
         if (d->params.steps & DeconvolutionParams::Steps::Diff)
         {
+            output = d->tmpVecs[tmpIndex++];
             diff(input, output, d->params.diffTime.count());
+            input = output;
         }
 
         if (d->params.steps & DeconvolutionParams::Steps::Int)
         {
+            output = d->tmpVecs[tmpIndex++];
             integral(input, output, d->params.intTime.count());
+            input = output;
         }
 
+        // copy from tmp output to the final output for this trace
         std::copy(output.data, output.data + op->outputs[traceIndex].size, op->outputs[traceIndex].data);
-    }
-}
-
-void deconvolution_step_v0(Operator *op, A2 *a2)
-{
-    a2_trace("\n");
-    assert(op->inputCount == op->outputCount);
-
-    auto d = reinterpret_cast<DeconvolutionData *>(op->d);
-
-    if (d->params.steps & DeconvolutionParams::Steps::Deconv0)
-    {
-        for (size_t i=0; i<op->inputCount; ++i)
-        {
-            auto input = op->inputs[i];
-            auto output = op->outputs[i];
-            assert(input.size == output.size);
-
-            deconv(input, output, d->params.decayTime0.count());
-        }
-    }
-
-    if (d->params.steps & DeconvolutionParams::Steps::Deconv1)
-    {
-        for (size_t i=0; i<op->inputCount; ++i)
-        {
-            auto input = op->inputs[i];
-            auto output = op->outputs[i];
-            assert(input.size == output.size);
-
-            deconv(input, output, d->params.decayTime1.count());
-        }
-    }
-
-    if (d->params.steps & DeconvolutionParams::Steps::Diff)
-    {
-        for (size_t i=0; i<op->inputCount; ++i)
-        {
-            auto input = op->inputs[i];
-            auto output = op->outputs[i];
-            assert(input.size == output.size);
-
-            diff(input, output, d->params.diffTime.count());
-        }
-    }
-
-    if (d->params.steps & DeconvolutionParams::Steps::Int)
-    {
-        for (size_t i=0; i<op->inputCount; ++i)
-        {
-            auto input = op->inputs[i];
-            auto output = op->outputs[i];
-            assert(input.size == output.size);
-
-            integral(input, output, d->params.intTime.count());
-        }
     }
 }
 

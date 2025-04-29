@@ -3102,8 +3102,43 @@ MdppDeconvolution::MdppDeconvolution(QObject *parent)
 
 MdppDeconvolution::~MdppDeconvolution() = default;
 
+a2::DeconvolutionParams MdppDeconvolution::getDeconvolutionParams() const
+{
+    return d->params_;
+}
+
+void MdppDeconvolution::setDeconvolutionParams(const a2::DeconvolutionParams &params)
+{
+    d->params_ = params;
+}
+
 void MdppDeconvolution::beginRun(const RunInfo &, Logger)
 {
+    // remove old output pipes
+    auto it0 = std::begin(d->outputs_) + getNumberOfSlots();
+    auto it1 = std::end(d->outputs_);
+    if (it0 < it1)
+        std::for_each(it0, it1, [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
+
+    d->outputs_.resize(getNumberOfSlots());
+
+    for (auto ii=0; ii<getNumberOfSlots(); ++ii)
+    {
+        auto outPipe = d->outputs_.value(ii);
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, ii);
+            d->outputs_[ii] = outPipe;
+        }
+        outPipe->parameters.name = getOutputName(ii);
+        outPipe->parameters.resize(d->inputs_.value(ii)->inputPipe->getSize());
+        for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+        {
+            outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
+            outPipe->parameters[paramIndex].lowerLimit = std::numeric_limits<s16>::min();
+            outPipe->parameters[paramIndex].upperLimit = std::numeric_limits<s16>::max();
+        }
+    }
 }
 
 bool MdppDeconvolution::addSlot()

@@ -1675,8 +1675,8 @@ class LIBMVME_EXPORT MdppDeconvolution: public OperatorInterface
         void write(QJsonObject &json) const override;
 
         // Info
-        QString getDisplayName() const override { return QSL("MDPP Deconvolution"); }
-        QString getShortName() const override { return QSL("MDPP Deconv"); }
+        QString getDisplayName() const override { return QSL("Deconvolution (MDPP)"); }
+        QString getShortName() const override { return QSL("Deconv"); }
 
     private:
         struct Private;
