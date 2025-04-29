@@ -74,6 +74,12 @@ if(NOT nng)
     #if (LINUX)
     #    set_target_properties(nng PROPERTIES POSITION_INDEPENDENT_CODE ON)
     #endif()
+endif()
 
-
+# range-v3
+find_package(range-v3 QUIET)
+if (NOT range-v3)
+    set(RANGES_BUILD_CALENDAR_EXAMPLE OFF)
+    set(RANGES_DEBUG_INFO OFF)
+    add_subdirectory(range-v3-0.12.0)
 endif()

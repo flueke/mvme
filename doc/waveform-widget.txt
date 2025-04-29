@@ -1,0 +1,34 @@
+* periodic: replot()
+  - forceProcessing? set on ui input change and refreshMode change
+  - gotNewAnalysisDat?
+  - hold?
+  - postProcessData() or reprocessData() are called
+     Are two functions needed? Hold original data and always postProcessData()?
+     Simplify as much as possible.
+
+  - updateUi()
+  - showAllChannels?
+  - plotColors
+  - boundingRect
+
+  - trace updates: entriesNeeded, waveformHandles, curveHelper
+  - loop from chanMin to chanMax
+    - inner loop over traces
+      - curve colors, pixel alpha based on age
+      - toggle symbols
+
+  - update_plot_axes
+  - updateLegend()
+
+* postProcessData():
+  if (RefreshMode_LatestData)
+      waveforms::post_process_waveforms()
+  else
+      waveforms::post_process_waveform_snapshot()
+
+
+* reprocessData()
+  if (RefreshMode_LatestData)
+      waveforms::reprocess_waveforms()
+  else
+      waveforms::post_process_waveform_snapshot()

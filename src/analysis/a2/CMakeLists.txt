@@ -115,6 +115,7 @@ if (A2_BUILD_STATIC)
         PUBLIC cpp11-on-multicore
         PUBLIC zstr
         PUBLIC libmvme_mdpp_decode
+        PRIVATE range-v3::range-v3
         )
 
     set_target_properties(liba2_static PROPERTIES

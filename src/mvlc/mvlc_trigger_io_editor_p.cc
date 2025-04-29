@@ -20,23 +20,21 @@
  */
 #include "mvlc/mvlc_trigger_io_editor_p.h"
 
+#include <boost/range/adaptor/indexed.hpp>
 #include <cassert>
 #include <cmath>
-#include <QBoxLayout>
-#include <QGraphicsSceneMouseEvent>
-#include <QHeaderView>
-#include <QWheelEvent>
-
-#include <boost/range/adaptor/indexed.hpp>
 #include <minbool.h>
-
+#include <QBoxLayout>
 #include <QDebug>
 #include <QDialogButtonBox>
 #include <QGraphicsPolygonItem>
+#include <QGraphicsSceneMouseEvent>
 #include <QGroupBox>
+#include <QHeaderView>
 #include <QLineEdit>
 #include <QPushButton>
-#include <qnamespace.h>
+#include <QStyledItemDelegate>
+#include <QWheelEvent>
 
 #include "qt_util.h"
 #include "mvme_qthelp.h"
@@ -2301,6 +2299,36 @@ void TriggerIOGraphicsScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *ev)
     }
 }
 
+class NanoSecondsItemDelegate: public QStyledItemDelegate
+{
+    public:
+        using QStyledItemDelegate::QStyledItemDelegate;
+        QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                                      const QModelIndex &index) const override
+        {
+            Q_UNUSED(option);
+            Q_UNUSED(index);
+            auto result = new QSpinBox(parent);
+            result->setMinimum(0);
+            result->setMaximum(0xFFFF);
+            result->setSingleStep(1);
+            result->setSuffix(" ns");
+            result->setSpecialValueText("off");
+            return result;
+        }
+
+        QString displayText(const QVariant &value, const QLocale &locale) const override
+        {
+            if (value.isNull())
+                return QString();
+
+            if (value.toInt() == 0)
+                return "off";
+
+            return QStyledItemDelegate::displayText(value, locale) + " ns";;
+        }
+};
+
 NIM_IO_Table_UI make_nim_io_settings_table(
     const trigger_io::IO::Direction dir)
 {
@@ -2308,15 +2336,26 @@ NIM_IO_Table_UI make_nim_io_settings_table(
         "Activate", "Direction", "Delay", "Width", "Holdoff", "Invert", "Name", "Input", "Reset"
     };
 
-    //if (dir == trigger_io::IO::Direction::out)
-    //    columnTitles.push_back("Input");
-
     NIM_IO_Table_UI ret = {};
 
     auto table = new QTableWidget(trigger_io::NIM_IO_Count, columnTitles.size());
     ret.table = table;
 
     table->setHorizontalHeaderLabels(columnTitles);
+    table->setItemDelegateForColumn(NIM_IO_Table_UI::ColDelay, new NanoSecondsItemDelegate(table));
+    table->setItemDelegateForColumn(NIM_IO_Table_UI::ColWidth, new NanoSecondsItemDelegate(table));
+    table->setItemDelegateForColumn(NIM_IO_Table_UI::ColHoldoff, new NanoSecondsItemDelegate(table));
+
+    QObject::connect(table, &QTableWidget::itemChanged, table, [table] (QTableWidgetItem *item)
+    {
+        if (item->column() == NIM_IO_Table_UI::ColDelay ||
+            item->column() == NIM_IO_Table_UI::ColWidth ||
+            item->column() == NIM_IO_Table_UI::ColHoldoff)
+        {
+            auto intVal = item->data(Qt::EditRole).toInt();
+        }
+
+    });
 
     for (int row = 0; row < table->rowCount(); ++row)
     {

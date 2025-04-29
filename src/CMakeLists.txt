@@ -65,6 +65,7 @@ endif()
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
+# graphviz
 find_package(Graphviz REQUIRED)
 message("-- Using GRAPHVIZ_INCLUDE_DIRS=${GRAPHVIZ_INCLUDE_DIRS}")
 message("-- Using GRAPHVIZ_LIBRARIES=${GRAPHVIZ_LIBRARIES}")
@@ -337,6 +338,7 @@ target_link_libraries(libmvme
     PUBLIC liba2_static
     PRIVATE nlohmann-json
     PRIVATE qgvcore
+    PRIVATE range-v3::range-v3
     PUBLIC ${QUAZIP_QT5}
     PUBLIC ${QWT_LIBRARY}
     PUBLIC BFG::Lyra

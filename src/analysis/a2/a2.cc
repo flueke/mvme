@@ -38,6 +38,7 @@
 #include <mutex>
 #include <queue>
 #include <random>
+#include <range/v3/all.hpp>
 #include <vector>
 #include <zstr.hpp>
 
@@ -3211,42 +3212,6 @@ void scaler_overflow_step_idx(Operator *op, A2 *)
 /* ===============================================
  * Deconvolution
  * =============================================== */
-struct DeconvolutionData
-{
-    static const size_t FirstTraceInputIndex = 2;
-    DeconvolutionParams params;
-    std::array<ParamVec, 3> tmpVecs; // Storage for temporary results.
-};
-
-Operator make_deconvolution(
-    memory::Arena *arena,
-    const std::vector<PipeVectors> &inputs,
-    const DeconvolutionParams &params)
-{
-    auto result = make_operator(arena, Operator_Deconvolution, inputs.size(), inputs.size());
-    auto d = arena->pushObject<DeconvolutionData>();
-    result.d = d;
-
-    d->params = params;
-    s32 maxInputLen = 0;
-
-    for (u32 i=0; i<inputs.size(); ++i)
-    {
-        assign_input(&result, inputs[i], i);
-        double lowerLimit = inputs[i].lowerLimits.size > 0 ? inputs[i].lowerLimits[0] : 0.0;
-        double upperLimit = inputs[i].upperLimits.size > 0 ? inputs[i].upperLimits[0] : 1.0;
-        push_output_vectors(arena, &result, i, inputs[i].size(), lowerLimit, upperLimit);
-        maxInputLen = std::max(maxInputLen, inputs[i].size());
-    }
-
-    for (size_t i=0; i<d->tmpVecs.size(); ++i)
-    {
-        d->tmpVecs[i] = push_param_vector(arena, maxInputLen);
-    }
-
-    return result;
-}
-
 inline void deconv(ParamVec &input, ParamVec &output, double decayTime)
 {
     double integral = 0.0;
@@ -3310,6 +3275,45 @@ inline void integral(ParamVec &input, ParamVec &output, double intTime)
     }
 }
 
+struct DeconvolutionData
+{
+    static const size_t FirstTraceInputIndex = 2;
+    DeconvolutionParams params;
+    std::array<ParamVec, 4> tmpVecs; // Storage for temporary results.
+};
+
+Operator make_deconvolution(
+    memory::Arena *arena,
+    const std::vector<PipeVectors> &inputs,
+    const DeconvolutionParams &params)
+{
+    auto result = make_operator(arena, Operator_Deconvolution, inputs.size(), inputs.size());
+    auto d = arena->pushObject<DeconvolutionData>();
+    result.d = d;
+
+    d->params = params;
+
+    for (u32 i=0; i<inputs.size(); ++i)
+    {
+        assign_input(&result, inputs[i], i);
+        double lowerLimit = inputs[i].lowerLimits.size > 0 ? inputs[i].lowerLimits[0] : 0.0;
+        double upperLimit = inputs[i].upperLimits.size > 0 ? inputs[i].upperLimits[0] : 1.0;
+        push_output_vectors(arena, &result, i, inputs[i].size(), lowerLimit, upperLimit);
+    }
+
+    auto maxInputLen = ranges::max_element(inputs, [](const PipeVectors &a, const PipeVectors &b) {
+        return a.size() < b.size();
+    })->size();
+
+    for (size_t i=0; i<d->tmpVecs.size(); ++i)
+    {
+        d->tmpVecs[i] = push_param_vector(arena, maxInputLen);
+    }
+
+    return result;
+}
+
+
 void deconvolution_step_v1(Operator *op, A2 *a2)
 {
     a2_trace("\n");
@@ -3320,8 +3324,37 @@ void deconvolution_step_v1(Operator *op, A2 *a2)
     std::copy(op->inputs[0].data, op->inputs[0].data + op->inputs[0].size, op->outputs[0].data);
     std::copy(op->inputs[1].data, op->inputs[1].data + op->inputs[1].size, op->outputs[1].data);
 
-    for (size_t i=DeconvolutionData::FirstTraceInputIndex; i<op->inputCount; ++i)
+    for (size_t traceIndex=DeconvolutionData::FirstTraceInputIndex; traceIndex<op->inputCount; ++traceIndex)
     {
+        size_t tmpIndex = 0;
+        auto &input = op->inputs[traceIndex];
+        auto &output = d->tmpVecs[tmpIndex++];
+
+        if (d->params.steps & DeconvolutionParams::Steps::Deconv0)
+        {
+            deconv(input, output, d->params.decayTime0.count());
+            input = output;
+            output = d->tmpVecs[tmpIndex++];
+        }
+
+        if (d->params.steps & DeconvolutionParams::Steps::Deconv1)
+        {
+            deconv(input, output, d->params.decayTime1.count());
+            input = output;
+            output = d->tmpVecs[tmpIndex++];
+        }
+
+        if (d->params.steps & DeconvolutionParams::Steps::Diff)
+        {
+            diff(input, output, d->params.diffTime.count());
+        }
+
+        if (d->params.steps & DeconvolutionParams::Steps::Int)
+        {
+            integral(input, output, d->params.intTime.count());
+        }
+
+        std::copy(output.data, output.data + op->outputs[traceIndex].size, op->outputs[traceIndex].data);
     }
 }
 
