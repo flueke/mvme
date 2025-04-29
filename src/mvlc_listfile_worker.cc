@@ -165,6 +165,9 @@ void MVLCListfileWorker::setEventsToRead(u32 eventsToRead)
 
 void MVLCListfileWorker::setState(DAQState newState)
 {
+    if (newState == d->state)
+        return;
+
     d->state = newState;
     d->desiredState = newState;
     emit stateChanged(newState);
@@ -172,6 +175,7 @@ void MVLCListfileWorker::setState(DAQState newState)
     switch (newState)
     {
         case DAQState::Idle:
+            //qDebug() << __PRETTY_FUNCTION__ << "emit replayStopped()";
             emit replayStopped();
             break;
 
@@ -181,6 +185,7 @@ void MVLCListfileWorker::setState(DAQState newState)
             break;
 
         case DAQState::Paused:
+            //qDebug() << __PRETTY_FUNCTION__ << "emit replayPaused()";
             emit replayPaused();
             break;
     }

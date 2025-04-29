@@ -341,17 +341,11 @@ void MVMEContextPrivate::stopDAQReplay()
     QEventLoop localLoop;
 
     // First stop the ListfileReplayWorker
-
-    // The timer is used to avoid a race between the worker stopping and the
-    // progress dialog entering its eventloop. (Probably not needed, see the
-    // explanation about not having a race condition below.)
-
     if (listfileReplayWorker->getState() == DAQState::Running
         || listfileReplayWorker->getState() == DAQState::Paused)
     {
         progressDialog.show();
-        auto con = QObject::connect(
-            listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
+        auto con = QObject::connect(listfileReplayWorker.get(), &ListfileReplayWorker::replayStopped,
             &localLoop, &QEventLoop::quit);
 
         QMetaObject::invokeMethod(
@@ -373,7 +367,7 @@ void MVMEContextPrivate::stopDAQReplay()
     {
         progressDialog.show();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped,
-                                    &localLoop, &QEventLoop::quit);
+            &localLoop, &QEventLoop::quit);
 
         QMetaObject::invokeMethod(
             m_q, [this] () { m_q->m_streamWorker->stop(); }, Qt::QueuedConnection);
