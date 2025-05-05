@@ -867,6 +867,11 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
         m_opConfigWidget = new CalibrationMinMaxConfigWidget(
             cal, userLevel, eventWidget->getServiceProvider(), this);
     }
+    else if (auto deconv = qobject_cast<MdppDeconvolution *>(op.get()))
+    {
+        m_opConfigWidget = new DeconvolutionConfigWidget(
+            deconv, userLevel, eventWidget->getServiceProvider(), this);
+    }
     else
     {
         m_opConfigWidget = new OperatorConfigurationWidget(
@@ -3320,6 +3325,107 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
 bool RateMonitorConfigWidget::isValid() const
 {
     return true;
+}
+
+//
+// DeconvolutionConfigWidget
+//
+DeconvolutionConfigWidget::DeconvolutionConfigWidget(MdppDeconvolution *op, s32 userLevel,
+                                                     AnalysisServiceProvider *asp, QWidget *parent)
+    : AbstractOpConfigWidget(op, userLevel, asp, parent)
+    , deconv_(op)
+{
+    auto gb_steps = new QGroupBox(QSL("Steps"));
+    auto l_steps = new QFormLayout(gb_steps);
+    u32 i=0;
+    auto params = deconv_->getDeconvolutionParams();
+
+    for (const auto &stepName: a2::DeconvolutionParams::StepNames)
+    {
+        auto cb = new QCheckBox(stepName.c_str());
+        cb->setChecked(params.steps & (1u << i++));
+        l_steps->addRow(cb);
+        checks_steps_.push_back(cb);
+    }
+
+    auto make_param_spin = [] (double value)
+    {
+        auto result = new QDoubleSpinBox;
+        result->setSuffix(" ns");
+        result->setDecimals(2);
+        result->setMinimum(0.0);
+        result->setMaximum(1e+20);
+        result->setValue(value);
+        return result;
+    };
+
+    auto gb_params = new QGroupBox(QSL("Parameters"));
+    auto l_params = new QFormLayout(gb_params);
+
+    auto spin_param = make_param_spin(params.decayTime0.count());
+    l_params->addRow(QSL("decayTime0"), spin_param);
+    spins_params_. push_back(spin_param);
+
+    spin_param = make_param_spin(params.decayTime1.count());
+    l_params->addRow(QSL("decayTime1"), spin_param);
+    spins_params_. push_back(spin_param);
+
+    spin_param = make_param_spin(params.diffTime.count());
+    l_params->addRow(QSL("diffTime"), spin_param);
+    spins_params_. push_back(spin_param);
+
+    spin_param = make_param_spin(params.intTime.count());
+    l_params->addRow(QSL("intTime"), spin_param);
+    spins_params_. push_back(spin_param);
+
+
+    auto l_widget = make_hbox(this);
+    l_widget->addWidget(gb_params);
+    l_widget->addWidget(gb_steps);
+
+    for (auto &cb: checks_steps_)
+    {
+        connect(cb, &QCheckBox::stateChanged,
+                this, [this] () { emit validityMayHaveChanged(); });
+    }
+
+    for (auto &spin: spins_params_)
+    {
+        connect(spin, qOverload<double>(&QDoubleSpinBox::valueChanged),
+                this, [this] () { emit validityMayHaveChanged(); });
+    }
+}
+
+void DeconvolutionConfigWidget::configureOperator()
+{
+    auto params = deconv_->getDeconvolutionParams();
+    params.steps = 0;
+    for (u32 i=0; i<checks_steps_.size(); ++i)
+    {
+        if (checks_steps_[i]->isChecked())
+            params.steps |= (1u << i);
+    }
+    params.decayTime0 = a2::DeconvolutionParams::Duration(spins_params_[0]->value());
+    params.decayTime1 = a2::DeconvolutionParams::Duration(spins_params_[1]->value());
+    params.diffTime   = a2::DeconvolutionParams::Duration(spins_params_[2]->value());
+    params.intTime    = a2::DeconvolutionParams::Duration(spins_params_[3]->value());
+    deconv_->setDeconvolutionParams(params);
+}
+
+void DeconvolutionConfigWidget::inputSelected(s32 slotIndex)
+{
+    Q_UNUSED(slotIndex);
+}
+
+bool DeconvolutionConfigWidget::isValid() const
+{
+    bool hasStep = std::any_of(std::begin(checks_steps_), std::end(checks_steps_),
+        [] (auto &cb) { return cb->isChecked(); });
+
+    bool paramsGtZero = std::all_of(std::begin(spins_params_), std::end(spins_params_),
+        [] (auto &spin) { return spin->value() > 0.0; });
+
+    return hasStep && paramsGtZero;
 }
 
 //

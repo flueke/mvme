@@ -423,6 +423,26 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         QComboBox *combo_xScaleType;
 };
 
+class DeconvolutionConfigWidget: public AbstractOpConfigWidget
+{
+    Q_OBJECT
+    public:
+        DeconvolutionConfigWidget(MdppDeconvolution *op,
+                                   s32 userLevel,
+                                   AnalysisServiceProvider *asp,
+                                   QWidget *parent = nullptr);
+
+        void configureOperator() override;
+        void inputSelected(s32 slotIndex) override;
+        bool isValid() const override;
+    private:
+
+        MdppDeconvolution *deconv_;
+        std::vector<QCheckBox *> checks_steps_;
+        std::vector<QDoubleSpinBox *> spins_params_;
+
+};
+
 class SelectConditionsDialog: public ObjectEditorDialog
 {
     Q_OBJECT
