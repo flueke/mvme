@@ -665,13 +665,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_calibUi.fillMaxButton = new QPushButton(QSL("Vis. Max"));
     m_d->m_calibUi.fillMaxButton->setToolTip(QSL("Fill the last focused actual value with the visible maximum histogram value"));
 
-    /* FIXME: disabled due to Calibration not storing "global values" anymore
-     * and thus resetting will reset to the input parameters (lowerLimit,
-     * upperLimit[ interval. */
-#if 0
-    m_d->m_calibUi.resetToFilterButton = new QPushButton(QSL("Restore"));
-    m_d->m_calibUi.resetToFilterButton->setToolTip(QSL("Restore base unit values from source calibration"));
-#endif
     m_d->m_calibUi.closeButton = new QPushButton(QSL("Close"));
 
     m_d->m_calibUi.lastFocusedActual = m_d->m_calibUi.actual2;
@@ -683,7 +676,6 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     connect(m_d->m_calibUi.fillMaxButton, &QPushButton::clicked,
             this, [this] { m_d->calibFillMax(); });
 
-    //connect(m_d->m_calibUi.resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
     connect(m_d->m_calibUi.closeButton, &QPushButton::clicked,
             this, [this]() { m_d->m_calibUi.window->reject(); });
 
