@@ -2951,6 +2951,26 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
                            });
         }
 
+        // Add and connect a waveform sink.
+        if (activeNode->type() == NodeType_Operator)
+        {
+            if (auto op = get_shared_analysis_object<MdppDeconvolution>(activeNode, DataRole_AnalysisObject))
+            {
+                menu.addAction(QIcon(":/vme_event.png"), QSL("Add Waveform Sink"),
+                               [this, op]()
+                               {
+                                   auto sink = std::make_shared<WaveformSink>();
+                                   sink->setObjectName(op->objectName());
+                                   sink->setEventId(op->getEventId());
+                                   sink->setUserLevel(op->getUserLevel());
+                                   AnalysisPauser pauser(m_serviceProvider);
+                                   analysis::connect_one_to_one(op.get(), sink.get());
+                                   m_serviceProvider->getAnalysis()->addOperator(sink);
+                                   m_serviceProvider->getAnalysis()->beginRun(Analysis::KeepState, m_q->getVMEConfig());
+                               });
+            }
+        }
+
         if (activeNode->type() != NodeType_Directory)
         {
             menu.addSeparator();
