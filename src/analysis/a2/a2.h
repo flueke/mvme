@@ -22,6 +22,8 @@
 #include "rate_sampler.h"
 #include "util/typed_block.h"
 
+using namespace std::chrono_literals;
+
 namespace a2
 {
 
@@ -564,21 +566,19 @@ struct DeconvolutionParams
         static const u32 All     = Deconv0 | Deconv1 | Diff | Int;
     };
 
+    static const std::vector<std::string> StepNames;
+
     u32 steps = Steps::All;
-    Duration decayTime0;
-    Duration decayTime1;
-    Duration diffTime;
-    Duration intTime;
+    Duration decayTime0 = 2640ns;
+    Duration decayTime1 = 8400ns;
+    Duration diffTime = 88ns;
+    Duration intTime = 80ns;
 };
 
 Operator make_deconvolution(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
     const DeconvolutionParams &params);
-
-/* ===============================================
- * ScalerOverflow
- * =============================================== */
 
 /* ===============================================
  * Conditions

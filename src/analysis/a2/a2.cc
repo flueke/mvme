@@ -3212,6 +3212,16 @@ void scaler_overflow_step_idx(Operator *op, A2 *)
 /* ===============================================
  * Deconvolution
  * =============================================== */
+
+const std::vector<std::string> DeconvolutionParams::StepNames =
+{
+
+    "deconv0",
+    "deconv1",
+    "diff",
+    "int",
+};
+
 inline void deconv(ParamVec &input, ParamVec &output, double decayTime)
 {
     double integral = 0.0;
@@ -3313,7 +3323,7 @@ Operator make_deconvolution(
     return result;
 }
 
-void deconvolution_step_v1(Operator *op, A2 */*a2*/)
+void deconvolution_step(Operator *op, A2 */*a2*/)
 {
     a2_trace("\n");
     assert(op->inputCount == op->outputCount);
@@ -4773,7 +4783,7 @@ const std::array<OperatorFunctions, OperatorTypeCount> &get_operator_table()
     result[Operator_Expression] = { expression_operator_step };
     result[Operator_ScalerOverflow] = { scaler_overflow_step };
     result[Operator_ScalerOverflow_idx] = { scaler_overflow_step_idx };
-    result[Operator_Deconvolution] = { deconvolution_step_v1 };
+    result[Operator_Deconvolution] = { deconvolution_step };
 
     result[Operator_IntervalCondition] = { interval_condition_step };
     result[Operator_PolygonCondition] = { polygon_condition_step };
