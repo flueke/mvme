@@ -4080,6 +4080,33 @@ void connect_mdpp_sample_decoder_to_waveform_sink(DataSourceMdppSampleDecoder *d
     }
 }
 
+// Establishes a connection from src to dest by simply connecting each output to
+// the corresponding input array.
+void connect_one_to_one(OperatorInterface *src, OperatorInterface *dest)
+{
+    assert(src && dest);
+
+    if (!src || !dest)
+        return;
+
+    for (s32 i = 0; i < src->getNumberOfOutputs(); ++i)
+    {
+        auto srcSlot = src->getOutput(i);
+        auto destSlot = dest->getSlot(i);
+
+        if (!destSlot && dest->hasVariableNumberOfOutputs() && dest->addSlot())
+        {
+            destSlot = dest->getSlot(i);
+            assert(destSlot);
+        }
+
+        if (srcSlot && destSlot)
+        {
+            destSlot->connectPipe(srcSlot, Slot::NoParamIndex);
+        }
+    }
+}
+
 //
 // ExportSink
 //

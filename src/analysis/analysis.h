@@ -2078,6 +2078,7 @@ class LIBMVME_EXPORT WaveformSink: public SinkInterface
 };
 
 void connect_mdpp_sample_decoder_to_waveform_sink(DataSourceMdppSampleDecoder *decoder, WaveformSink *sink);
+void connect_one_to_one(OperatorInterface *src, OperatorInterface *dest);
 
 class LIBMVME_EXPORT ExportSink: public SinkInterface
 {
