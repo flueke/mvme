@@ -3117,6 +3117,7 @@ void MdppDeconvolution::beginRun(const RunInfo &, Logger)
     // remove old output pipes
     auto it0 = std::begin(d->outputs_) + getNumberOfSlots();
     auto it1 = std::end(d->outputs_);
+
     if (it0 < it1)
         std::for_each(it0, it1, [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
 
@@ -3125,18 +3126,22 @@ void MdppDeconvolution::beginRun(const RunInfo &, Logger)
     for (auto ii=0; ii<getNumberOfSlots(); ++ii)
     {
         auto outPipe = d->outputs_.value(ii);
+        auto inputPipe = d->inputs_.value(ii)->inputPipe;
+
         if (!outPipe)
         {
             outPipe = std::make_shared<Pipe>(this, ii);
             d->outputs_[ii] = outPipe;
         }
         outPipe->parameters.name = getOutputName(ii);
-        outPipe->parameters.resize(d->inputs_.value(ii)->inputPipe->getSize());
+        outPipe->parameters.unit = inputPipe->getParameters().unit;
+        outPipe->parameters.resize(inputPipe->getSize());
+
         for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
         {
             outPipe->parameters[paramIndex].value = ::mesytec::mvme::util::make_quiet_nan();
-            outPipe->parameters[paramIndex].lowerLimit = std::numeric_limits<s16>::min();
-            outPipe->parameters[paramIndex].upperLimit = std::numeric_limits<s16>::max();
+            outPipe->parameters[paramIndex].lowerLimit = inputPipe->parameters[paramIndex].lowerLimit;
+            outPipe->parameters[paramIndex].upperLimit = inputPipe->parameters[paramIndex].upperLimit;
         }
     }
 }
@@ -3210,6 +3215,7 @@ Pipe *MdppDeconvolution::getOutput(s32 index)
 
 void MdppDeconvolution::read(const QJsonObject &json)
 {
+    // inputs
     for (auto &slot: d->inputs_)
     {
         slot->disconnectPipe();
@@ -3224,11 +3230,46 @@ void MdppDeconvolution::read(const QJsonObject &json)
     {
         addSlot();
     }
+
+    // outputs
+    s32 lastOutputCount = json["lastOutputCount"].toInt(0);
+
+    for (s32 outIdx = lastOutputCount; outIdx < d->outputs_.size(); outIdx++)
+    {
+        d->outputs_[outIdx]->disconnectAllDestinationSlots();
+    }
+
+    d->outputs_.resize(lastOutputCount);
+
+    for (s32 outIdx = 0; outIdx < lastOutputCount; outIdx++)
+    {
+        auto outPipe = d->outputs_.value(outIdx);
+
+        if (!outPipe)
+        {
+            outPipe = std::make_shared<Pipe>(this, outIdx, QSL("output") + QString::number(outIdx));
+            d->outputs_[outIdx] = outPipe;
+        }
+    }
+
+    // params
+    using Duration = a2::DeconvolutionParams::Duration;
+    d->params_.decayTime0 = Duration(json["decayTime0"].toDouble());
+    d->params_.decayTime1 = Duration(json["decayTime1"].toDouble());
+    d->params_.diffTime   = Duration(json["diffTime"].toDouble());
+    d->params_.intTime    = Duration(json["intTime"].toDouble());
+    d->params_.steps      = json["steps"].toInt(a2::DeconvolutionParams::Steps::All);
 }
 
 void MdppDeconvolution::write(QJsonObject &json) const
 {
     json["numberOfInputs"] = getNumberOfSlots();
+    json["lastOutputCount"] = getNumberOfOutputs();
+    json["decayTime0"] = d->params_.decayTime0.count();
+    json["decayTime1"] = d->params_.decayTime1.count();
+    json["diffTime"] = d->params_.diffTime.count();
+    json["intTime"] = d->params_.intTime.count();
+    json["steps"] = static_cast<qint64>(d->params_.steps);
 }
 
 //
