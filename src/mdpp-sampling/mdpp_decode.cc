@@ -246,7 +246,6 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
             // Note: extract yields unsigned, but the address values do easily
             // fit in signed 32-bit integers.
 			s32 addr = *mvlc::util::extract(theFilter, *wordPtr, 'A');
-			auto value = *mvlc::util::extract(theFilter, *wordPtr, 'D');
 
             if (currentTrace.channel >= 0 && currentTrace.channel != addr && currentTrace.size() > 0)
             {
