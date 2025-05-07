@@ -330,17 +330,6 @@ size_t post_process_waveform_snapshot(
     size_t maxTraceCount,
     PhaseCorrectionMode phaseCorrection);
 
-// Reprocess waveforms to account for changed dtSample and interpolationFactor
-// values.
-// The traces in rawDisplayTraces are rescaled by dtSample. Interpolated data
-// from the adjusted raw traces is written to interpolatedDisplayTraces.
-size_t reprocess_waveforms(
-    waveforms::TraceHistories &rawDisplayTraces,
-    waveforms::TraceHistories &interpolatedDisplayTraces,
-    double dtSample,
-    IInterpolator &interpolator,
-    PhaseCorrectionMode phaseCorrection);
-
 class NullInterpolator: public IInterpolator
 {
     public:
