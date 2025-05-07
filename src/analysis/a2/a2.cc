@@ -4323,7 +4323,8 @@ void waveform_sink_step(Operator *op, A2 *)
             trace.push_back(paramIndex, value);
         }
 
-        // phase handling - no phase correction, just store the phase value
+        // Fill trace meta with phase, config and event_number.
+
         double phase = 1.0;
         if (channelIdx < phases.size && is_param_valid(phases[channelIdx]))
         {

@@ -92,7 +92,10 @@ struct Trace
     }
 };
 
+// Usually used as a per channel trace history with the latest trace at the front.
 using TraceHistory = std::deque<Trace>;
+
+// Collection for storing the trace histories of multiple channels.
 using TraceHistories = std::vector<TraceHistory>;
 
 size_t get_used_memory(const Trace &trace);
@@ -105,6 +108,8 @@ std::ostream &print_trace(std::ostream &out, const Trace &trace);
 // Prints the trace on a single line, using a JSON-like format.
 std::ostream &print_trace_compact(std::ostream &out, const Trace &trace);
 
+// Returns the min and max y values found in the trace.
+// Returns a pair of quiet NaNs if the trace is empty.
 std::pair<double, double> find_minmax_y(const Trace &trace);
 
 // scale x values by dtSample. Update: now also does x phase correction given a phase value in (0.0, 1.0).
