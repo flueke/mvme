@@ -182,7 +182,7 @@ struct WaveformSink1DWidget::Private
 
     bool updateDataFromAnalysis(); // Returns true if new data was copied, false if the data was unchanged.
     void updateDisplayTraceData(const DisplayParams &params, const waveforms::TraceHistories &analysisTraceData);
-    void updateTracesToPlot(const DisplayParams &params);
+    void processTracesToPlot(const DisplayParams &params);
 
 
     void postProcessData();
@@ -455,7 +455,7 @@ void WaveformSink1DWidget::Private::updateDisplayTraceData(
 }
 
 // Pick the traces that are going to the displayed and run post-processing on them.
-void WaveformSink1DWidget::Private::updateTracesToPlot(const DisplayParams &params)
+void WaveformSink1DWidget::Private::processTracesToPlot(const DisplayParams &params)
 {
     auto interpolator = makeInterpolator();
     auto &tracesToPlot = tracesToPlot_;
@@ -465,7 +465,7 @@ void WaveformSink1DWidget::Private::updateTracesToPlot(const DisplayParams &para
     curveHelper_.clear();
     channelToWaveformHandles_.clear();
 
-    // traverse row wise
+    // traverse row wise from first to last channel
     for (size_t chanIndex = params.chanMin; chanIndex < params.chanMax; ++chanIndex)
     {
         if (chanIndex >= displayTraceData_.size())
@@ -473,7 +473,7 @@ void WaveformSink1DWidget::Private::updateTracesToPlot(const DisplayParams &para
 
         const auto &channelTraces = displayTraceData_[chanIndex];
 
-        // traverse column wise
+        // traverse column wise, from newest to oldest trace
         for (size_t traceIndex = params.traceIndex; traceIndex < params.traceIndex + params.maxTracesPerChannel; ++traceIndex)
         {
             if (traceIndex >= channelTraces.size())
@@ -630,7 +630,7 @@ void WaveformSink1DWidget::replot()
     if (gotNewData)
         d->updateDisplayTraceData(params, d->analysisTraceSnapshot_);
 
-    d->updateTracesToPlot(params);
+    d->processTracesToPlot(params);
 
     size_t totalChannels = d->channelToWaveformHandles_.size();
     size_t totalHandles = std::accumulate(
@@ -639,7 +639,7 @@ void WaveformSink1DWidget::replot()
         0,
         [] (size_t sum, const auto &pair) { return sum + pair.second.size(); });
 
-    spdlog::warn("WaveformSink1DWidget::replot(): totalChannels={}, totalHandles={}", totalChannels, totalHandles);
+    spdlog::trace("WaveformSink1DWidget::replot(): totalChannels={}, totalHandles={}", totalChannels, totalHandles);
 
     static const auto colors = make_plot_colors();
     QRectF newBoundingRect = d->maxBoundingRect_;
@@ -682,21 +682,29 @@ void WaveformSink1DWidget::replot()
                 curves.interpolatedCurve->setSymbol(newSymbol.release());
             }
 
+            // FIXME: legend still jumps around. legend position does not matter.
+            // giving all curves a visible entry in the legend fixes it, maybe because of the scroll bars?
+            // try printing legend and plot geometries. maybe there's a pattern there.
+
+            // The raw curve, purely for showing symbols where sampleed values
+            // are. The curve itself is not rendered.
             curves.rawCurve->setItemAttribute(QwtPlotItem::Legend, false);
-            curves.interpolatedCurve->detach();
-            curves.interpolatedCurve->attach(getPlot());
-            curves.interpolatedCurve->setItemAttribute(QwtPlotItem::Legend, traceIndex == 0);
+
+            // The interpolated curves. Only the first curve for each channel
+            // has a legend entry. The other curves show older data and are
+            // plotted with a lower alpha value.
             curves.interpolatedCurve->setTitle(fmt::format("Channel {:2d}", chanIndex).c_str());
-            if (auto ipolData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.interpolatedCurve->data()))
-                newBoundingRect = newBoundingRect.united(ipolData->boundingRect());
+            curves.interpolatedCurve->setItemAttribute(QwtPlotItem::Legend, traceIndex == 0);
+
+            newBoundingRect = newBoundingRect.united(curves.interpolatedCurve->boundingRect());
         }
     }
 
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
 
-    histo_ui::PlotWidget::replot();
     getPlot()->updateLegend();
+    histo_ui::PlotWidget::replot();
 
     std::ostringstream oss;
     d->makeStatusText(oss, d->traceDataUpdateTime_);
