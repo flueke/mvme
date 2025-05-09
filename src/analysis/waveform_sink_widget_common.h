@@ -38,32 +38,51 @@ inline QSpinBox *add_trace_select(QToolBar *toolbar)
     return result;
 }
 
-inline QDoubleSpinBox *add_dt_sample_setter(QToolBar *toolbar)
+struct DtSampleSetterUi
+{
+    QDoubleSpinBox *spin_dtSample;
+    QPushButton *pb_useDefaultSampleInterval;
+    QCheckBox *cb_showSamples;
+};
+
+inline DtSampleSetterUi add_dt_sample_setter(QToolBar *toolbar)
 {
     namespace mdpp_sampling = mesytec::mvme::mdpp_sampling;
-    auto result = new QDoubleSpinBox;
-    result->setMinimum(0.001);
-    result->setMaximum(1e3);
-    result->setSingleStep(0.1);
-    result->setSuffix(" ns");
-    result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
+    auto spin = new QDoubleSpinBox;
+    spin->setMinimum(0.1);
+    spin->setMaximum(1e2);
+    spin->setSingleStep(0.1);
+    spin->setSuffix(" ns");
+    spin->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
 
     auto pb_useDefaultSampleInterval = new QPushButton(QIcon(":/reset_to_default.png"), {});
     pb_useDefaultSampleInterval->setToolTip(QSL("Reset to MDPP default sample interval (%1 ns).")
         .arg(mdpp_sampling::MdppDefaultSamplePeriod));
 
-    QObject::connect(pb_useDefaultSampleInterval, &QPushButton::clicked, result, [result] {
-        result->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
-    });
+    DtSampleSetterUi res{};
+    res.spin_dtSample = spin;
+    res.pb_useDefaultSampleInterval = pb_useDefaultSampleInterval;
+    res.cb_showSamples = new QCheckBox("Sample Nr.");
 
-    auto [w0, l0] = make_widget_with_layout<QWidget, QHBoxLayout>();
-    l0->addWidget(result);
-    l0->addWidget(pb_useDefaultSampleInterval);
+    auto [w0, l0] = make_widget_with_layout<QWidget, QGridLayout>();
+    l0->addWidget(spin, 0, 0);
+    l0->addWidget(pb_useDefaultSampleInterval, 0, 1);
+    l0->addWidget(res.cb_showSamples, 0, 2, 1, 1);
 
     auto boxStruct = make_vbox_container(QSL("Sample Interval"), w0, 0, -2);
+    boxStruct.layout->setContentsMargins(0, 0, 0, 0);
     toolbar->addWidget(boxStruct.container.release());
 
-    return result;
+    QObject::connect(pb_useDefaultSampleInterval, &QPushButton::clicked, spin, [spin] {
+        spin->setValue(mdpp_sampling::MdppDefaultSamplePeriod);
+    });
+
+    QObject::connect(res.cb_showSamples, &QCheckBox::stateChanged, spin, [res] (int state) {
+        res.spin_dtSample->setEnabled(state == Qt::Unchecked);
+        res.pb_useDefaultSampleInterval->setEnabled(state == Qt::Unchecked);
+    });
+
+    return res;
 }
 
 inline QSpinBox *add_interpolation_factor_setter(QToolBar *toolbar)

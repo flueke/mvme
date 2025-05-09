@@ -180,6 +180,20 @@ size_t WaveformPlotCurveHelper::size() const
         [](const auto &curves) { return curves.rawCurve && curves.interpolatedCurve; });
 }
 
+void WaveformPlotCurveHelper::clear()
+{
+    for (auto &curves : waveforms_)
+    {
+        if (curves.rawCurve)
+            curves.rawCurve->detach();
+
+        if (curves.interpolatedCurve)
+            curves.interpolatedCurve->detach();
+    }
+
+    waveforms_.clear();
+}
+
 std::unique_ptr<QwtSymbol> make_symbol(QwtSymbol::Style style = QwtSymbol::Diamond, QColor color = Qt::red)
 {
     auto result = std::make_unique<QwtSymbol>(style);
@@ -233,156 +247,34 @@ inline waveforms::Trace maybe_recycle_trace(waveforms::TraceHistory &traceBuffer
     return result;
 }
 
-size_t post_process_waveforms(
-    const waveforms::TraceHistories &analysisTraceData,
-    waveforms::TraceHistories &rawDisplayTraces,
-    waveforms::TraceHistories &interpolatedDisplayTraces,
-    double dtSample,
-    IInterpolator &interpolator,
-    size_t maxDepth,
-    PhaseCorrectionMode phaseCorrection)
+inline void prepend_latest_trace(
+    const waveforms::TraceHistory &analysisTraceData,
+    waveforms::TraceHistory &displayTraceData,
+    size_t maxTracesPerChannel)
 {
-    rawDisplayTraces.resize(analysisTraceData.size());
-    interpolatedDisplayTraces.resize(analysisTraceData.size());
+    auto trace_not_empty = [] (const waveforms::Trace &trace) { return !trace.empty(); };
+    auto sourceIt = std::find_if(std::begin(analysisTraceData), std::end(analysisTraceData), trace_not_empty);
 
-    std::for_each(std::begin(rawDisplayTraces), std::end(rawDisplayTraces),
-        [maxDepth] (auto &traces) { maybe_shrink_trace_history(traces, maxDepth); });
-
-    std::for_each(std::begin(interpolatedDisplayTraces), std::end(interpolatedDisplayTraces),
-        [maxDepth] (auto &traces) { maybe_shrink_trace_history(traces, maxDepth); });
-
-    size_t tracesProcessed = 0;
-
-    for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
+    if (sourceIt != std::end(analysisTraceData))
     {
-        const auto &inputTraces = analysisTraceData[chan];
-
-        auto &rawDestTraces = rawDisplayTraces[chan];
-        auto &ipolDestTraces = interpolatedDisplayTraces[chan];
-
-        assert(rawDestTraces.size() <= maxDepth);
-        assert(ipolDestTraces.size() <= maxDepth);
-        assert(rawDestTraces.size() == ipolDestTraces.size());
-
-        // Find the latest non-empty trace in the trace history.
-        auto pred = [] (const waveforms::Trace &trace) { return !trace.empty(); };
-
-        if (auto it = std::find_if(std::begin(inputTraces), std::end(inputTraces), pred);
-            it != std::end(inputTraces))
-        {
-            auto &inputTrace = *it;
-
-            auto rawDestTrace = maybe_recycle_trace(rawDestTraces, maxDepth);
-            auto ipolDestTrace = maybe_recycle_trace(ipolDestTraces, maxDepth);
-
-            rawDestTrace.clear();
-            ipolDestTrace.clear();
-
-            double phase = 1.0;
-            u32 traceConfig = 0;
-
-            if (phaseCorrection != PhaseCorrection_Off)
-            {
-                if (auto it = inputTrace.meta.find("config"); it != std::end(inputTrace.meta))
-                    traceConfig = std::get<u32>(it->second);
-
-                if (auto it = inputTrace.meta.find("phase"); it != std::end(inputTrace.meta))
-                    phase = std::get<double>(it->second);
-            }
-
-            if (phaseCorrection == PhaseCorrection_Auto)
-            {
-                if (!(traceConfig & mdpp_sampling::SamplingSettings::NoResampling))
-                {
-                    phase = 1.0; // was done in the FPGA, turn it off here
-                }
-            }
-
-            rawDestTrace.meta = inputTrace.meta;
-            ipolDestTrace.meta = inputTrace.meta;
-            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample, phase);
-            interpolator(rawDestTrace, ipolDestTrace);
-
-            rawDestTraces.push_front(std::move(rawDestTrace));
-            ipolDestTraces.push_front(std::move(ipolDestTrace));
-            ++tracesProcessed;
-        }
-
-        assert(rawDestTraces.size() <= maxDepth);
-        assert(ipolDestTraces.size() <= maxDepth);
-        assert(rawDestTraces.size() == ipolDestTraces.size());
+        auto destTrace = maybe_recycle_trace(displayTraceData, maxTracesPerChannel);
+        destTrace = *sourceIt;
+        displayTraceData.push_front(std::move(destTrace));
     }
-
-    return tracesProcessed;
 }
 
-size_t post_process_waveform_snapshot(
+void prepend_latest_traces(
     const waveforms::TraceHistories &analysisTraceData,
-    waveforms::TraceHistories &rawDisplayTraces,
-    waveforms::TraceHistories &interpolatedDisplayTraces,
-    double dtSample,
-    IInterpolator &interpolator,
-    size_t startingTraceIndex,  // <- first "column"
-    size_t maxTraceCount,       // <- amount of "columns" to process and store in the display traces
-    PhaseCorrectionMode phaseCorrection)
+    waveforms::TraceHistories &displayTraceData,
+    size_t maxTracesPerChannel)
 {
-    rawDisplayTraces.resize(analysisTraceData.size());
-    interpolatedDisplayTraces.resize(analysisTraceData.size());
-    size_t tracesProcessed = 0;
+    displayTraceData.resize(analysisTraceData.size());
 
-    for (size_t chan=0; chan<analysisTraceData.size(); ++chan)
+    for (size_t chan = 0; chan < analysisTraceData.size(); ++ chan)
     {
-        const auto &inputTraces = analysisTraceData[chan];
-
-        auto &rawDestTraces = rawDisplayTraces[chan];
-        auto &ipolDestTraces = interpolatedDisplayTraces[chan];
-
-        rawDestTraces.resize(std::min(maxTraceCount, inputTraces.size()));
-        ipolDestTraces.resize(std::min(maxTraceCount, inputTraces.size()));
-
-        const size_t traceIndexMin = std::min(startingTraceIndex, inputTraces.size());
-        const size_t traceIndexMax = std::min(startingTraceIndex + maxTraceCount, inputTraces.size());
-        size_t traceOutputIndex = 0;
-
-        for (size_t traceIndex = traceIndexMin; traceIndex < traceIndexMax; ++traceIndex, ++traceOutputIndex)
-        {
-            auto &inputTrace = inputTraces[traceIndex];
-            auto &rawDestTrace = rawDestTraces[traceOutputIndex];
-            auto &ipolDestTrace = ipolDestTraces[traceOutputIndex];
-
-            rawDestTrace.clear();
-            ipolDestTrace.clear();
-
-            double phase = 1.0;
-            u32 traceConfig = 0;
-
-            if (phaseCorrection != PhaseCorrection_Off)
-            {
-                if (auto it = inputTrace.meta.find("config"); it != std::end(inputTrace.meta))
-                    traceConfig = std::get<u32>(it->second);
-
-                if (auto it = inputTrace.meta.find("phase"); it != std::end(inputTrace.meta))
-                    phase = std::get<double>(it->second);
-            }
-
-            if (phaseCorrection == PhaseCorrection_Auto)
-            {
-                if (!(traceConfig & mdpp_sampling::SamplingSettings::NoResampling))
-                {
-                    phase = 1.0; // was done in the FPGA, turn it off here
-                }
-            }
-
-            rawDestTrace.meta = inputTrace.meta;
-            ipolDestTrace.meta = inputTrace.meta;
-            waveforms::scale_x_values(inputTrace, rawDestTrace, dtSample, phase);
-            interpolator(rawDestTrace, ipolDestTrace);
-            ++tracesProcessed;
-        }
+        prepend_latest_trace(analysisTraceData[chan], displayTraceData[chan], maxTracesPerChannel);
+        maybe_shrink_trace_history(displayTraceData[chan], maxTracesPerChannel);
     }
-
-    spdlog::trace("post_process_waveform_snapshot(): processed {} traces", tracesProcessed);
-    return tracesProcessed;
 }
 
 }

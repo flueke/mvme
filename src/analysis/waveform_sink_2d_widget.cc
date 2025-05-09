@@ -156,7 +156,8 @@ WaveformSink2DWidget::WaveformSink2DWidget(
     d->traceSelect_ = add_trace_select(tb);
 
     tb->addSeparator();
-    d->spin_dtSample_ = add_dt_sample_setter(tb);
+    auto dtSampleUi = add_dt_sample_setter(tb); // TODO: handle cb_useSamples
+    d->spin_dtSample_ = dtSampleUi.spin_dtSample;
 
     tb->addSeparator();
     d->spin_interpolationFactor_ = add_interpolation_factor_setter(tb);

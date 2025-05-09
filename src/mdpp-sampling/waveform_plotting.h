@@ -257,6 +257,7 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
 
         size_t size() const;
         size_t capacity() const { return waveforms_.size(); };
+        void clear();
 
     private:
 
@@ -301,34 +302,13 @@ class IInterpolator
 };
 
 // For each channel in analysisTraceData:
-// - take the latest trace from the front of the channels trace history,
-// - scale x by dtSample then interpolate while limiting each channels history to maxDepth.
-// Trace memory is reused once maxDepth is reached.
-size_t post_process_waveforms(
+// - find the first non-empty trace in the input data
+// - prepend it to the channels trace history in displayTraceData
+// - shrink the history to maxTracesPerChannel
+void prepend_latest_traces(
     const waveforms::TraceHistories &analysisTraceData,
-    waveforms::TraceHistories &rawDisplayTraces,
-    waveforms::TraceHistories &interpolatedDisplayTraces,
-    double dtSample,
-    IInterpolator &interpolator,
-    size_t maxDepth,
-    PhaseCorrectionMode phaseCorrection);
-
-// Like post_process_waveforms() but processes the analysisTraceData snapshot as
-// is. This means the result contains exactly the traces contained in the input
-// snapshot, it's not built up using only the latest trace per input channel.
-// => Traces from different channels but with the same index in the channels
-// trace history are from the same analysis event.
-//
-// Returns the number of traces processed.
-size_t post_process_waveform_snapshot(
-    const waveforms::TraceHistories &analysisTraceData,
-    waveforms::TraceHistories &rawDisplayTraces,
-    waveforms::TraceHistories &interpolatedDisplayTraces,
-    double dtSample,
-    IInterpolator &interpolator,
-    size_t startingTraceIndex,
-    size_t maxTraceCount,
-    PhaseCorrectionMode phaseCorrection);
+    waveforms::TraceHistories &displayTraceData,
+    size_t maxTracesPerChannel);
 
 class NullInterpolator: public IInterpolator
 {

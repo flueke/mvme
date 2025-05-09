@@ -7,6 +7,7 @@
 #include <QStack>
 #include <QTimer>
 #include <qwt_legend.h>
+#include <map>
 
 #include <mesytec-mvlc/util/stopwatch.h>
 
@@ -73,6 +74,7 @@ inline QSpinBox *add_trace_selector(QToolBar *toolbar)
     result->setMinimum(0);
     result->setMaximum(1);
     result->setSpecialValueText("latest");
+    result->setValue(0);
     auto boxStruct = make_vbox_container(QSL("Trace#"), result, 0, -2);
     toolbar->addWidget(boxStruct.container.release());
     return result;
@@ -102,21 +104,49 @@ namespace analysis
 
 static const int ReplotInterval_ms = 100;
 
+struct DisplayParams
+{
+    RefreshMode refreshMode = RefreshMode_LatestData;
+    size_t maxTracesPerChannel = 10;    // "maxDepth", the maximum number of traces to keep per channel
+    size_t traceIndex = 0;              // in RefreshMode_EventSnapshot this is the linear index of the trace to show
+    size_t chanMin = 0;                 // first channel index to show
+    size_t chanMax = 0;                 // last channel index to show
+    bool showSampleSymbols = false;
+    bool showInterpolatedSymbols = false;
+    double dtSample = 0.0;
+    waveforms::PhaseCorrectionMode phaseCorrection = waveforms::PhaseCorrection_Auto;
+};
+
 struct WaveformSink1DWidget::Private
 {
     WaveformSink1DWidget *q = nullptr;
+
+    // Source sink to pull data from.
     std::shared_ptr<analysis::WaveformSink> sink_;
+
+    // Provides access to the system context and other services.
     AnalysisServiceProvider *asp_ = nullptr;
+
+    // Helpers for plotting and managing qwt curves, etc.
     waveforms::WaveformPlotCurveHelper curveHelper_;
-    std::vector<waveforms::WaveformPlotCurveHelper::Handle> waveformHandles_;
+    std::map<size_t, std::vector<waveforms::WaveformPlotCurveHelper::Handle>> channelToWaveformHandles_;
 
-    waveforms::TraceHistories analysisTraceData_;
-    QTime traceDataUpdateTime_; // when analysisTraceData_ was last updated
+    // Unmodified copy of the latest trace data from the analysis sink.
+    waveforms::TraceHistories analysisTraceSnapshot_;
 
-    // Post processed trace data. One history buffer per channel in the source
+    // When analysisTraceSnapshot_ was last updated. Might have to make this more
+    // fancy to detect if there is actual new data in the new snapshot from the
     // sink.
-    waveforms::TraceHistories rawDisplayTraces_;            // x-scaling only, no interpolation
-    waveforms::TraceHistories interpolatedDisplayTraces_;   // x-scaling and interpolation and possibly more operations applied
+    QTime traceDataUpdateTime_;
+
+    // Trace histories for displaying. In RefreshMode_LatestData non-empty
+    // traces from analysisTraceSnapshot_ are prepended to the trace histories.
+    // In RefreshMode_EventSnapshot this is just a copy of analysisTraceSnapshot_.
+    waveforms::TraceHistories displayTraceData_;
+
+    // Linear list of traces that are displayed in the plot. This holds the data
+    // that is referenced by the qwt curves when plotting.
+    waveforms::TraceHistory tracesToPlot_;
 
     RefreshMode refreshMode_ = RefreshMode_LatestData;
     RefreshMode prevRefreshMode_ = refreshMode_;
@@ -134,6 +164,7 @@ struct WaveformSink1DWidget::Private
     QAction *actionHold_ = nullptr;
     QPushButton *pb_printInfo_ = nullptr;
     QDoubleSpinBox *spin_dtSample_ = nullptr;
+    QCheckBox *cb_showSamples_ = nullptr;
     QAction *actionInterpolation_ = nullptr;
     InterpolationSettingsUi *interpolationUi_ = nullptr;
     QComboBox *combo_phaseCorrection_ = nullptr;
@@ -147,12 +178,14 @@ struct WaveformSink1DWidget::Private
 
     bool selectedTraceChanged_ = false;
     bool selectedChannelChanged_ = false;
-    bool dtSampleChanged_ = false;
     bool interpolationFactorChanged_ = false;
 
     bool updateDataFromAnalysis(); // Returns true if new data was copied, false if the data was unchanged.
+    void updateDisplayTraceData(const DisplayParams &params, const waveforms::TraceHistories &analysisTraceData);
+    void updateTracesToPlot(const DisplayParams &params);
+
+
     void postProcessData();
-    void reprocessData();
     void updateUi();
     void resetPlotAxes();
     void makeInfoText(std::ostringstream &oss);
@@ -233,6 +266,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     chanSelLayout->addWidget(d->cb_showAllChannels_, 1, 1);
 
     tb->addWidget(chanSelWidget);
+    tb->addSeparator();
 
     tb->addAction(QIcon(":/selection-resize.png"), QSL("Fit Axes"), this, [this] {
         d->resetPlotAxes();
@@ -268,7 +302,9 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     //    trackerPickerAction->setChecked(true);
 
     tb->addSeparator();
-    d->spin_dtSample_ = add_dt_sample_setter(tb);
+    auto dtSampleUi = add_dt_sample_setter(tb);
+    d->spin_dtSample_ = dtSampleUi.spin_dtSample;
+    d->cb_showSamples_ = dtSampleUi.cb_showSamples;
     tb->addSeparator();
     d->interpolationUi_ = new InterpolationSettingsUi(this);
     d->actionInterpolation_ = tb->addAction(QIcon(QSL(":/interpolation.png")), QSL("Interpolation"));
@@ -341,14 +377,19 @@ WaveformSink1DWidget::WaveformSink1DWidget(
         replot();
     });
 
-    connect(d->spin_dtSample_, qOverload<double>(&QDoubleSpinBox::valueChanged),
-        this, [this] {
-        d->dtSampleChanged_ = true;
+    auto on_sample_interval_changed = [this]
+    {
         // Shrink the grid back to the minimum size when dtSample changes.
         // Nice-to-have when decreasing dtSample, not much impact when
         // increasing it. Note: this forces a QwtPlot::replot() internally.
         d->resetPlotAxes();
-    });
+    };
+
+    connect(d->spin_dtSample_, qOverload<double>(&QDoubleSpinBox::valueChanged),
+        this, on_sample_interval_changed);
+
+    connect(dtSampleUi.cb_showSamples, &QCheckBox::stateChanged,
+        this, on_sample_interval_changed);
 
     connect(d->actionInterpolation_, &QAction::triggered,
         this, [this] (bool checked) { d->setInterpolationUiVisible(checked); });
@@ -382,9 +423,9 @@ bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
     // Note: this makes the method return true even if no single trace was
     // decoded. The reason is that the trace meta (module_header, timestamp)
     // changes, so the != comparsion is true if the module produced new data.
-    if (newAnalysisTraceData != analysisTraceData_)
+    if (newAnalysisTraceData != analysisTraceSnapshot_)
     {
-        std::swap(analysisTraceData_, newAnalysisTraceData);
+        std::swap(analysisTraceSnapshot_, newAnalysisTraceData);
         traceDataUpdateTime_ = QTime::currentTime();
         return true;
     }
@@ -392,80 +433,88 @@ bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
     return false;
 }
 
-void WaveformSink1DWidget::Private::postProcessData()
+// This decides how the most recent data from the analysis sink is integrated:
+// either prepend the latest, non-empty traces to the local trace history buffers
+// or replace the local buffers with the latest snapshot from the analysis sink.
+void WaveformSink1DWidget::Private::updateDisplayTraceData(
+    const DisplayParams &params,
+    const waveforms::TraceHistories &analysisTraceData)
 {
-    spdlog::trace("WaveformSink1DWidget::Private::postProcessData()");
-
-    const auto dtSample = spin_dtSample_->value();
-    const size_t maxDepth = spin_maxDepth_->value();
-    auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
-        combo_phaseCorrection_->currentData().toInt());
-    const auto selectedTraceIndex = traceSelect_->value();
-
-    auto interpolator = makeInterpolator();
-
-    // Note: this potentially removes Traces still referenced by underlying
-    // QwtPlotCurves. Have to update/delete superfluous curves before calling
-    // replot()!
-    switch (refreshMode_)
+    if (params.refreshMode == RefreshMode_EventSnapshot)
     {
-    case RefreshMode_LatestData:
-        spdlog::trace("WaveformSink1DWidget::Private::postProcessData(): post_process_waveforms()");
-        waveforms::post_process_waveforms(
-            analysisTraceData_,
-            rawDisplayTraces_,
-            interpolatedDisplayTraces_,
-            dtSample, *interpolator,
-            maxDepth, phaseCorrection);
-        break;
-
-    case RefreshMode_EventSnapshot:
-        spdlog::trace("WaveformSink1DWidget::Private::postProcessData(): post_process_waveform_snapshot()");
-        waveforms::post_process_waveform_snapshot(
-            analysisTraceData_,
-            rawDisplayTraces_,
-            interpolatedDisplayTraces_,
-            dtSample, *interpolator,
-            selectedTraceIndex, maxDepth,
-            phaseCorrection);
-        break;
+        // In EventSnapshot mode we just copy the analysis trace data to the
+        // display traces.
+        displayTraceData_ = analysisTraceData;
+    }
+    else
+    {
+        // In LatestData mode we prepend the latest traces from the analysis
+        // sink to the display traces.
+        waveforms::prepend_latest_traces(analysisTraceData, displayTraceData_, params.maxTracesPerChannel);
     }
 }
 
-void WaveformSink1DWidget::Private::reprocessData()
+// Pick the traces that are going to the displayed and run post-processing on them.
+void WaveformSink1DWidget::Private::updateTracesToPlot(const DisplayParams &params)
 {
-    spdlog::trace("WaveformSink1DWidget::Private::reprocessData()");
-
-    const auto dtSample = spin_dtSample_->value();
-    const size_t maxDepth = spin_maxDepth_->value();
-    auto phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(
-        combo_phaseCorrection_->currentData().toInt());
-    const auto selectedTraceIndex = traceSelect_->value();
-
     auto interpolator = makeInterpolator();
+    auto &tracesToPlot = tracesToPlot_;
+    tracesToPlot.clear();
 
-    // Note: this potentially removes Traces still referenced by underlying
-    // QwtPlotCurves. Have to update/delete superfluous curves before calling
-    // replot()!
-    switch (refreshMode_)
+    // TODO: optimize this later by reusing qwt plot curves
+    curveHelper_.clear();
+    channelToWaveformHandles_.clear();
+
+    // traverse row wise
+    for (size_t chanIndex = params.chanMin; chanIndex < params.chanMax; ++chanIndex)
     {
-    case RefreshMode_LatestData:
-        waveforms::reprocess_waveforms(
-            rawDisplayTraces_,
-            interpolatedDisplayTraces_,
-            dtSample, *interpolator,
-            phaseCorrection);
-        break;
+        if (chanIndex >= displayTraceData_.size())
+            break;
 
-    case RefreshMode_EventSnapshot:
-        waveforms::post_process_waveform_snapshot(
-            analysisTraceData_,
-            rawDisplayTraces_,
-            interpolatedDisplayTraces_,
-            dtSample, *interpolator,
-            selectedTraceIndex, maxDepth,
-            phaseCorrection);
-        break;
+        const auto &channelTraces = displayTraceData_[chanIndex];
+
+        // traverse column wise
+        for (size_t traceIndex = params.traceIndex; traceIndex < params.traceIndex + params.maxTracesPerChannel; ++traceIndex)
+        {
+            if (traceIndex >= channelTraces.size())
+                break;
+
+            const auto &inputTrace = channelTraces[traceIndex];
+
+            double phase = 1.0;
+            u32 traceConfig = 0;
+
+            if (params.phaseCorrection != waveforms::PhaseCorrection_Off)
+            {
+                if (auto it = inputTrace.meta.find("config"); it != std::end(inputTrace.meta))
+                    traceConfig = std::get<u32>(it->second);
+
+                if (auto it = inputTrace.meta.find("phase"); it != std::end(inputTrace.meta))
+                    phase = std::get<double>(it->second);
+            }
+
+            if (params.phaseCorrection == waveforms::PhaseCorrection_Auto)
+            {
+                if (!(traceConfig & mdpp_sampling::SamplingSettings::NoResampling))
+                {
+                    phase = 1.0; // was done in the FPGA, turn it off here
+                }
+            }
+
+            waveforms::Trace rawTrace;
+            waveforms::scale_x_values(inputTrace, rawTrace, params.dtSample, phase);
+
+            waveforms::Trace interpolatedTrace;
+            (*interpolator)(rawTrace, interpolatedTrace);
+
+            // Create new qwt curve and data objects and assign the data to them.
+            auto curves = make_curves_with_data();
+            curves.rawData->setTrace(&tracesToPlot_.emplace_back(std::move(rawTrace)));
+            curves.interpolatedData->setTrace(&tracesToPlot_.emplace_back(std::move(interpolatedTrace)));
+
+            // Store the handle in a per channel list.
+            channelToWaveformHandles_[chanIndex].emplace_back(curveHelper_.addWaveform(std::move(curves.curves)));
+        }
     }
 }
 
@@ -479,14 +528,14 @@ void WaveformSink1DWidget::Private::updateUi()
     }
 
     // selector 1: Update the channel number spinbox
-    const auto maxChannel = static_cast<signed>(rawDisplayTraces_.size()) - 1;
+    const auto maxChannel = static_cast<signed>(analysisTraceSnapshot_.size()) - 1;
     spin_chanSelect->setMaximum(std::max(0, maxChannel));
 
     // selector 2: Update the trace number spinbox
     size_t maxTrace = 0;
 
-    if (!analysisTraceData_.empty())
-        maxTrace = analysisTraceData_.front().size() - 1;
+    if (!analysisTraceSnapshot_.empty() && !analysisTraceSnapshot_.front().empty())
+        maxTrace = analysisTraceSnapshot_.front().size() - 1;
 
     traceSelect_->setMaximum(maxTrace);
 }
@@ -549,168 +598,85 @@ void WaveformSink1DWidget::replot()
 {
     spdlog::trace("begin WaveformSink1DWidget::replot()");
 
-    const bool refreshModeChanged = d->prevRefreshMode_ != d->refreshMode_;
-    const bool holdEnabled = d->actionHold_->isChecked();
-    const bool showAllChannels = d->cb_showAllChannels_->isChecked();
-
-    const bool forceProcessing = (
-        d->selectedChannelChanged_
-        || d->dtSampleChanged_
-        || d->interpolationFactorChanged_
-        || d->selectedTraceChanged_
-        || refreshModeChanged);
-
-    spdlog::trace("WaveformSink1DWidget::replot(): forceProcessing={}, refreshModeChanged={}, selectedChannelChanged_={}, dtSampleChanged_={}, interpolationFactorChanged_={}, selectedTraceChanged_={}",
-        forceProcessing, refreshModeChanged, d->selectedChannelChanged_, d->dtSampleChanged_, d->interpolationFactorChanged_, d->selectedTraceChanged_);
-    spdlog::trace("WaveformSink1DWidget::replot(): refreshMode_={}, holdEnabled={}, showAllChannels={}", d->refreshMode_, holdEnabled, showAllChannels);
-
-    if (refreshModeChanged)
-    {
-        spdlog::trace("WaveformSink1DWidget::replot(): refreshMode changed from {} to {}, clearing trace data",
-            d->prevRefreshMode_, d->refreshMode_);
-        d->analysisTraceData_.clear();
-    }
-
-    d->selectedChannelChanged_ = d->dtSampleChanged_ = d->interpolationFactorChanged_ = d->selectedTraceChanged_ = false;
-    d->prevRefreshMode_ = d->refreshMode_;
-    bool gotNewAnalysisData = false;
-
-    if (d->actionHold_->isChecked() && forceProcessing)
-    {
-        spdlog::trace("WaveformSink1DWidget::replot(): hold enabled, forceProcessing is true -> reprocessData()");
-        d->reprocessData();
-    }
-    else if (!d->actionHold_->isChecked())
-    {
-        const bool updated = d->updateDataFromAnalysis();
-        gotNewAnalysisData = updated;
-
-        if (updated)
-        {
-            spdlog::trace("WaveformSink1DWidget::replot(): new data from analysis -> postProcessData()");
-            d->postProcessData();
-        }
-        else if (forceProcessing)
-        {
-            spdlog::trace("WaveformSink1DWidget::replot(): no new analysis but forceProcessing is true -> reprocessData()");
-            d->reprocessData();
-        }
-        else
-        {
-            spdlog::trace("WaveformSink1DWidget::replot(): no new analysis data, no forceProcessing -> return");
-        }
-    }
+    const bool gotNewData = !d->actionHold_->isChecked() ?  d->updateDataFromAnalysis() : false;
 
     d->updateUi(); // update, selection boxes, buttons, etc.
 
-    assert(d->waveformHandles_.size() == d->curveHelper_.size());
+    const auto channelCount = d->analysisTraceSnapshot_.size();
+    const bool showAllChannels = d->cb_showAllChannels_->isChecked();
+    const bool xAxisShowsSamples = d->cb_showSamples_->isChecked();
 
-    static const auto colors = make_plot_colors();
-    const auto channelCount = d->rawDisplayTraces_.size();
-    QRectF newBoundingRect = d->maxBoundingRect_;
-    size_t chanMin = 0;
-    size_t chanMax = channelCount;
-
+    DisplayParams params;
+    params.refreshMode = d->refreshMode_;
+    params.maxTracesPerChannel = d->spin_maxDepth_->value();
+    params.traceIndex = params.refreshMode == RefreshMode_LatestData ? 0 : d->traceSelect_->value();
+    params.chanMax = channelCount;
     if (!showAllChannels)
     {
         auto selectedChannel = d->spin_chanSelect->value();
         selectedChannel = std::clamp(selectedChannel, 0, static_cast<int>(channelCount) - 1);
-        chanMin = selectedChannel;
-        chanMax = selectedChannel + 1;
+        params.chanMin = selectedChannel;
+        params.chanMax = selectedChannel + 1;
     }
-
-    spdlog::trace("WaveformSink1DWidget::replot(): channelCount={}, chanMin={}, chanMax={}", channelCount, chanMin, chanMax);
-
-    size_t totalTraceEntriesNeeded = 0;
-
-    for (size_t chanIndex = chanMin; chanIndex < chanMax; ++chanIndex)
+    else
     {
-        auto &ipolTraces = d->interpolatedDisplayTraces_.at(chanIndex);
-        const size_t traceCount = (d->refreshMode_ == RefreshMode_LatestData
-            ? ipolTraces.size()
-            : std::min(static_cast<int>(ipolTraces.size()), d->spin_maxDepth_->value()));
-        totalTraceEntriesNeeded += traceCount;
+        params.chanMin = 0;
+        params.chanMax = channelCount;
     }
+    params.showSampleSymbols = d->showSampleSymbols_;
+    params.showInterpolatedSymbols = d->showInterpolatedSymbols_;
+    params.dtSample = xAxisShowsSamples ? 1.0 : d->spin_dtSample_->value();
 
-    spdlog::trace("WaveformSink1DWidget::replot(): totalTraceEntriesNeeded={}", totalTraceEntriesNeeded);
+    if (gotNewData)
+        d->updateDisplayTraceData(params, d->analysisTraceSnapshot_);
 
-    assert(d->waveformHandles_.size() == d->curveHelper_.size());
+    d->updateTracesToPlot(params);
 
-    while (d->curveHelper_.size() < totalTraceEntriesNeeded)
+    size_t totalChannels = d->channelToWaveformHandles_.size();
+    size_t totalHandles = std::accumulate(
+        std::begin(d->channelToWaveformHandles_),
+        std::end(d->channelToWaveformHandles_),
+        0,
+        [] (size_t sum, const auto &pair) { return sum + pair.second.size(); });
+
+    spdlog::warn("WaveformSink1DWidget::replot(): totalChannels={}, totalHandles={}", totalChannels, totalHandles);
+
+    static const auto colors = make_plot_colors();
+    QRectF newBoundingRect = d->maxBoundingRect_;
+
+    for (auto &[chanIndex, handles]: d->channelToWaveformHandles_)
     {
-        assert(d->waveformHandles_.size() == d->curveHelper_.size());
-        auto cd = make_curves_with_data();
-        d->waveformHandles_.push_back(d->curveHelper_.addWaveform(std::move(cd.curves)));
-        assert(d->waveformHandles_.size() == d->curveHelper_.size());
-    }
-
-    // Clean up old, now unused traces. Important because these can point to
-    // trace data that no longer exists.
-    while (d->curveHelper_.size() > totalTraceEntriesNeeded)
-    {
-        assert(d->waveformHandles_.size() == d->curveHelper_.size());
-        d->curveHelper_.takeWaveform(d->waveformHandles_.back());
-        d->waveformHandles_.pop_back();
-        assert(d->waveformHandles_.size() == d->curveHelper_.size());
-    }
-
-    assert(d->curveHelper_.size() == totalTraceEntriesNeeded);
-    assert(d->waveformHandles_.size() == d->curveHelper_.size());
-
-    size_t absTraceIndex = 0;
-
-    for (size_t chanIndex = chanMin; chanIndex < chanMax; ++chanIndex)
-    {
-        auto &rawTraces = d->rawDisplayTraces_[chanIndex];
-        auto &ipolTraces = d->interpolatedDisplayTraces_[chanIndex];
-        assert(rawTraces.size() == ipolTraces.size());
-
-        const auto traceColor = colors.value((chanIndex - chanMin) % colors.size());
-
-        size_t traceIndex = (d->refreshMode_ == RefreshMode_LatestData
-            ? 0
-            : std::min(ipolTraces.size(), static_cast<size_t>(d->traceSelect_->value())));
-
-        const size_t traceCount = (d->refreshMode_ == RefreshMode_LatestData
-            ? ipolTraces.size()
-            : std::min(static_cast<int>(ipolTraces.size()), d->spin_maxDepth_->value()));
-
+        //spdlog::warn("WaveformSink1DWidget::replot(): channelIndex={}, #handles={}", chanIndex, handles.size());
+        const auto traceCount = handles.size();
         const double slope = (1.0 - 0.1) / traceCount; // want alpha from 1.0 to 0.1
+        const auto traceColor = colors.value(chanIndex % colors.size());
 
-        for (;traceIndex < traceCount; ++traceIndex)
+        for (size_t traceIndex=0; traceIndex < traceCount; ++traceIndex)
         {
-            auto &rawTrace = rawTraces[traceIndex];
-            auto &ipolTrace = ipolTraces[traceIndex];
-
-            auto curvesHandle = d->waveformHandles_[absTraceIndex];
-            auto curves = d->curveHelper_.getWaveform(curvesHandle);
-            assert(curves.rawCurve && curves.interpolatedCurve);
-            auto rawData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.rawCurve->data());
-            auto ipolData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.interpolatedCurve->data());
-            assert(rawData && ipolData);
-            rawData->setTrace(&rawTrace);
-            ipolData->setTrace(&ipolTrace);
-
-            d->curveHelper_.setRawSymbolsVisible(curvesHandle, d->showSampleSymbols_);
-            d->curveHelper_.setInterpolatedSymbolsVisible(curvesHandle, d->showInterpolatedSymbols_);
+            auto &handle = handles[traceIndex];
+            d->curveHelper_.setRawSymbolsVisible(handle, params.showSampleSymbols);
+            d->curveHelper_.setInterpolatedSymbolsVisible(handle, params.showInterpolatedSymbols);
 
             double alpha = std::min(0.1 + slope * (traceCount - traceIndex), 1.0);
             auto thisColor = traceColor;
             thisColor.setAlphaF(alpha);
+
+            auto curves = d->curveHelper_.getWaveform(handle);
             set_curve_color(curves.rawCurve, thisColor);
             set_curve_color(curves.interpolatedCurve, thisColor);
 
-            if (d->showSampleSymbols_)
+            // adjust alpha of the symbols as well
+            if (params.showSampleSymbols)
             {
-                auto symCache = d->curveHelper_.getRawSymbolCache(curvesHandle);
+                auto symCache = d->curveHelper_.getRawSymbolCache(handle);
                 mvme_qwt::set_symbol_cache_alpha(symCache, alpha);
                 auto newSymbol = mvme_qwt::make_symbol_from_cache(symCache);
                 curves.rawCurve->setSymbol(newSymbol.release());
             }
 
-            if (d->showInterpolatedSymbols_)
+            if (params.showInterpolatedSymbols)
             {
-                auto symCache = d->curveHelper_.getInterpolatedSymbolCache(curvesHandle);
+                auto symCache = d->curveHelper_.getInterpolatedSymbolCache(handle);
                 mvme_qwt::set_symbol_cache_alpha(symCache, alpha);
                 auto newSymbol = mvme_qwt::make_symbol_from_cache(symCache);
                 curves.interpolatedCurve->setSymbol(newSymbol.release());
@@ -720,21 +686,17 @@ void WaveformSink1DWidget::replot()
             curves.interpolatedCurve->detach();
             curves.interpolatedCurve->attach(getPlot());
             curves.interpolatedCurve->setItemAttribute(QwtPlotItem::Legend, traceIndex == 0);
-            curves.interpolatedCurve->setTitle(fmt::format("Channel {}", chanIndex).c_str());
-
-            ++absTraceIndex;
-
-            newBoundingRect = newBoundingRect.united(ipolData->boundingRect());
+            curves.interpolatedCurve->setTitle(fmt::format("Channel {:2d}", chanIndex).c_str());
+            if (auto ipolData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.interpolatedCurve->data()))
+                newBoundingRect = newBoundingRect.united(ipolData->boundingRect());
         }
     }
-
-    assert(d->waveformHandles_.size() == d->curveHelper_.size());
 
     waveforms::update_plot_axes(getPlot(), d->zoomer_, newBoundingRect, d->maxBoundingRect_);
     d->maxBoundingRect_ = newBoundingRect;
 
-    getPlot()->updateLegend();
     histo_ui::PlotWidget::replot();
+    getPlot()->updateLegend();
 
     std::ostringstream oss;
     d->makeStatusText(oss, d->traceDataUpdateTime_);
@@ -742,7 +704,7 @@ void WaveformSink1DWidget::replot()
     getStatusBar()->clearMessage();
     getStatusBar()->showMessage(oss.str().c_str());
 
-    if (gotNewAnalysisData)
+    if (gotNewData)
     {
         if (!d->updateLed_->isChecked())
         {
@@ -753,23 +715,28 @@ void WaveformSink1DWidget::replot()
         }
     }
 
+    if (xAxisShowsSamples)
+        getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Sample");
+    else
+        getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
+
     spdlog::trace("end WaveformSink1DWidget::replot()");
 }
 
 void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
 {
-    const auto &rawTraces = rawDisplayTraces_;
-    const auto &ipolTraces = interpolatedDisplayTraces_;
+    double totalMemory = mesytec::mvme::waveforms::get_used_memory(analysisTraceSnapshot_);
+    totalMemory += mesytec::mvme::waveforms::get_used_memory(displayTraceData_);
+    totalMemory += mesytec::mvme::waveforms::get_used_memory(tracesToPlot_);
 
-    double totalMemory = mesytec::mvme::waveforms::get_used_memory(rawTraces);
-    const size_t channelCount = rawTraces.size();
-    size_t historyDepth = !rawTraces.empty() ? rawTraces[0].size() : 0u;
+    const size_t channelCount = displayTraceData_.size();
+    size_t historyDepth = !displayTraceData_.empty() ? displayTraceData_[0].size() : 0u;
     auto selectedChannel = spin_chanSelect->value();
 
-    const size_t totalTraces = std::accumulate(std::begin(rawTraces), std::end(rawTraces), 0u,
+    const size_t totalTraces = std::accumulate(std::begin(displayTraceData_), std::end(displayTraceData_), 0u,
         [](size_t sum, const auto &traces) { return sum + traces.size(); });
 
-    const size_t totalSamples = std::accumulate(std::begin(rawTraces), std::end(rawTraces), 0u,
+    const size_t totalSamples = std::accumulate(std::begin(displayTraceData_), std::end(displayTraceData_), 0u,
         [](size_t sum, const auto &traces) {
             return sum + std::accumulate(std::begin(traces), std::end(traces), 0u,
                 [](size_t sum, const auto &trace) { return sum + trace.size(); });
@@ -800,21 +767,29 @@ void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
     // row wise: walk the channels
     for (size_t chan = chanMin; chan < chanMax; ++chan)
     {
-        auto &rawChanTraces = rawTraces[chan];
-        auto &ipolChanTraces = ipolTraces[chan];
-        const size_t traceIndexMax = std::min(rawChanTraces.size(), ipolChanTraces.size());
+        auto &handles = channelToWaveformHandles_[chan];
+        size_t traceIndex = 0;
 
-        // column wise, walk backwards in time through the traces
-        for (size_t traceIndex = 0; traceIndex < traceIndexMax; ++traceIndex)
+        for (auto &handle: handles)
         {
-            auto &rawTrace = rawChanTraces[traceIndex];
-            auto &ipolTrace = ipolChanTraces[traceIndex];
+            auto curves = curveHelper_.getWaveform(handle);
+            auto rawData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.rawCurve->data());
+            auto ipolData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.interpolatedCurve->data());
+            assert(rawData && ipolData);
 
-            out << fmt::format("Channel{}, Trace#{} meta: {}\n", chan, traceIndex, mesytec::mvme::waveforms::trace_meta_to_string(rawTrace.meta));
-            out << fmt::format("Channel{}, Trace#{} sample input ({} samples): ", chan, traceIndex, rawTrace.size());
-            mesytec::mvme::waveforms::print_trace_compact(out, rawTrace);
-            out << fmt::format("Channel{}, Trace#{} interpolated ({} samples): ", chan, traceIndex, ipolTrace.size());
-            mesytec::mvme::waveforms::print_trace_compact(out, ipolTrace);
+            auto rawTrace = rawData->getTrace();
+            auto ipolTrace = ipolData->getTrace();
+
+            out << fmt::format("Channel{}, Trace#{}: {} samples, meta={}\n", chan, traceIndex, rawData->size(),
+                mesytec::mvme::waveforms::trace_meta_to_string(rawTrace->meta));
+
+            out << fmt::format("Channel{}, Trace#{} sample input ({} samples): ", chan, traceIndex, rawTrace->size());
+            mesytec::mvme::waveforms::print_trace_compact(out, *rawTrace);
+
+            out << fmt::format("Channel{}, Trace#{} interpolated ({} samples): ", chan, traceIndex, ipolTrace->size());
+            mesytec::mvme::waveforms::print_trace_compact(out, *ipolTrace);
+
+            ++traceIndex;
         }
 
         out << "\n";
@@ -836,16 +811,19 @@ inline std::string format_age(s64 ms)
 void WaveformSink1DWidget::Private::makeStatusText(std::ostringstream &out, const QTime &lastUpdate)
 {
     auto selectedChannel = std::to_string(spin_chanSelect->value());
+
     if (cb_showAllChannels_->isChecked())
         selectedChannel = "All";
-    auto visibleTraceCount = waveformHandles_.size();
+
+    // internally we have 2 traces per channel: the raw and the interpolated one
+    auto visibleTraceCount = tracesToPlot_.size() * 0.5;
     size_t sampleCount = 0;
 
-    for (const auto &traceHistory: rawDisplayTraces_)
+    for (auto &trace: tracesToPlot_)
     {
-        if (!traceHistory.empty())
+        if (!trace.empty())
         {
-            sampleCount = traceHistory.front().size();
+            sampleCount = trace.size();
             break;
         }
     }
