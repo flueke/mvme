@@ -99,7 +99,7 @@ WaveformCurves WaveformPlotCurveHelper::takeWaveform(Handle handle)
     result.rawCurve.reset(curves.rawCurve);
     result.interpolatedCurve.reset(curves.interpolatedCurve);
 
-    curves = {};
+    curves = {}; // resets the pointers and data still stored under waveforms_[handle]
 
     return result;
 }
@@ -185,10 +185,16 @@ void WaveformPlotCurveHelper::clear()
     for (auto &curves : waveforms_)
     {
         if (curves.rawCurve)
+        {
             curves.rawCurve->detach();
+            delete curves.rawCurve;
+        }
 
         if (curves.interpolatedCurve)
+        {
             curves.interpolatedCurve->detach();
+            delete curves.interpolatedCurve;
+        }
     }
 
     waveforms_.clear();
