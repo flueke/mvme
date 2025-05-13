@@ -14,6 +14,7 @@
 #include "analysis_service_provider.h"
 #include "analysis/waveform_sink_widget_common.h"
 #include "mdpp-sampling/waveform_plotting.h"
+#include "mvme_qwt.h"
 #include "util/qledindicator.h"
 #include "util/qt_logview.h"
 
@@ -235,9 +236,15 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     setWindowTitle("WaveformSink1DWidget");
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
-    auto legend = new QwtLegend;
+    auto legend = new mvme_qwt::StableQwtLegend;
+    legend->setDefaultItemMode(QwtLegendData::Checkable);
     getPlot()->insertLegend(legend, QwtPlot::LeftLegend);
 
+    connect(getPlot(), &QwtPlot::legendDataChanged, getPlot(), [this] (const QVariant &itemInfo, const QList<QwtLegendData> &data) {
+        auto item = itemInfo.value<QwtPlotItem *>();
+        auto itemList = this->getPlot()->itemList(QwtPlotItem::Rtti_PlotCurve);
+        qDebug() << "legendDataChanged" << itemInfo << item->title().text() << item->rtti() << data.size() << itemList.size();
+    });
 
     auto tb = getToolBar();
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -597,6 +604,7 @@ inline const QVector<QColor> make_plot_colors()
 void WaveformSink1DWidget::replot()
 {
     spdlog::trace("begin WaveformSink1DWidget::replot()");
+    qDebug() << "enter WaveformSink1DWidget::replot()";
 
     const bool gotNewData = !d->actionHold_->isChecked() ?  d->updateDataFromAnalysis() : false;
 
@@ -639,7 +647,9 @@ void WaveformSink1DWidget::replot()
         0,
         [] (size_t sum, const auto &pair) { return sum + pair.second.size(); });
 
-    spdlog::trace("WaveformSink1DWidget::replot(): totalChannels={}, totalHandles={}", totalChannels, totalHandles);
+    spdlog::debug("WaveformSink1DWidget::replot(): totalChannels={}, totalHandles={}", totalChannels, totalHandles);
+    auto itemList = this->getPlot()->itemList(QwtPlotItem::Rtti_PlotCurve);
+    qDebug() << "replot(): #PlotCurves=" <<  itemList.size();
 
     static const auto colors = make_plot_colors();
     QRectF newBoundingRect = d->maxBoundingRect_;
@@ -728,6 +738,7 @@ void WaveformSink1DWidget::replot()
     else
         getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
+    qDebug() << "leave WaveformSink1DWidget::replot()";
     spdlog::trace("end WaveformSink1DWidget::replot()");
 }
 
