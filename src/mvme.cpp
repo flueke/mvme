@@ -1638,8 +1638,15 @@ void MVMEMainWindow::updateWindowTitle()
     {
         case GlobalMode::DAQ:
             {
-                title = QString("%1 - [DAQ mode] - mvme")
-                    .arg(workspaceDir);
+                auto daqStats = m_d->m_context->getDAQStats();
+
+                if (!daqStats.listfileFilename.isEmpty())
+                    title = QSL("%1 - %2 - [DAQ mode] - mvme")
+                        .arg(workspaceDir)
+                        .arg(daqStats.listfileFilename);
+                else
+                    title = QString("%1 - [DAQ mode] - mvme")
+                        .arg(workspaceDir);
             } break;
 
         case GlobalMode::ListFile:
