@@ -650,6 +650,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
             // copy ListFileOutputInfo from MVMEContext to DAQControlWidget
             dcw->setListFileOutputInfo(m_d->m_context->getListFileOutputInfo());
             dcw->updateWidget();
+            updateWindowTitle();
         });
 
         m_d->m_daqControlWidgetUpdateTimer->setInterval(
