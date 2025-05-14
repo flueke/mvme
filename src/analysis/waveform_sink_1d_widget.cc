@@ -94,9 +94,9 @@ inline CurvesWithData make_curves_with_data()
     CurvesWithData result;
     result.curves = waveforms::make_curves();
     result.rawData = new waveforms::WaveformPlotData;
-    result.curves.rawCurve->setData(result.rawData);
+    result.curves.rawCurve->setData(result.rawData); // ownership goes to qwt
     result.interpolatedData = new waveforms::WaveformPlotData;
-    result.curves.interpolatedCurve->setData(result.interpolatedData);
+    result.curves.interpolatedCurve->setData(result.interpolatedData); // ownership goes to qwt
     return result;
 }
 
@@ -236,15 +236,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     setWindowTitle("WaveformSink1DWidget");
     getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
-    auto legend = new mvme_qwt::StableQwtLegend;
-    legend->setDefaultItemMode(QwtLegendData::Checkable);
-    getPlot()->insertLegend(legend, QwtPlot::LeftLegend);
-
-    connect(getPlot(), &QwtPlot::legendDataChanged, getPlot(), [this] (const QVariant &itemInfo, const QList<QwtLegendData> &data) {
-        auto item = itemInfo.value<QwtPlotItem *>();
-        auto itemList = this->getPlot()->itemList(QwtPlotItem::Rtti_PlotCurve);
-        qDebug() << "legendDataChanged" << itemInfo << item->title().text() << item->rtti() << data.size() << itemList.size();
-    });
+    getPlot()->insertLegend(new QwtLegend, QwtPlot::LeftLegend);
 
     auto tb = getToolBar();
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -465,12 +457,12 @@ void WaveformSink1DWidget::Private::updateDisplayTraceData(
 void WaveformSink1DWidget::Private::processTracesToPlot(const DisplayParams &params)
 {
     auto interpolator = makeInterpolator();
+    // TraceHistory containing only the traces that are going to be plotted.
     auto &tracesToPlot = tracesToPlot_;
     tracesToPlot.clear();
 
-    // TODO: optimize this later by reusing qwt plot curves
-    curveHelper_.clear();
     channelToWaveformHandles_.clear();
+    size_t linearCurvesIndex = 0;
 
     // traverse row wise from first to last channel
     for (size_t chanIndex = params.chanMin; chanIndex < params.chanMax; ++chanIndex)
@@ -514,15 +506,35 @@ void WaveformSink1DWidget::Private::processTracesToPlot(const DisplayParams &par
             waveforms::Trace interpolatedTrace;
             (*interpolator)(rawTrace, interpolatedTrace);
 
-            // Create new qwt curve and data objects and assign the data to them.
-            auto curves = make_curves_with_data();
-            curves.rawData->setTrace(&tracesToPlot_.emplace_back(std::move(rawTrace)));
-            curves.interpolatedData->setTrace(&tracesToPlot_.emplace_back(std::move(interpolatedTrace)));
+            if (linearCurvesIndex < curveHelper_.size())
+            {
+                // Update the data objects of existing plot curves.
+                auto curves = curveHelper_.getWaveform(linearCurvesIndex);
 
-            // Store the handle in a per channel list.
-            channelToWaveformHandles_[chanIndex].emplace_back(curveHelper_.addWaveform(std::move(curves.curves)));
+                auto rawData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.rawCurve->data());
+                rawData->setTrace(&tracesToPlot.emplace_back(std::move(rawTrace)));
+                auto interpolatedData = reinterpret_cast<waveforms::WaveformPlotData *>(curves.interpolatedCurve->data());
+                interpolatedData->setTrace(&tracesToPlot.emplace_back(std::move(interpolatedTrace)));
+
+                // Store the handle (which is just a linear index into the curves array) in a per channel list.
+                channelToWaveformHandles_[chanIndex].emplace_back(linearCurvesIndex);
+            }
+            else
+            {
+                // Create new qwt curve and data objects and assign the data to them.
+                auto curves = make_curves_with_data();
+                curves.rawData->setTrace(&tracesToPlot.emplace_back(std::move(rawTrace)));
+                curves.interpolatedData->setTrace(&tracesToPlot.emplace_back(std::move(interpolatedTrace)));
+
+                // Store the handle in a per channel list.
+                channelToWaveformHandles_[chanIndex].emplace_back(curveHelper_.addWaveform(std::move(curves.curves)));
+            }
+
+            ++linearCurvesIndex;
         }
     }
+
+    curveHelper_.shrinkTo(linearCurvesIndex);
 }
 
 void WaveformSink1DWidget::Private::updateUi()
@@ -604,7 +616,6 @@ inline const QVector<QColor> make_plot_colors()
 void WaveformSink1DWidget::replot()
 {
     spdlog::trace("begin WaveformSink1DWidget::replot()");
-    qDebug() << "enter WaveformSink1DWidget::replot()";
 
     const bool gotNewData = !d->actionHold_->isChecked() ?  d->updateDataFromAnalysis() : false;
 
@@ -619,6 +630,7 @@ void WaveformSink1DWidget::replot()
     params.maxTracesPerChannel = d->spin_maxDepth_->value();
     params.traceIndex = params.refreshMode == RefreshMode_LatestData ? 0 : d->traceSelect_->value();
     params.chanMax = channelCount;
+
     if (!showAllChannels)
     {
         auto selectedChannel = d->spin_chanSelect->value();
@@ -639,17 +651,6 @@ void WaveformSink1DWidget::replot()
         d->updateDisplayTraceData(params, d->analysisTraceSnapshot_);
 
     d->processTracesToPlot(params);
-
-    size_t totalChannels = d->channelToWaveformHandles_.size();
-    size_t totalHandles = std::accumulate(
-        std::begin(d->channelToWaveformHandles_),
-        std::end(d->channelToWaveformHandles_),
-        0,
-        [] (size_t sum, const auto &pair) { return sum + pair.second.size(); });
-
-    spdlog::debug("WaveformSink1DWidget::replot(): totalChannels={}, totalHandles={}", totalChannels, totalHandles);
-    auto itemList = this->getPlot()->itemList(QwtPlotItem::Rtti_PlotCurve);
-    qDebug() << "replot(): #PlotCurves=" <<  itemList.size();
 
     static const auto colors = make_plot_colors();
     QRectF newBoundingRect = d->maxBoundingRect_;
@@ -692,11 +693,7 @@ void WaveformSink1DWidget::replot()
                 curves.interpolatedCurve->setSymbol(newSymbol.release());
             }
 
-            // FIXME: legend still jumps around. legend position does not matter.
-            // giving all curves a visible entry in the legend fixes it, maybe because of the scroll bars?
-            // try printing legend and plot geometries. maybe there's a pattern there.
-
-            // The raw curve, purely for showing symbols where sampleed values
+            // The raw curve, purely for showing symbols where sampled values
             // are. The curve itself is not rendered.
             curves.rawCurve->setItemAttribute(QwtPlotItem::Legend, false);
 
@@ -707,6 +704,13 @@ void WaveformSink1DWidget::replot()
             curves.interpolatedCurve->setItemAttribute(QwtPlotItem::Legend, traceIndex == 0);
 
             newBoundingRect = newBoundingRect.united(curves.interpolatedCurve->boundingRect());
+
+            // Detach, then reattach to ensure the legend items are sorted in channel order.
+            // https://www.qtcentre.org/threads/64069-Controlling-order-of-plot-items-in-Qwt-6-1-Legend?p=283402#post283402
+            //curves.rawCurve->detach();
+            //curves.rawCurve->attach(getPlot());
+            curves.interpolatedCurve->detach();
+            curves.interpolatedCurve->attach(getPlot());
         }
     }
 
@@ -738,7 +742,6 @@ void WaveformSink1DWidget::replot()
     else
         getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
-    qDebug() << "leave WaveformSink1DWidget::replot()";
     spdlog::trace("end WaveformSink1DWidget::replot()");
 }
 

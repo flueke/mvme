@@ -50,36 +50,28 @@ QwtPlot *WaveformPlotCurveHelper::getPlot() const
 
 WaveformPlotCurveHelper::Handle WaveformPlotCurveHelper::addWaveform(WaveformCurves &&data)
 {
-    auto dest = std::find_if(std::begin(waveforms_), std::end(waveforms_),
-        [](const auto &curves) { return !curves.rawCurve && !curves.interpolatedCurve; });
-
-    if (dest == std::end(waveforms_))
-    {
-        waveforms_.emplace_back();
-        dest = std::end(waveforms_) - 1;
-    }
-
-    *dest = {};
+    WaveformData dest = {};
 
     if (data.rawCurve)
     {
         data.rawCurve->attach(getPlot());
-        dest->rawCurve = data.rawCurve.release();
+        dest.rawCurve = data.rawCurve.release();
     }
 
     if (data.interpolatedCurve)
     {
         data.interpolatedCurve->attach(getPlot());
-        dest->interpolatedCurve = data.interpolatedCurve.release();
+        dest.interpolatedCurve = data.interpolatedCurve.release();
     }
 
-    if (auto symbol = dest->rawCurve->symbol())
-        dest->rawSymbolCache = mvme_qwt::make_cache_from_symbol(dest->rawCurve->symbol());
+    if (auto symbol = dest.rawCurve->symbol())
+        dest.rawSymbolCache = mvme_qwt::make_cache_from_symbol(dest.rawCurve->symbol());
 
-    if (auto symbol = dest->interpolatedCurve->symbol())
-        dest->interpolatedSymbolCache = mvme_qwt::make_cache_from_symbol(dest->interpolatedCurve->symbol());
+    if (auto symbol = dest.interpolatedCurve->symbol())
+        dest.interpolatedSymbolCache = mvme_qwt::make_cache_from_symbol(dest.interpolatedCurve->symbol());
 
-    return std::distance(std::begin(waveforms_), dest);
+    waveforms_.emplace_back(std::move(dest));
+    return waveforms_.size() - 1;
 }
 
 WaveformCurves WaveformPlotCurveHelper::takeWaveform(Handle handle)
@@ -99,7 +91,7 @@ WaveformCurves WaveformPlotCurveHelper::takeWaveform(Handle handle)
     result.rawCurve.reset(curves.rawCurve);
     result.interpolatedCurve.reset(curves.interpolatedCurve);
 
-    curves = {}; // resets the pointers and data still stored under waveforms_[handle]
+    waveforms_.erase(waveforms_.begin() + handle);
 
     return result;
 }
@@ -198,6 +190,14 @@ void WaveformPlotCurveHelper::clear()
     }
 
     waveforms_.clear();
+}
+
+void WaveformPlotCurveHelper::shrinkTo(size_t newSize)
+{
+    while (waveforms_.size() > newSize)
+    {
+        takeWaveform(waveforms_.size() - 1);
+    }
 }
 
 std::unique_ptr<QwtSymbol> make_symbol(QwtSymbol::Style style = QwtSymbol::Diamond, QColor color = Qt::red)

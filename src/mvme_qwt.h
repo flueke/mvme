@@ -119,44 +119,13 @@ struct QwtSymbolCache
     QBrush brush;
     QPen pen;
     QSize size;
-};
+};;
 
 QwtSymbolCache make_cache_from_symbol(const QwtSymbol *symbol);
 std::unique_ptr<QwtSymbol> make_symbol_from_cache(const QwtSymbolCache &cache);
 
 // Sets both brush and pen alpha.
 void set_symbol_cache_alpha(QwtSymbolCache &cache, double alpha);
-
-// A QwtLegend subclass that maintains a stable size to prevent "jumping"
-// during replot operations
-class StableQwtLegend : public QwtLegend
-{
-    Q_OBJECT
-public:
-    StableQwtLegend(QWidget *parent = nullptr)
-        : QwtLegend(parent)
-        , m_stableWidth(0)
-    {
-    }
-
-    ~StableQwtLegend() override;
-
-    QSize sizeHint() const override
-    {
-        QSize hint = QwtLegend::sizeHint();
-        return hint;
-    }
-
-protected:
-    void resizeEvent(QResizeEvent *event) override
-    {
-        qDebug() << "old size: " << event->oldSize() << ", new size: " << event->size() << ", stable width: " << m_stableWidth;
-        QwtLegend::resizeEvent(event);
-    }
-
-private:
-    int m_stableWidth;
-};
 
 } // end namespace mvme_qwt
 

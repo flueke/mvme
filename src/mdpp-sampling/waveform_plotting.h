@@ -236,6 +236,14 @@ class IWaveformPlotter
         bool detachWaveform(Handle handle) { return takeWaveform(handle).rawCurve != nullptr; };
 };
 
+/* Helper for dealing with the raw and interpolated curves and their symbols
+ * used in the waveform plotting ui.
+ *
+ * Use make_curves() to create a new set of curves.
+ * addWaveform() takes ownership of the curves and attaches them to the plot.
+ * takeWaveform() detaches the curves from the plot and returns them to the caller.
+ * Use getWaveform() to get non-owning access to the curves.
+ */
 class WaveformPlotCurveHelper: public IWaveformPlotter
 {
     public:
@@ -256,8 +264,8 @@ class WaveformPlotCurveHelper: public IWaveformPlotter
         mvme_qwt::QwtSymbolCache getInterpolatedSymbolCache(Handle handle) const;
 
         size_t size() const;
-        size_t capacity() const { return waveforms_.size(); };
         void clear();
+        void shrinkTo(size_t newSize);
 
     private:
 

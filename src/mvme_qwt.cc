@@ -361,6 +361,4 @@ QwtSymbolCache set_brush_and_pen_colors(const QwtSymbolCache &cache, const QColo
     return result;
 }
 
-StableQwtLegend::~StableQwtLegend() {}
-
 } // end namespace mvme_qwt
