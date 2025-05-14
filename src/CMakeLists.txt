@@ -230,6 +230,7 @@ add_library(libmvme SHARED
     mvlc/mvlc_util.cc
     mvlc/mvlc_vme_controller.cc
     mvlc/mvlc_vme_debug_widget.cc
+    mvlc/scanbus_ui.cc
     mvlc/trigger_io_dso.cc
     mvlc/trigger_io_dso_plot_widget.cc
     mvlc/trigger_io_dso_sim_ui.cc

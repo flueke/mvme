@@ -108,6 +108,8 @@ class LIBMVME_EXPORT AnalysisServiceProvider: public QObject
 
         virtual DAQState getDAQState() const = 0;
 
+        virtual VMEController *getVMEController() = 0;
+
     public slots:
         virtual void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
                                  s32 userLevel) = 0;

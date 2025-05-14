@@ -64,6 +64,7 @@ class MVMEContextServiceProvider: public AnalysisServiceProvider
         RunInfo getRunInfo() const override;
 
         DAQState getDAQState() const override;
+        VMEController *getVMEController() override;
 
     public slots:
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,

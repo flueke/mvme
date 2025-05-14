@@ -171,6 +171,10 @@ DAQState MVMEContextServiceProvider::getDAQState() const
     return ctx_->getDAQState();
 }
 
+VMEController *MVMEContextServiceProvider::getVMEController()
+{
+    return ctx_->getVMEController();
+}
 
 void MVMEContextServiceProvider::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
                          s32 userLevel)

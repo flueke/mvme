@@ -38,6 +38,7 @@
 #include "mvlc/mvlc_trigger_io_editor.h"
 #include "mvlc/mvlc_trigger_io_script.h"
 #include "mvlc/mvlc_vme_controller.h"
+#include "mvlc/scanbus_ui.hpp"
 #include "mvlc/vmeconfig_to_crateconfig.h"
 #include "mvlc/vmeconfig_from_crateconfig.h"
 #include "mvlc_stream_worker.h"
@@ -140,6 +141,7 @@ struct MVMEWindowPrivate
             // utility/tool windows
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
             *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolMVLCDevGui,
+            *actionToolMvlcScanbus,
 
             *actionHelpMVMEManual, *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt
             ;
@@ -334,6 +336,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     m_d->actionToolTemplateInfo         = new QAction(QSL("VME Module Template Info"), this);
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
     m_d->actionToolMVLCDevGui           = new QAction(QSL("MVLC Debug GUI"), this);
+    m_d->actionToolMvlcScanbus          = new QAction(QSL("Scan VME Bus"), this);
 
     m_d->actionHelpMVMEManual = new QAction(QIcon(":/help.png"), QSL("&MVME Manual"), this);
     m_d->actionHelpMVMEManual->setObjectName(QSL("actionMVMEManual"));
@@ -396,6 +399,23 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
             // Close the GUI when the controller object changes.
             connect(getContext(), &MVMEContext::vmeControllerAboutToBeChanged,
                     widget, [widget] () { widget->close(); });
+        }
+    });
+
+    connect(m_d->actionToolMvlcScanbus, &QAction::triggered, this, [this] {
+        if (auto mvlcCtrl = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(
+                getContext()->getVMEController()))
+        {
+            if (auto w = find_top_level_widget("MvlcScanbusWidget"))
+            {
+                w->activateWindow();
+                w->raise();
+            }
+            else
+            {
+                auto widget = new mvme::MvlcScanbusWidget;
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+            }
         }
     });
 

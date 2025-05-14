@@ -420,6 +420,8 @@ class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvi
 
         DAQState getDAQState() const override;
 
+        VMEController *getVMEController() override { return nullptr; }
+
     public slots:
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op,
                                  s32 userLevel) override;
