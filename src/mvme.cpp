@@ -406,22 +406,33 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         if (auto mvlcCtrl = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(
                 getContext()->getVMEController()))
         {
-            if (auto w = find_top_level_widget("MvlcScanbusWidget"))
+            auto widget = find_top_level_widget<MvlcScanbusWidget>("MvlcScanbusWidget");
+
+            if (!widget)
             {
-                w->activateWindow();
-                w->raise();
+                widget = new mvme::MvlcScanbusWidget;
+                widget->setObjectName(QSL("MvlcScanbusWidget"));
             }
-            else
-            {
-                auto widget = new mvme::MvlcScanbusWidget;
-                widget->setAttribute(Qt::WA_DeleteOnClose);
-            }
+
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            widget->setMvlc(mvlcCtrl);
+            widget->activateWindow();
+            widget->raise();
+            widget->show();
+            m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MvlcScanbusWidget"));
+            add_widget_close_action(widget);
         }
     });
 
     connect(m_d->m_context, &MVMEContext::vmeControllerSet,
             this, [this] (VMEController *ctrl) {
         m_d->actionToolMVLCDevGui->setEnabled(is_mvlc_controller(ctrl->getType()));
+        m_d->actionToolMvlcScanbus->setEnabled(is_mvlc_controller(ctrl->getType()));
+
+        auto mvlc = qobject_cast<mesytec::mvme_mvlc::MVLC_VMEController *>(ctrl);
+
+        if (auto scanbusWidget = find_top_level_widget<MvlcScanbusWidget>("MvlcScanbusWidget"))
+            scanbusWidget->setMvlc(mvlc);
     });
 
     connect(m_d->actionHelpMVMEManual,          &QAction::triggered, this, &MVMEMainWindow::onActionHelpMVMEManual_triggered);
@@ -473,6 +484,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     m_d->menuTools->addAction(m_d->actionToolSIS3153Debug);
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolMVLCDevGui);
+    m_d->menuTools->addAction(m_d->actionToolMvlcScanbus);
 
     m_d->menuHelp->addAction(m_d->actionHelpMVMEManual);
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);

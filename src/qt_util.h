@@ -253,6 +253,13 @@ class LIBMVME_EXPORT TextEditSearchWidget: public QWidget
 
 QWidget *find_top_level_widget(const QString &objectName);
 
+template <typename T>
+T *find_top_level_widget(const QString &objectName)
+{
+    auto widget = find_top_level_widget(objectName);
+    return qobject_cast<T *>(widget);
+}
+
 template<typename Result, typename Handler>
 QFutureWatcher<Result> *make_watcher(Handler &&handler)
 {

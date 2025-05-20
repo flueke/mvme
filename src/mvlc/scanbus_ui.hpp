@@ -3,6 +3,11 @@
 
 #include <QWidget>
 
+namespace mesytec::mvme_mvlc
+{
+  class MVLC_VMEController;
+}
+
 namespace mesytec::mvme
 {
 
@@ -12,6 +17,8 @@ class MvlcScanbusWidget: public QWidget
   public:
     MvlcScanbusWidget(QWidget *parent = nullptr);
     ~MvlcScanbusWidget() override;
+
+  void setMvlc(mvme_mvlc::MVLC_VMEController *mvlc);
 
   private:
     struct Private;
