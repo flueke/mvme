@@ -1322,10 +1322,14 @@ DAQStats MVMEContext::getDAQStats() const
     switch (getMode())
     {
         case GlobalMode::DAQ:
-            return m_readoutWorker->getDAQStats();
+            if (m_readoutWorker)
+                return m_readoutWorker->getDAQStats();
+            break;
 
         case GlobalMode::ListFile:
-            return m_d->listfileReplayWorker->getStats();
+            if (m_d->listfileReplayWorker)
+                return m_d->listfileReplayWorker->getStats();
+            break;
     }
 
     return {};
