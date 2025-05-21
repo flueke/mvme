@@ -16,21 +16,22 @@
 namespace analysis::ui
 {
 
-QVector<QUuid> decode_id_list(QByteArray data)
+QVector<AnalysisObjectRef> decode_object_ref_list(QByteArray data)
 {
     QDataStream stream(&data, QIODevice::ReadOnly);
-    QVector<QByteArray> sourceIds;
-    stream >> sourceIds;
-
-    QVector<QUuid> result;
-    result.reserve(sourceIds.size());
-
-    for (const auto &idData: sourceIds)
-    {
-        result.push_back(QUuid(idData));
-    }
+    QVector<AnalysisObjectRef> result;
+    stream >> result;
 
     return result;
+}
+
+QByteArray encode_object_ref_list(const QVector<AnalysisObjectRef> &objectRefs)
+{
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
+    stream << objectRefs;
+
+    return data;
 }
 
 QWidget *show_sink_widget(AnalysisServiceProvider *asp, SinkInterface *sink, bool newWindow)
@@ -377,4 +378,22 @@ void edit_datasource(const SourcePtr &src)
     return;
 }
 
+}
+
+QDataStream &operator<<(QDataStream &out, const analysis::ui::AnalysisObjectRef &ref)
+{
+    out << ref.id << ref.index;
+    return out;
+}
+
+QDataStream &operator>>(QDataStream &in, analysis::ui::AnalysisObjectRef &ref)
+{
+    in >> ref.id >> ref.index;
+    return in;
+}
+
+QDebug operator<<(QDebug dbg, const analysis::ui::AnalysisObjectRef &ref)
+{
+    dbg.nospace() << "AnalysisObjectRef(id=" << ref.id << ", index=" << ref.index << ")";
+    return dbg.maybeSpace();
 }

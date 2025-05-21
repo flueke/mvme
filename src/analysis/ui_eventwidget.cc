@@ -179,6 +179,45 @@ std::shared_ptr<T> get_shared_analysis_object(QTreeWidgetItem *node,
     return std::dynamic_pointer_cast<T>(objPtr);
 }
 
+Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
+{
+    QTreeWidgetItem *sinkNode = nullptr;
+    Histo1DWidgetInfo result;
+
+    switch (node->type())
+    {
+        case NodeType_Histo1D:
+            {
+                Q_ASSERT(node->parent() && node->parent()->type() == NodeType_Histo1DSink);
+                sinkNode = node->parent();
+                result.histoAddress = node->data(0, DataRole_HistoAddress).toInt();
+            } break;
+
+        case NodeType_Histo1DSink:
+            {
+                sinkNode = node;
+                result.histoAddress = -1;
+            } break;
+
+        InvalidDefaultCase;
+    }
+
+    auto histoSink = get_pointer<Histo1DSink>(sinkNode, DataRole_AnalysisObject);
+    result.histos = histoSink->m_histos;
+    result.sink = std::dynamic_pointer_cast<Histo1DSink>(histoSink->shared_from_this());
+
+    // Check if the histosinks input is a CalibrationMinMax
+    if (Pipe *sinkInputPipe = histoSink->getSlot(0)->inputPipe)
+    {
+        if (auto calibRaw = qobject_cast<CalibrationMinMax *>(sinkInputPipe->getSource()))
+        {
+            result.calib = std::dynamic_pointer_cast<CalibrationMinMax>(calibRaw->shared_from_this());
+        }
+    }
+
+    return result;
+}
+
 //
 // ObjectTree and subclasses
 //
@@ -262,12 +301,12 @@ DataSourceTree::~DataSourceTree()
 
 QStringList DataSourceTree::mimeTypes() const
 {
-    return { DataSourceIdListMIMEType };
+    return { DataSourceObjectRefMimeType };
 }
 
 QMimeData *DataSourceTree::mimeData(const QList<QTreeWidgetItem *> items) const
 {
-    QVector<QByteArray> idData;
+    QVector<AnalysisObjectRef> objectRefs;
 
     for (auto item: items)
     {
@@ -276,7 +315,7 @@ QMimeData *DataSourceTree::mimeData(const QList<QTreeWidgetItem *> items) const
             case NodeType_Source:
                 if (auto source = get_pointer<SourceInterface>(item, DataRole_AnalysisObject))
                 {
-                    idData.push_back(source->getId().toByteArray());
+                    objectRefs.push_back(AnalysisObjectRef(source->getId()));
                 }
                 break;
 
@@ -287,7 +326,7 @@ QMimeData *DataSourceTree::mimeData(const QList<QTreeWidgetItem *> items) const
                         auto child = item->child(ci);
                         if (auto source = get_pointer<SourceInterface>(child, DataRole_AnalysisObject))
                         {
-                            idData.push_back(source->getId().toByteArray());
+                            objectRefs.push_back(AnalysisObjectRef(source->getId()));
                         }
                     }
                 }
@@ -297,12 +336,8 @@ QMimeData *DataSourceTree::mimeData(const QList<QTreeWidgetItem *> items) const
         }
     }
 
-    QByteArray buffer;
-    QDataStream stream(&buffer, QIODevice::WriteOnly);
-    stream << idData;
-
     auto result = new QMimeData;
-    result->setData(DataSourceIdListMIMEType, buffer);
+    result->setData(DataSourceObjectRefMimeType, encode_object_ref_list(objectRefs));
 
     return result;
 }
@@ -319,7 +354,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
      * If dropped onto a module the selected sources are (re)assigned to that module.
      */
 
-    const auto mimeType = DataSourceIdListMIMEType;
+    const auto mimeType = DataSourceObjectRefMimeType;
 
     if (action != Qt::MoveAction)
         return false;
@@ -327,9 +362,9 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
     if (!data->hasFormat(mimeType))
         return false;
 
-    auto ids = decode_id_list(data->data(mimeType));
+    auto objectRefs = decode_object_ref_list(data->data(mimeType));
 
-    if (ids.isEmpty())
+    if (objectRefs.isEmpty())
         return false;
 
     bool didModify = false;
@@ -338,7 +373,7 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
     check_directory_consistency(analysis->getDirectories(), analysis);
 
     AnalysisObjectVector droppedObjects;
-    droppedObjects.reserve(ids.size());
+    droppedObjects.reserve(objectRefs.size());
 
     if (!parentItem || parentItem == unassignedDataSourcesRoot)
     {
@@ -346,9 +381,12 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         AnalysisPauser pauser(getServiceProvider());
 
-        for (auto &id: ids)
+        for (auto &ref: objectRefs)
         {
-            if (auto source = analysis->getSource(id))
+            if (ref.isSubobjectRef())
+                continue;
+
+            if (auto source = analysis->getSource(ref.id))
             {
                 qDebug() << __PRETTY_FUNCTION__ <<
                     "removing module assignment from data source " << source.get();
@@ -371,9 +409,12 @@ bool DataSourceTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         AnalysisPauser pauser(getServiceProvider());
 
-        for (auto &id: ids)
+        for (auto &ref: objectRefs)
         {
-            if (auto source = analysis->getSource(id))
+            if (ref.isSubobjectRef())
+                continue;
+
+            if (auto source = analysis->getSource(ref.id))
             {
                 qDebug() << __PRETTY_FUNCTION__
                     << "assigning source " << source.get() << " to module " << module;
@@ -430,12 +471,12 @@ OperatorTree::~OperatorTree()
 
 QStringList OperatorTree::mimeTypes() const
 {
-    return { OperatorIdListMIMEType };
+    return { OperatorObjectRefMimeType };
 }
 
 QMimeData *OperatorTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
 {
-    QVector<QByteArray> idData;
+    QVector<AnalysisObjectRef> objectRefs;
 
     for (auto node: nodes)
     {
@@ -449,7 +490,7 @@ QMimeData *OperatorTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
                 {
                     if (auto op = get_pointer<OperatorInterface>(node, DataRole_AnalysisObject))
                     {
-                        idData.push_back(op->getId().toByteArray());
+                        objectRefs.push_back(AnalysisObjectRef(op->getId()));
                     }
                 } break;
 
@@ -457,7 +498,7 @@ QMimeData *OperatorTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
                 {
                     if (auto dir = get_pointer<Directory>(node, DataRole_AnalysisObject))
                     {
-                        idData.push_back(dir->getId().toByteArray());
+                        objectRefs.push_back(AnalysisObjectRef(dir->getId()));
                     }
                 } break;
 
@@ -466,12 +507,8 @@ QMimeData *OperatorTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
         }
     }
 
-    QByteArray buffer;
-    QDataStream stream(&buffer, QIODevice::WriteOnly);
-    stream << idData;
-
     auto result = new QMimeData;
-    result->setData(OperatorIdListMIMEType, buffer);
+    result->setData(OperatorObjectRefMimeType, encode_object_ref_list(objectRefs));
 
     return result;
 }
@@ -488,7 +525,7 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
     /* Note: This code assumes that only top level items are passed in via the mime data
      * object. OperatorTree::mimeData() guarantees this. */
 
-    const auto mimeType = OperatorIdListMIMEType;
+    const auto mimeType = OperatorObjectRefMimeType;
 
     if (action != Qt::MoveAction)
         return false;
@@ -496,9 +533,9 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
     if (!data->hasFormat(mimeType))
         return false;
 
-    auto ids = decode_id_list(data->data(mimeType));
+    auto objectRefs = decode_object_ref_list(data->data(mimeType));
 
-    if (ids.isEmpty())
+    if (objectRefs.isEmpty())
         return false;
 
     DirectoryPtr destDir;
@@ -516,9 +553,12 @@ bool OperatorTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     AnalysisObjectSet dropSet;
 
-    for (const auto &id: ids)
+    for (const auto &ref: objectRefs)
     {
-        if (auto obj = analysis->getObject(id))
+        if (ref.isSubobjectRef())
+            continue;
+
+        if (auto obj = analysis->getObject(ref.id))
             dropSet.insert(obj);
     }
 
@@ -625,14 +665,14 @@ SinkTree::~SinkTree()
 
 QStringList SinkTree::mimeTypes() const
 {
-    return { SinkIdListMIMEType };
+    return { SinkObjectRefMimeType };
 }
 
 QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
 {
     //qDebug() << __PRETTY_FUNCTION__ << this;
 
-    QVector<QByteArray> idData;
+    QVector<AnalysisObjectRef> objectRefs;
 
     for (auto node: nodes)
     {
@@ -649,7 +689,7 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
                 {
                     if (auto op = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
                     {
-                        idData.push_back(op->getId().toByteArray());
+                        objectRefs.push_back(AnalysisObjectRef(op->getId()));
                     }
                 } break;
 
@@ -657,8 +697,14 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
                 {
                     if (auto dir = get_pointer<Directory>(node, DataRole_AnalysisObject))
                     {
-                        idData.push_back(dir->getId().toByteArray());
+                        objectRefs.push_back(AnalysisObjectRef(dir->getId()));
                     }
+                } break;
+
+            case NodeType_Histo1D:
+                {
+                    if (auto h1dInfo = getHisto1DWidgetInfoFromNode(node); h1dInfo.sink)
+                        objectRefs.push_back(AnalysisObjectRef(h1dInfo.sink->getId(), h1dInfo.histoAddress));
                 } break;
 
             default:
@@ -666,12 +712,8 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
         }
     }
 
-    QByteArray buffer;
-    QDataStream stream(&buffer, QIODevice::WriteOnly);
-    stream << idData;
-
     auto result = new QMimeData;
-    result->setData(SinkIdListMIMEType, buffer);
+    result->setData(SinkObjectRefMimeType, encode_object_ref_list(objectRefs));
 
     return result;
 }
@@ -685,7 +727,7 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
 
     qDebug() << __PRETTY_FUNCTION__ << this;
 
-    const auto mimeType = SinkIdListMIMEType;
+    const auto mimeType = SinkObjectRefMimeType;
 
     if (action != Qt::MoveAction)
         return false;
@@ -693,9 +735,9 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
     if (!data->hasFormat(mimeType))
         return false;
 
-    auto ids = decode_id_list(data->data(mimeType));
+    auto objectRefs = decode_object_ref_list(data->data(mimeType));
 
-    if (ids.isEmpty())
+    if (objectRefs.isEmpty())
         return false;
 
     DirectoryPtr destDir;
@@ -712,11 +754,14 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
     check_directory_consistency(analysis->getDirectories(), analysis);
 
     AnalysisObjectVector droppedObjects;
-    droppedObjects.reserve(ids.size());
+    droppedObjects.reserve(objectRefs.size());
 
-    for (auto &id: ids)
+    for (auto &ref: objectRefs)
     {
-        auto obj = analysis->getObject(id);
+        if (ref.isSubobjectRef())
+            continue;
+
+        auto obj = analysis->getObject(ref.id);
 
         if (!obj)
         {
@@ -738,7 +783,7 @@ bool SinkTree::dropMimeData(QTreeWidgetItem *parentItem,
 
         obj->setUserLevel(getUserLevel());
 
-        if (auto dir = analysis->getDirectory(id))
+        if (auto dir = analysis->getDirectory(ref.id))
         {
             auto childObjects = analysis->getDirectoryContentsRecursively(dir);
 
@@ -958,7 +1003,8 @@ inline TreeNode *make_histo1d_node(Histo1DSink *sink)
             auto histoNode = make_node(histo, NodeType_Histo1D, DataRole_RawPointer);
             histoNode->setData(0, DataRole_HistoAddress, addr);
             histoNode->setText(0, QString::number(addr));
-            node->setIcon(0, make_operator_icon(sink));
+            histoNode->setIcon(0, make_operator_icon(sink));
+            histoNode->setFlags(histoNode->flags() | Qt::ItemIsDragEnabled);
 
             node->addChild(histoNode);
         }
@@ -1161,45 +1207,6 @@ QDialog::DialogCode run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels,
     }
 
     return QDialog::Rejected;
-}
-
-Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
-{
-    QTreeWidgetItem *sinkNode = nullptr;
-    Histo1DWidgetInfo result;
-
-    switch (node->type())
-    {
-        case NodeType_Histo1D:
-            {
-                Q_ASSERT(node->parent() && node->parent()->type() == NodeType_Histo1DSink);
-                sinkNode = node->parent();
-                result.histoAddress = node->data(0, DataRole_HistoAddress).toInt();
-            } break;
-
-        case NodeType_Histo1DSink:
-            {
-                sinkNode = node;
-                result.histoAddress = -1;
-            } break;
-
-        InvalidDefaultCase;
-    }
-
-    auto histoSink = get_pointer<Histo1DSink>(sinkNode, DataRole_AnalysisObject);
-    result.histos = histoSink->m_histos;
-    result.sink = std::dynamic_pointer_cast<Histo1DSink>(histoSink->shared_from_this());
-
-    // Check if the histosinks input is a CalibrationMinMax
-    if (Pipe *sinkInputPipe = histoSink->getSlot(0)->inputPipe)
-    {
-        if (auto calibRaw = qobject_cast<CalibrationMinMax *>(sinkInputPipe->getSource()))
-        {
-            result.calib = std::dynamic_pointer_cast<CalibrationMinMax>(calibRaw->shared_from_this());
-        }
-    }
-
-    return result;
 }
 
 QWidget *open_or_raise_histo1dsink_widget(
@@ -1774,19 +1781,22 @@ void EventWidgetPrivate::pasteFromClipboard(QTreeWidget *destTree)
         destDir = get_shared_analysis_object<Directory>(tree->currentItem(), DataRole_AnalysisObject);
     }
 
-    const auto mimeType = ObjectIdListMIMEType;
+    const auto mimeType = ObjectRefMimeType;
     auto clipboardData = QGuiApplication::clipboard()->mimeData();
-    auto ids = decode_id_list(clipboardData->data(mimeType));
+    auto objectRefs = decode_object_ref_list(clipboardData->data(mimeType));
     auto analysis = m_serviceProvider->getAnalysis();
 
     check_directory_consistency(analysis->getDirectories(), analysis);
 
     AnalysisObjectVector srcObjects;
-    srcObjects.reserve(ids.size());
+    srcObjects.reserve(objectRefs.size());
 
-    for (const auto &id: ids)
+    for (const auto &ref: objectRefs)
     {
-        if (auto srcObject = analysis->getObject(id))
+        if (ref.isSubobjectRef())
+            continue;
+
+        if (auto srcObject = analysis->getObject(ref.id))
             srcObjects.push_back(srcObject);
     }
 
@@ -5819,7 +5829,7 @@ void EventWidgetPrivate::copyToClipboard(const AnalysisObjectVector &objects)
     stream << idData;
 
     auto mimeData = new QMimeData;
-    mimeData->setData(ObjectIdListMIMEType, buffer);
+    mimeData->setData(ObjectRefMimeType, buffer);
 
     QGuiApplication::clipboard()->setMimeData(mimeData);
 }
@@ -5828,7 +5838,7 @@ bool EventWidgetPrivate::canPaste()
 {
     auto clipboardData = QGuiApplication::clipboard()->mimeData();
 
-    return clipboardData->hasFormat(ObjectIdListMIMEType);
+    return clipboardData->hasFormat(ObjectRefMimeType);
 }
 
 } // ns ui

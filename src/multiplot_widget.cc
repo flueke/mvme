@@ -234,7 +234,7 @@ struct MultiPlotWidget::Private
         }
         else
         {
-            auto helpText = QSL("Drag and drop histograms and plots here to add them to the view.");
+            auto helpText = QSL("Drag and drop histograms and other plots here to add them to the view.");
             auto label = new QLabel(helpText);
             label->setAlignment(Qt::AlignCenter);
             scrollArea_->setWidget(label);
@@ -466,7 +466,6 @@ struct MultiPlotWidget::Private
             analysisGridView_->setObjectName(le_name->text());
             analysisGridView_->setUserLevel(spin_userLevel->value());
             q->setWindowTitle(analysisGridView_->objectName());
-            actionSaveView_->setEnabled(false);
         }
 
         EntryConversionVisitor ecv;
@@ -487,7 +486,6 @@ struct MultiPlotWidget::Private
         analysisGridView_->setGaussEnabled(actionGauss_->isChecked());
 
         if (isNewView)
-            // FIXME: eventwidget is currently not being repopulated after adding the grid view
             asp_->getAnalysis()->addObject(analysisGridView_);
         else
             asp_->getAnalysis()->setModified();
@@ -524,7 +522,6 @@ struct MultiPlotWidget::Private
 
         q->setWindowTitle("PlotGrid " + view->objectName());
         analysisGridView_ = view;
-        actionSaveView_->setEnabled(false);
 
         relayout();
         refresh();
@@ -844,7 +841,7 @@ size_t MultiPlotWidget::getNumberOfEntries() const
 
 void MultiPlotWidget::dragEnterEvent(QDragEnterEvent *ev)
 {
-    if (ev->mimeData()->hasFormat(SinkIdListMIMEType))
+    if (ev->mimeData()->hasFormat(SinkObjectRefMimeType))
     {
         qDebug() << __PRETTY_FUNCTION__ << ev << ev->mimeData();
         ev->acceptProposedAction();
@@ -875,20 +872,34 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
     //qDebug() << __PRETTY_FUNCTION__ << ev;
     auto analysis = d->asp_->getAnalysis();
 
-    if (analysis && ev->mimeData()->hasFormat(SinkIdListMIMEType))
+    // external drop
+    if (analysis && ev->mimeData()->hasFormat(SinkObjectRefMimeType))
     {
-        auto ids = decode_id_list(ev->mimeData()->data(SinkIdListMIMEType));
-        qDebug() << __PRETTY_FUNCTION__ << ev << ids;
+        auto objectRefs = decode_object_ref_list(ev->mimeData()->data(SinkObjectRefMimeType));
+        qDebug() << __PRETTY_FUNCTION__ << ev << objectRefs;
         std::vector<SinkPtr> sinks;
-        for (const auto &id: ids)
+        for (const auto &ref: objectRefs)
         {
-            if (auto sink = analysis->getObject<SinkInterface>(id))
+            auto sink = analysis->getObject<SinkInterface>(ref.id);
+
+            if (!sink)
+                continue;
+
+            if (!ref.isSubobjectRef())
             {
                 d->addSink(sink);
             }
+            else
+            {
+                d->addSinkElement(sink, ref.index);
+                d->relayout();
+            }
         }
         d->refresh();
+        if (d->analysisGridView_)
+            d->saveView();
     }
+    // internal drop
     else if (ev->source() == this && ev->mimeData()->hasFormat(PlotTileMimeType))
     {
         auto sourceIndex = QVariant(ev->mimeData()->data(PlotTileMimeType)).toInt();
@@ -898,7 +909,11 @@ void MultiPlotWidget::dropEvent(QDropEvent *ev)
                  << "destIndex =" << destIndex;
         if (sourceIndex >= 0 && destIndex >= 0)
             d->moveEntry(sourceIndex, destIndex);
+
+        if (d->analysisGridView_)
+            d->saveView();
     }
+    // any other drop
     else
         QWidget::dropEvent(ev);
 }
