@@ -40,15 +40,15 @@ calibrated histograms in the bottom view.
     To get a set of basic data extraction filters, calibration operators and
     histograms right-click on a module an select *Generate default filters*.
 
-User Levels are used to structure the analysis and it's completely optional to have
-more than two of them. Additional levels can be added/removed using the *+* and
-*-* buttons at the top-right.  Use the *Level Visibility* button to select
+User Levels are used to structure the analysis and it's completely optional to
+have more than two of them. Additional levels can be added/removed using the *+*
+and *-* buttons at the top-right.  Use the *Level Visibility* button to select
 which levels are shown/hidden.
 
 The UI enforces the rule that operators can use inputs from levels less-than or
-equal to their own level. This means data should always flow from left to
-right. This restriction does not apply to data sinks in the bottom tree. These
-can be freely placed on any userlevel in the bottom tree.
+equal to their own level. This means data should always flow from left to right.
+This restriction does not apply to data sinks in the bottom tree. These can be
+freely placed on any userlevel in the bottom tree.
 
 Operators can be moved between levels by dragging and dropping them.
 
@@ -1287,6 +1287,25 @@ Objects can be moved in-between trees by dragging and dropping. Selected
 objects from the source tree will be moved to the destination tree. If the
 destination is a directory all dropped objects will be reparented into that
 directory.
+
+Plot Grid
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A plot grid is a view for existing 1D and 2D histograms. A plot grid for an
+array of 1D histograms can be created on the fly via the context menu entry
+*Open in Plot Grid*. Alternatively a new, empty grid object can be created using
+*New -> Plot Grid* in the *Data Display* area.
+
+H1D and H2D objects can be added to the grid by dragging them from the analysis
+trees onto the grid view.
+
+Use *Save View* in the grid widgets toolbar to permanently save the view in the
+analysis setup.
+
+The arrangement of plots in the grid can be changed by selecting *Edit* in the
+toolbar, then dragging plots into the desired order. Right-clicking a plot in
+*Edit* mode allows to set a custom plot title or remove the plot from the grid
+view.
 
 Multiselections
 ~~~~~~~~~~~~~~~
