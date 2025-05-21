@@ -2211,7 +2211,7 @@ void EventWidgetPrivate::populateDataSourceTree(
         make_natural_order_comparator([] (const auto &node) { return node->text(0); }));
 
 
-    // We do have unassigned module so create the root node to hold them.
+    // We do have unassigned modules so create the root node to hold them.
     {
         assert(!tree->unassignedDataSourcesRoot);
         auto node = new TreeNode({QSL("Unassigned")});
@@ -3372,6 +3372,28 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         {
             add_newOperatorAction(op->getDisplayName(), op, destDir);
         }
+
+        menuNew->addSeparator();
+        menuNew->addAction(QIcon(":/grid.png"), QSL("Plot Grid"), parentMenu, [this, userLevel, destDir]() {
+
+            auto gridView = std::make_shared<PlotGridView>();
+            gridView->setObjectName(QSL("New PlotGrid"));
+            gridView->setUserLevel(userLevel);
+            gridView->setMaxColumns(4);
+            m_serviceProvider->getAnalysis()->addObject(gridView);
+            if (destDir)
+            {
+                destDir->push_back(gridView);
+            }
+
+            repopulate();
+
+            if (auto node = findNode(gridView))
+            {
+                node->setExpanded(true);
+                node->treeWidget()->editItem(node);
+            }
+        });
 
         menuNew->addSeparator();
         menuNew->addAction(

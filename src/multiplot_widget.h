@@ -59,39 +59,4 @@ class LIBMVME_EXPORT MultiPlotWidget: public QWidget
         std::unique_ptr<Private> d;
 };
 
-#if 0
-class PlotArrayWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        PlotArrayWidget(QWidget *parent = nullptr);
-        ~PlotArrayWidget() override;
-
-        void addSink(const std::shared_ptr<analysis::Histo1DSink> &sink);
-        void addSink(const std::shared_ptr<analysis::RateMonitorSink> &sink);
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
-
-class PlotGalleryWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        PlotGalleryWidget(QWidget *parent = nullptr);
-        ~PlotGalleryWidget() override;
-
-        void addSink(const std::shared_ptr<analysis::Histo1DSink> &sink);
-        void addSink(const std::shared_ptr<analysis::Histo1DSink> &sink, int histoIndex);
-        void addSink(const std::shared_ptr<analysis::RateMonitorSink> &sink);
-        void addSink(const std::shared_ptr<analysis::RateMonitorSink> &sink, int monIndex);
-        void addSink(const std::shared_ptr<analysis::Histo2DSink> &sink);
-
-    private:
-        struct Private;
-        std::unique_ptr<Private> d;
-};
-#endif
-
 #endif // __MNT_DATA_SRC_MVME2_SRC_MULTIPLOT_WIDGET_H_

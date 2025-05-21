@@ -120,6 +120,7 @@ struct MultiPlotWidget::Private
     QComboBox *combo_axisScaleType_ = {};
     QSpinBox *spin_columns_;
     QAction *actionGauss_ = {};
+    QAction *actionSaveView_ = {};
     QTimer replotTimer_;
 
     void addEntry(std::shared_ptr<PlotEntry> &&e)
@@ -221,13 +222,23 @@ struct MultiPlotWidget::Private
             delete plotMatrix_;
         }
 
-        plotMatrix_ = new PlotMatrix(entries_, maxColumns_);
-        plotMatrix_->installEventFilter(q);
-        plotMatrix_->setMouseTracking(true);
-        scrollArea_->setWidget(plotMatrix_);
+        if (!entries_.empty())
+        {
+            plotMatrix_ = new PlotMatrix(entries_, maxColumns_);
+            plotMatrix_->installEventFilter(q);
+            plotMatrix_->setMouseTracking(true);
+            scrollArea_->setWidget(plotMatrix_);
 
-        scrollArea_->horizontalScrollBar()->setValue(scrollPositions.first);
-        scrollArea_->verticalScrollBar()->setValue(scrollPositions.second);
+            scrollArea_->horizontalScrollBar()->setValue(scrollPositions.first);
+            scrollArea_->verticalScrollBar()->setValue(scrollPositions.second);
+        }
+        else
+        {
+            auto helpText = QSL("Drag and drop histograms and plots here to add them to the view.");
+            auto label = new QLabel(helpText);
+            label->setAlignment(Qt::AlignCenter);
+            scrollArea_->setWidget(label);
+        }
         //qDebug() << __PRETTY_FUNCTION__ << "leaving relayout()";
     }
 
@@ -455,6 +466,7 @@ struct MultiPlotWidget::Private
             analysisGridView_->setObjectName(le_name->text());
             analysisGridView_->setUserLevel(spin_userLevel->value());
             q->setWindowTitle(analysisGridView_->objectName());
+            actionSaveView_->setEnabled(false);
         }
 
         EntryConversionVisitor ecv;
@@ -512,6 +524,7 @@ struct MultiPlotWidget::Private
 
         q->setWindowTitle("PlotGrid " + view->objectName());
         analysisGridView_ = view;
+        actionSaveView_->setEnabled(false);
 
         relayout();
         refresh();
@@ -679,7 +692,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     actionRearrange->setStatusTip("Drag & drop plots to rearrange."); // Double-click plot titles to edit.");
     actionRearrange->setCheckable(true);
 
-    auto actionSaveView = tb->addAction(QIcon(":/document-save.png"), "Save View");
+    d->actionSaveView_ = tb->addAction(QIcon(":/document-save.png"), "Save View");
 
     auto actionEnlargeTiles = tb->addAction(QIcon(":/map.png"), "Larger Tiles");
     auto actionShrinkTiles = tb->addAction(QIcon(":/map-medium.png"), "Smaller Tiles");
@@ -708,7 +721,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
     plotInteractions->addAction(actionZoom);
     plotInteractions->addAction(actionRearrange);
 
-    connect(actionSaveView, &QAction::triggered,
+    connect(d->actionSaveView_, &QAction::triggered,
             this, [this] { d->saveView(); });
 
     connect(actionEnlargeTiles, &QAction::triggered,
@@ -754,6 +767,7 @@ MultiPlotWidget::MultiPlotWidget(AnalysisServiceProvider *asp, QWidget *parent)
             this, [this] { d->refresh(); });
 
     d->replotTimer_.start(Private::DefaultReplotPeriod_ms);
+    resize(800, 600);
 }
 
 MultiPlotWidget::~MultiPlotWidget()
