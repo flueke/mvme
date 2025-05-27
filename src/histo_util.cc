@@ -29,6 +29,9 @@
 #include <QGroupBox>
 #include <QRadioButton>
 
+const s64 AxisBinning::Underflow;
+const s64 AxisBinning::Overflow;
+
 QString makeAxisTitle(const QString &title, const QString &unit)
 {
     QString result;

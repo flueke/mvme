@@ -115,6 +115,12 @@ class LIBMVME_EXPORT Histo1D: public QObject
         /* Returns the counts of the bin containing the given x value. */
         double getValue(double x, u32 rrf = NoRR) const;
 
+        // Returns the counts falling in the given x range.
+        // If the range crosses multiple bins, returns the sum of the fractional bin counts.
+        // If the range is less than a bin wide, returns the fractional bin count.
+        // Returns a quiet NaN if the range is invalid (xMin >= xMax).
+        double getCounts(double xMin, double xMax) const;
+
         /* Returns a pair of (x_bin_low_edge, y_counts) for the given x value. */
         std::pair<double, double> getValueAndBinLowEdge(double x, u32 rrf = NoRR) const;
 

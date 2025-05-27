@@ -139,6 +139,42 @@ double Histo1D::getValue(double x, u32 rrf) const
     return getBinContent(bin, rrf);
 }
 
+double Histo1D::getCounts(double xMin, double xMax) const
+{
+    if (xMin >= xMax)
+       return make_quiet_nan();
+
+    double minBinF = m_xAxisBinning.getBinUnchecked(xMin);
+    double maxBinF = m_xAxisBinning.getBinUnchecked(xMax);
+
+    if (minBinF < 0.0 || maxBinF < 0.0 || minBinF >= maxBinF)
+        return make_quiet_nan(); // Invalid range
+
+    s64 firstBin = static_cast<s64>(minBinF);
+    s64 lastBin  = static_cast<s64>(maxBinF);
+    double sum = 0.0;
+    double d;
+
+    for (s64 bin = firstBin; bin <= lastBin; ++bin)
+    {
+        double binValue = getBinContent(bin);
+        double fraction = 1.0;
+        if (bin == firstBin)
+        {
+            if (auto f = std::modf(minBinF, &d); f > 0.0)
+                fraction = f;
+        }
+        else if (bin == lastBin)
+        {
+            if (auto f = std::modf(maxBinF, &d); f > 0.0)
+                fraction = f;
+        }
+        sum += binValue * fraction;
+    }
+
+    return sum;
+}
+
 std::pair<double, double> Histo1D::getValueAndBinLowEdge(double x, u32 rrf) const
 {
     s64 bin = m_xAxisBinning.getBin(x, rrf);
