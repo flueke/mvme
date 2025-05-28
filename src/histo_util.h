@@ -390,4 +390,7 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
     double startX, double endX, double startY, double endY,
     ResolutionReductionFactors rrfs = {});
 
+Histo1DPtr add(const Histo1D &a, const Histo1D &b);
+Histo1DPtr add(const Histo1DList &histos);
+
 #endif /* __HISTO_UTIL_H__ */

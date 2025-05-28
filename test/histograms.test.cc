@@ -122,3 +122,21 @@ TEST(Histograms, Histo1DNegativeAxisGetCountsInRange)
     ASSERT_NEAR(histo.getCounts(-8.8, -6.0), 0.8 + 1.0 + 2.0, epsilon);
     ASSERT_NEAR(histo.getCounts(-8.8, -6.2), 0.8 + 1.0 + 0.8 * 2.0, epsilon);
 }
+
+TEST(Histograms, AddHistograms)
+{
+    Histo1D histo1(10, 0.0, 10.0);
+    Histo1D histo2(20, 5.0, 20.0);
+
+    histo1.fill(1.0);
+    histo1.fill(2.0);
+    histo1.fill(2.0);
+    histo1.fill(3.0);
+
+    histo2.fill(1.0);
+    histo2.fill(2.0);
+    histo2.fill(2.0);
+    histo2.fill(3.0);
+
+    auto result = add(histo1, histo2);
+}

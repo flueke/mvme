@@ -398,3 +398,56 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
 
     return result;
 }
+
+Histo1DPtr add(const Histo1D &a, const Histo1D &b)
+{
+    size_t nBins = std::min(a.getNumberOfBins(), b.getNumberOfBins());
+    size_t xMin = std::min(a.getXMin(), b.getXMin());
+    size_t xMax = std::max(a.getXMax(), b.getXMax());
+
+    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
+
+    for (size_t destbin = 0; destbin < nBins; ++destbin)
+    {
+        double xLow = result->getBinLowEdge(destbin);
+        double xHigh = xLow + result->getBinWidth();
+
+        auto countsA = a.getCounts(xLow, xHigh);
+        auto countsB = a.getCounts(xLow, xHigh);
+
+        result->setBinContent(destbin,
+            countsA + countsB,
+            countsA + countsB);
+    }
+    return result;
+}
+
+Histo1DPtr add(const Histo1DList &histos)
+{
+    size_t nBins = 0;
+    double xMin = 0;
+    double xMax = 0;
+
+    for (const auto &histo: histos)
+    {
+        nBins = std::min(nBins, static_cast<size_t>(histo->getNumberOfBins()));
+        xMin = std::min(xMin, histo->getXMin());
+        xMax = std::max(xMax, histo->getXMax());
+    }
+
+    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
+
+    for (const auto &histo: histos)
+    {
+        for (size_t destbin = 0; destbin < nBins; ++destbin)
+        {
+            double xLow = result->getBinLowEdge(destbin);
+            double xHigh = xLow + result->getBinWidth();
+            auto counts = histo->getCounts(xLow, xHigh);
+            auto newCounts = result->getBinContent(destbin) + counts;
+            result->setBinContent(destbin, newCounts, newCounts);
+        }
+    }
+
+    return result;
+}
