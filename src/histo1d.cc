@@ -142,37 +142,48 @@ double Histo1D::getValue(double x, u32 rrf) const
 double Histo1D::getCounts(double xMin, double xMax) const
 {
     if (xMin >= xMax)
-       return make_quiet_nan();
+        std::swap(xMin, xMax);
 
     double minBinF = m_xAxisBinning.getBinUnchecked(xMin);
     double maxBinF = m_xAxisBinning.getBinUnchecked(xMax);
 
-    if (minBinF < 0.0 || maxBinF < 0.0 || minBinF >= maxBinF)
-        return make_quiet_nan(); // Invalid range
+    if (minBinF < 0.0 || maxBinF < 0.0 || minBinF > maxBinF)
+        return 0.0;
 
-    s64 firstBin = static_cast<s64>(minBinF);
-    s64 lastBin  = static_cast<s64>(maxBinF);
-    double sum = 0.0;
-    double d;
+    double minBin;
+    double maxBin;
+    double minFraction = std::modf(minBinF, &minBin);
+    double maxFraction = std::modf(maxBinF, &maxBin);
 
-    for (s64 bin = firstBin; bin <= lastBin; ++bin)
+    assert(minBin >= 0);
+    assert(maxBin >= 0);
+    assert(minBin <= maxBin);
+
+    if (minBin == maxBin)
     {
-        double binValue = getBinContent(bin);
-        double fraction = 1.0;
-        if (bin == firstBin)
-        {
-            if (auto f = std::modf(minBinF, &d); f > 0.0)
-                fraction = f;
-        }
-        else if (bin == lastBin)
-        {
-            if (auto f = std::modf(maxBinF, &d); f > 0.0)
-                fraction = f;
-        }
-        sum += binValue * fraction;
+        // Range is less than a bin wide, return the fractional bin count
+        double binValue = getBinContent(minBin);
+        return binValue * (maxFraction - minFraction);
     }
 
-    return sum;
+    // Range crosses multiple bins, sum the (fractional) bin counts
+    double result = 0.0;
+
+    // First fractional bin
+    double v = getBinContent(minBin);
+    v *= (1.0 - minFraction);
+    result += v;
+
+    // full bins in between
+    for (s64 theBin = minBin + 1; theBin < maxBin; ++theBin)
+        result += getBinContent(theBin);
+
+    // Last fractional bin
+    v = getBinContent(maxBin);
+    v *= maxFraction;
+    result += v;
+
+    return result;
 }
 
 std::pair<double, double> Histo1D::getValueAndBinLowEdge(double x, u32 rrf) const
