@@ -21,9 +21,10 @@
 #ifndef __EXPRESSION_OPERATOR_DIALOG_H__
 #define __EXPRESSION_OPERATOR_DIALOG_H__
 
+#include "analysis_ui_p.h"
+
 #include <memory>
 #include <QDialog>
-#include "analysis_ui_p.h"
 #include "object_editor_dialog.h"
 
 class MVMEContext;

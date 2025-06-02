@@ -21,10 +21,10 @@
 #ifndef __ANALYSIS_FWD_H__
 #define __ANALYSIS_FWD_H__
 
-#include <memory>
 #include <QHash>
 #include <QSet>
 #include <QVector>
+#include <memory>
 
 namespace analysis
 {

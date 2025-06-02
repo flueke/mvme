@@ -353,12 +353,13 @@ target_link_libraries(libmvme
 
 #add_compile_definitions(QT_DISABLE_DEPRECATED_UP_TO=0x060700)
 
-target_compile_options(libmvme
-    PRIVATE $<${not-msvc}:-Wall -Wextra>
-    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
-    PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
-    PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
-    )
+target_compile_options(libmvme PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700 -Wno-deprecated-declarations)
+#target_compile_options(libmvme
+#    PRIVATE $<${not-msvc}:-Wall -Wextra>
+#    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+#    PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
+#    PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
+#    )
 
 #target_include_directories(libmvme PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/analysis/a2)
 
