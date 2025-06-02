@@ -1,0 +1,14 @@
+{
+  "dependencies": [
+    "boost-circular-buffer",
+    "boost-dynamic-bitset",
+    "boost-geometry",
+    "graphviz",
+    "liblzma",
+    "lz4",
+    "quazip-qt5",
+    "qt5",
+    "qwt",
+    "zlib"
+  ]
+}

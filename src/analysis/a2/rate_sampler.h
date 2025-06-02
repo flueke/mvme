@@ -178,10 +178,10 @@ struct RateSampler
     double getFirstSampleTime() const { return getSampleTime(0); }
     double getLastSampleTime() const { return getSampleTime(historySize() - 1); }
 
-    ssize_t getSampleIndex(double sampleTime) const
+    std::int64_t getSampleIndex(double sampleTime) const
     {
         UniqueLock guard(mutex);
-        ssize_t result = std::floor(sampleTime / interval - totalSamples + rateHistory.size());
+        std::int64_t result = std::floor(sampleTime / interval - totalSamples + rateHistory.size());
         return result;
     }
 };

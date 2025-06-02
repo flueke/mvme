@@ -802,7 +802,7 @@ DataSource make_datasource_mdpp_sample_decoder(
 {
     using namespace mesytec::mvme;
 
-    const auto statsCount = mdpp_sampling::TraceHeader::PartNames.size();
+    const auto statsCount = mdpp_sampling::TraceHeader::PartNames().size();
     auto result = make_datasource(arena, DataSource_MdppSampleDecoder, moduleIndex, maxChannels + statsCount);
 
     auto ex = arena->pushObject<MdppSampleDecoder>();
@@ -824,7 +824,7 @@ DataSource make_datasource_mdpp_sample_decoder(
     {
         auto statsIndex = outputIndex - maxChannels;
         double maxValue = make_quiet_nan();
-        if (statsIndex < mdpp_sampling::TraceHeader::PartBits.size())
+        if (statsIndex < mdpp_sampling::TraceHeader::PartBits().size())
         {
             if (statsIndex == mdpp_sampling::TraceHeader::Phase)
             {
@@ -835,7 +835,7 @@ DataSource make_datasource_mdpp_sample_decoder(
             }
             else
             {
-                maxValue = (1u << mdpp_sampling::TraceHeader::PartBits[statsIndex]);
+                maxValue = (1u << mdpp_sampling::TraceHeader::PartBits()[statsIndex]);
             }
         }
         push_output_vectors(arena, &result, outputIndex, maxChannels, 0.0, maxValue);
@@ -854,7 +854,7 @@ void mdpp_sample_decoder_begin_event(DataSource *ds)
 inline double normalize_phase(double phase)
 {
     using namespace mesytec::mvme;
-    static const double PhaseMax = 1u << mdpp_sampling::TraceHeader::PartBits[mdpp_sampling::TraceHeader::Phase];
+    static const double PhaseMax = 1u << mdpp_sampling::TraceHeader::PartBits()[mdpp_sampling::TraceHeader::Phase];
 
     return phase / PhaseMax;
 }
@@ -897,7 +897,7 @@ void mdpp_sample_decoder_process_module_data(DataSource *ds, const u32 *data, u3
         }
     }
 
-    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size(); (void) statsCount;
+    const auto statsCount = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames().size(); (void) statsCount;
     size_t firstStatsIndex = ex->maxChannels;
     assert(firstStatsIndex + statsCount == ds->outputCount);
 
