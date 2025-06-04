@@ -139,6 +139,7 @@ if(MVME_BUILD_TESTS)
     function(add_a2_bench exe_name exe_sources)
         add_executable(${exe_name} ${exe_sources})
         add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
+        target_link_libraries(${exe_name} PRIVATE range-v3::range-v3)
         if (WIN32)
             target_link_libraries(${exe_name}
                 PRIVATE ${A2_TEST_LIBRARY}
