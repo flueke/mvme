@@ -19,3 +19,4 @@ build*/
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 CMakeUserPresets.json
+vcpkg_installed/
