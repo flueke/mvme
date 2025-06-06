@@ -729,7 +729,7 @@ std::pair<std::shared_ptr<Analysis>, std::error_code> read_analysis(const QJsonD
 
     std::pair<std::shared_ptr<Analysis>, std::error_code> ret;
 
-    ret.first = std::shared_ptr<Analysis>(new Analysis, [] (auto a) { a->deleteLater(); });
+    ret.first = std::shared_ptr<Analysis>(new Analysis, [] (Analysis *a) { a->deleteLater(); });
     ret.second = ret.first->read(json);
 
     if (ret.second)

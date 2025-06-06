@@ -6,6 +6,7 @@
     "graphviz",
     "liblzma",
     "lz4",
+    "nng",
     "quazip-qt5",
     "qt5",
     "qwt",

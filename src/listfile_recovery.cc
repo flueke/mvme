@@ -6,6 +6,7 @@
 
 #include "listfile_recovery.h"
 #include <QtEndian>
+#include <array>
 #include <system_error>
 #include <zlib.h>
 #include <mesytec-mvlc/mvlc_listfile_zip.h>
