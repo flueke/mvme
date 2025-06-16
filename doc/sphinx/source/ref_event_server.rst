@@ -102,9 +102,12 @@ To build the client run the following shell commands:
 
    ::
 
-       cd mvme                                        # cd into the mvme installation directory
-       source bin/initMVME                            # setup the enviroment ($PATH, $LD_LIBRARY_PATH)
-       make -C ${MVME}/share/mvme_root_client install # compile and install the client
+      # cd into the mvme installation directory
+      cd mvme
+      # setup the enviroment ($PATH, $LD_LIBRARY_PATH)
+      source bin/initMVME
+      # compile and install the client
+      make -C ${MVME}/share/mvme_root_client install
 
 You can now create a data directory to hold the generated code and output ROOT
 files and start the mvme_root_client from within this directory.
