@@ -413,7 +413,7 @@ Histo1DPtr add(const Histo1D &a, const Histo1D &b)
         double xHigh = xLow + result->getBinWidth();
 
         auto countsA = a.getCounts(xLow, xHigh);
-        auto countsB = a.getCounts(xLow, xHigh);
+        auto countsB = b.getCounts(xLow, xHigh);
 
         result->setBinContent(destbin,
             countsA + countsB,
