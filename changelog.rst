@@ -4,6 +4,51 @@
 Changelog
 ##################################################
 
+Version 1.16.1
+--------------------------------------------------
+* multi_event_splitter:
+
+  - The splitter can now make use of multiple event header filters per module.
+    This is needed to support mdpp16/32 sampling formats which use a new header
+    word allowing to encode larger frame sizes.
+
+  - Revive error counters (moduleHeaderMismatches and
+    moduleEventSizeExceedsBuffer are counted again).
+
+  - Display more info when inspecting buffers.
+
+* vme_templates:
+
+  - Add strict firmware version checks for MTDC-32 IRQ masks.
+
+  - Add new module header filters to support sampling mode for mdpp16_qdc,
+    mdpp16_scp, mdpp32_scp and mdpp32_qdc.
+
+  - Improve the load/save module functionality and ui.
+
+* analysis:
+
+  - Add spline interpolation option to the waveform viewer
+
+  - Rework of the waveform viewer logic. Most update and mode related bugs
+    should be fixed now.  Note: the plot legend may start to jitter at times.
+    Still have to find a fix for this.
+
+  - Add a deconvolution operator to be used with mdpp sampling mode.
+
+  - Improve the multiplot widget
+
+    * Can now drop single 1D histograms onto the widget.
+
+    * Autosave the view on dropping an object.
+
+* Add a tiny lmd2mvme converter tool. Works with GSI MBS TRIVA structured
+  readout configs only.
+
+* Add 'Tools -> Scan VME Bus' for the MVLC. Does a full scan of the VME address
+  space and tries to identify mesytec modules.
+
+
 Version 1.16.0
 --------------------------------------------------
 
