@@ -25,7 +25,7 @@ using mvlc::util::make_filter_with_caches;
 // CommonFilters contains filters used for all supported module types.
 //
 // The sub-structs contain "channel address yielding" filters only. These are
-// tested in the order they appear in the 'filters' array. The first matching
+// tested in the order they appear in the 'channelFilters' array. The first matching
 // filter contributes the current channel address during decoding.
 
 struct CommonFilters
