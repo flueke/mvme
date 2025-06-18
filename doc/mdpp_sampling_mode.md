@@ -1,16 +1,23 @@
-# MDPP sampling mode in mvme
+# MDPP sampling mode
 
 Sampling mode is implemented for mdpp16_scp, mdpp16_qdc, mdpp32_scp and
 mdpp32_qdc.
 
 Sampling mode is an extension to the standard data format of MDPP modules.
-Amplitudes, integration times, etc are transmitted as usual.
+Amplitudes, integration times, etc are transmitted as usual. Additionally sample
+trails for selected channels are output.
 
-## Enabling and configuring sampling:
+**Note**: Modules switch to a new event header format when sampling mode is
+active. This header uses 16 instead of 10 bits for the length field. This is
+required to accomodate the larger event sizes produced when samples are
+transmitted.
 
-Below is the current default VME Script to setup sampling and/or streaming mode.
+## Enabling and configuring sampling mode
+
+Below is the current default mvme VME Script to setup sampling and/or streaming mode.
 
 **Note**: For MDPP32-SCP the maximum number of samples per trace is 500, not 1000!
+
 
     # Streaming and Sampling Settings
     # ############################################################################
@@ -79,3 +86,66 @@ Summary:
   parts of the processing done in the FPGA (no_offset_correction, no_resampling).
 * write 0x6044 to enable/disable sampling and select the data output format.
   This allows to combine streaming and sampling modes.
+
+## Decoding the data
+
+In the module output data the sample trail for a channel follows a channel data
+word (amplitude or time).
+
+Each trail begins with a sample header followed by sample words with each word
+containing two 14-bit sample values.
+
+### Sample header
+
+| data-sig | 2  | 9           | 9     | 19                     |
+|----------|----|-------------|-------|------------------------|
+| b00      | 11 | Config word | Phase | Number of sample pairs |
+
+### Sample data
+
+| data-sig | 2  | 14           | 14        |
+|----------|----|-------------|------------|
+| b00      | 11 |  2nd sample | 1st sample |
+
+Sample values are 14 bit signed integers.
+
+### Possible algorithm
+
+* Read input words until a channel word is found (e.g. amplitude). Record that
+  as the current channel number.
+
+* Scan further until the sample signature matches. This is the sample header
+  word. Extract config, phase and num_pairs values.
+
+* Extract even and odd sample values from the following words. Repeat until
+  either the sample signature does not match anymore or the number of sample
+  pairs from the header has been reached (consistency check potential here).
+
+* Repeat until input empty.
+
+* Fillwords (0x0000000), timestamp, extended timestamp and triggerTime words in
+  the input data need to be skipped.
+
+### mvme decoder
+
+The source code of the current decoder can be found here:
+* https://github.com/flueke/mvme/blob/main/src/mdpp-sampling/mdpp_decode.h
+* https://github.com/flueke/mvme/blob/main/src/mdpp-sampling/mdpp_decode.cc
+
+It's planned to extract this into a separate library for easy reuse.
+
+# Decoder and waveform display in the mvme analysis
+
+Right-click an MDPP module and select **New -> MDPP Sample Decoder**. This adds
+both the decoder data source and a waveforms display sink to the level0 trees in
+the ui.
+
+Decoding can be monitored via right-click on the MDPP Sample Decoder and
+selecting **Open Monitor Window**.
+
+The waveforms display allows to see all traces produced by the same readout
+event cycle. Alternatively the latest trace data for each channel is buffered
+and displayed (**Refresh Mode** in the UI).
+
+**Note**: Requires mvme-1.16.1 or later to work correctly. Switching refresh modes
+          in mvme-1.15 was buggy.
