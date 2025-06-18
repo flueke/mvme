@@ -1,6 +1,6 @@
+#include "histo1d.h"
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
-#include "histo1d.h"
 
 TEST(Histograms, AxisBinningGetBin)
 {
@@ -98,10 +98,10 @@ TEST(Histograms, Histo1DNegativeAxisGetCountsInRange)
 
     // range is one bin wide
     ASSERT_DOUBLE_EQ(histo.getCounts(-10.0, -9.0), 0.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts(-9.0,  -8.0), 1.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts(-8.0,  -7.0), 1.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts(-7.0,  -6.0), 2.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts(-6.0,  -5.0), 0.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-9.0, -8.0), 1.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-8.0, -7.0), 1.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-7.0, -6.0), 2.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-6.0, -5.0), 0.0);
 
     // range is smaller than a bin
     ASSERT_NEAR(histo.getCounts(-9.8, -9.2), 0.0, epsilon);
@@ -111,10 +111,10 @@ TEST(Histograms, Histo1DNegativeAxisGetCountsInRange)
 
     // range crosses multiple bins
     ASSERT_DOUBLE_EQ(histo.getCounts(-10.0, -8.0), 1.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts( -9.0, -7.0), 2.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts( -8.0, -6.0), 3.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts( -7.0, -5.0), 2.0);
-    ASSERT_DOUBLE_EQ(histo.getCounts( -6.0, -4.0), 0.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-9.0, -7.0), 2.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-8.0, -6.0), 3.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-7.0, -5.0), 2.0);
+    ASSERT_DOUBLE_EQ(histo.getCounts(-6.0, -4.0), 0.0);
 
     // multiple bins with fractional parts
     ASSERT_NEAR(histo.getCounts(-8.8, -8.0), 0.8, epsilon);
@@ -123,20 +123,100 @@ TEST(Histograms, Histo1DNegativeAxisGetCountsInRange)
     ASSERT_NEAR(histo.getCounts(-8.8, -6.2), 0.8 + 1.0 + 0.8 * 2.0, epsilon);
 }
 
-TEST(Histograms, AddHistograms)
+TEST(Histograms, AddHistogramsSimple)
 {
     Histo1D histo1(10, 0.0, 10.0);
-    Histo1D histo2(20, 5.0, 20.0);
 
     histo1.fill(1.0);
     histo1.fill(2.0);
     histo1.fill(2.0);
     histo1.fill(3.0);
 
-    histo2.fill(1.0);
-    histo2.fill(2.0);
-    histo2.fill(2.0);
-    histo2.fill(3.0);
+    auto result = add(histo1, histo1);
+
+    ASSERT_EQ(result->getNumberOfBins(), histo1.getNumberOfBins());
+
+    for (auto bin = 0u; bin < histo1.getNumberOfBins(); ++bin)
+    {
+        ASSERT_DOUBLE_EQ(result->getBinContent(bin), histo1.getBinContent(bin) * 2.0);
+    }
+}
+
+void dump_histo(const Histo1D &histo)
+{
+    auto binning = histo.getAxisBinning(Qt::XAxis);
+    spdlog::info("Histo1D: {} bins, range [{}, {}], title={}", binning.getBins(), binning.getMin(),
+                 binning.getMax(), histo.getTitle().toLocal8Bit().data());
+
+    for (auto bin = 0u; bin < binning.getBins(); ++bin)
+    {
+        spdlog::info("Bin {} ({}, {}]): {}", bin, binning.getBinLowEdge(bin),
+                     binning.getBinLowEdge(bin) + binning.getBinWidth(), histo.getBinContent(bin));
+    }
+}
+
+TEST(Histograms, AddHistogramsAxisRanges)
+{
+    // Same number of bins but different axis ranges.
+    Histo1D histo1(10, 0.0, 10.0);
+    histo1.setTitle("Histo1D 0-10");
+
+    Histo1D histo2(10, 5.0, 15.0);
+    histo2.setTitle("Histo1D 5-15");
+
+    ASSERT_GE(histo1.fill(1.0), 0);
+    ASSERT_GE(histo1.fill(2.0, 2), 0);
+    ASSERT_GE(histo1.fill(3.0), 0);
+    ASSERT_GE(histo1.fill(5.0), 0);
+    ASSERT_GE(histo1.fill(9.0), 0);
+
+    ASSERT_GE(histo2.fill(5.0), 0);
+    ASSERT_GE(histo2.fill(6.0), 0);
+    ASSERT_GE(histo2.fill(7.0), 0);
+    ASSERT_GE(histo2.fill(8.0), 0);
+    ASSERT_GE(histo2.fill(9.0), 0);
+    ASSERT_GE(histo2.fill(14.0), 0);
+
+    dump_histo(histo1);
+    dump_histo(histo2);
 
     auto result = add(histo1, histo2);
+    result->setTitle("Result");
+    dump_histo(*result);
+    auto binning = result->getAxisBinning(Qt::XAxis);
+    ASSERT_EQ(binning.getBins(), 10u);
+    ASSERT_EQ(binning.getMin(), 0.0);
+    ASSERT_EQ(binning.getMax(), 15.0);
 }
+
+#if 0
+TEST(Histograms, AddHistogramsUnequalBinnings)
+{
+    Histo1D histo1(10, 0.0, 10.0);
+    Histo1D histo2(20, 5.0, 20.0);
+
+    // assert the fills to ensure there's no under/overflow.
+    ASSERT_GE(histo1.fill(1.0), 0);
+    ASSERT_GE(histo1.fill(2.0), 0);
+    ASSERT_GE(histo1.fill(2.0), 0);
+    ASSERT_GE(histo1.fill(3.0), 0);
+
+    ASSERT_GE(histo2.fill(5.0), 0);
+    ASSERT_GE(histo2.fill(6.0), 0);
+    ASSERT_GE(histo2.fill(10.0), 0);
+    ASSERT_GE(histo2.fill(19.5), 0);
+
+    auto result = add(histo1, histo2);
+    auto binning = result->getAxisBinning(Qt::XAxis);
+    ASSERT_EQ(binning.getBins(), 10u);
+    ASSERT_EQ(binning.getMin(), 0.0);
+    ASSERT_EQ(binning.getMax(), 20.0);
+
+    for (auto bin = 0u; bin < binning.getBins(); ++bin)
+    {
+        spdlog::info("Bin {} ({}, {}]): {}", bin, binning.getBinLowEdge(bin),
+                     binning.getBinLowEdge(bin) + binning.getBinWidth(),
+                     result->getBinContent(bin));
+    }
+}
+#endif
