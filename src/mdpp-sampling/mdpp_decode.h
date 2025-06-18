@@ -36,7 +36,17 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
 
         // The contents of 0x614A:
         // Sampling configuration (register 0x614A):
-        // bits 0-2: sample source (depends on firmware type, see the init scripts and the data sheet).
+        // bits 0-2: sample source, depends on firmware type:
+        //
+        // source = 0 Samples directly from ADC
+        // SCP
+        // source = 1 Samples from reconstructed input signal
+        // source = 2 Samples from timing filter shaper
+        // source = 3 Samples from main shaper
+        // QDC
+        // source = 1 Samples from short integration
+        // source = 2 Samples from long integration
+        //
         // bit 7 set: no offset correction
         // bit 6 set: no resampling
         // Other bits are not used yet.
@@ -101,7 +111,7 @@ struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
     QList<ChannelTrace> traces; // decoded trace data
     u8 headerModuleId = 0;      // extracted from the header word
     QUuid moduleId;             // optional mvme module id
-    std::string moduleType;     // optional module type string used when decoding the event
+    std::string moduleType;     // optional module type string that was used when decoding the event
     std::vector<u32> inputData; // optional copy of the raw input data used to decode this event
     ssize_t eventNumber = -1;   // optional linear event number of the decoded event. Leave set
                                 // to -1 when using this structure as a history buffer for a
@@ -109,6 +119,7 @@ struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
                                 // keep track of the origin event number of a trace.
 };
 
+// Levels are "trace", "debug", "info", "warning", "error" and "critical".
 using logger_function = std::function<void (const std::string &level, const std::string &message)>;
 
 // Pass the module type as a string. Currently supported types: mdpp16_scp,
