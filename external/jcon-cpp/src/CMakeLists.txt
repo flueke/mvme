@@ -1,3 +1,5 @@
+# Note (flueke): mvme does a direct add_subdirectory(jcon-cpp/src/jcon) so this
+# file is not used at all.
 project(jcon_ex)
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
