@@ -1,5 +1,10 @@
 #include "waveform_interpolation.h"
 
+#if _WIN32
+#define _USE_MATH_DEFINES // to make MS C++ define M_PI
+#include <math.h>
+#endif
+
 #include <cassert>
 #include <cmath>
 #include <algorithm>

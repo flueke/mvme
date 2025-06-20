@@ -67,7 +67,7 @@ QTextStream &print_front_panel_io_table(QTextStream &out, const TriggerIO &ioCfg
         << qSetFieldWidth(16) << QSL("State") << QSL("Name")
         << qSetFieldWidth(0) << endl;
 
-    for (ssize_t nim = NIM_IO_Count - 1; nim >= 0; nim--)
+    for (s64 nim = NIM_IO_Count - 1; nim >= 0; nim--)
     {
         auto &io = ioCfg.l0.ioNIM.at(nim);
 
@@ -89,7 +89,7 @@ QTextStream &print_front_panel_io_table(QTextStream &out, const TriggerIO &ioCfg
         << qSetFieldWidth(16) << QSL("State") << QSL("Name")
         << qSetFieldWidth(0) << endl;
 
-    for (ssize_t idx = ECL_OUT_Count - 1; idx >= 0; idx--)
+    for (s64 idx = ECL_OUT_Count - 1; idx >= 0; idx--)
     {
         auto &io = ioCfg.l3.ioECL.at(idx);
 

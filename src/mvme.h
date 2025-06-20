@@ -65,7 +65,7 @@ class LIBMVME_EXPORT MVMEMainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MVMEMainWindow(QWidget *parent = nullptr, const MVMEOptions &options = {});
+    explicit MVMEMainWindow(QWidget *parent, const MVMEOptions &options = {});
     explicit MVMEMainWindow(const MVMEOptions &options = {});
     ~MVMEMainWindow();
 

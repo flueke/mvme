@@ -111,7 +111,7 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
         if (xScaleType_ == XScaleType::Time)
             x *= 1000.0;
 
-        auto si = static_cast<ssize_t>(i);
+        auto si = static_cast<s64>(i);
         assert(si > prevSampleIndex_);
 
         if (std::isnan(y))
@@ -132,7 +132,7 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     RateSamplerPtr sampler_;
     XScaleType xScaleType_;
 
-    mutable ssize_t prevSampleIndex_;
+    mutable s64 prevSampleIndex_;
     mutable double prevSampleValue_;
 
     void beginDrawing() const

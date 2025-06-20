@@ -57,7 +57,7 @@ static struct option long_options[] = {
 static QTextStream out(stdout);
 static QTextStream err(stderr);
 
-static qint64 checked_read(QIODevice *in, char *dest, ssize_t size)
+static qint64 checked_read(QIODevice *in, char *dest, s64 size)
 {
     qint64 res = in->read(dest, size);
 

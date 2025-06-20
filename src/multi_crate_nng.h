@@ -520,6 +520,9 @@ struct LIBMVME_EXPORT VmeConfigs
 {
     std::unique_ptr<VMEConfig> vmeConfig;
     mvlc::CrateConfig crateConfig;
+
+    VmeConfigs(VmeConfigs &) = delete;
+    VmeConfigs &operator=(const VmeConfigs &) = delete;
 };
 
 struct LIBMVME_EXPORT ReplayModel

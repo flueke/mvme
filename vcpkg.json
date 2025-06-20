@@ -5,6 +5,7 @@
     "boost-geometry",
     "graphviz",
     "liblzma",
+    "libusb-win32",
     "lz4",
     "nng",
     "quazip-qt5",

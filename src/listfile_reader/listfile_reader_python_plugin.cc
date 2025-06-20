@@ -75,7 +75,7 @@ PYBIND11_EMBEDDED_MODULE(py_listfile_reader, m)
                 sizeof(uint32_t),
                 py::format_descriptor<uint32_t>::format(),
                 1,
-                { static_cast<ssize_t>(block.size) },
+                { static_cast<s64>(block.size) },
                 { sizeof(uint32_t) }
             );
         });

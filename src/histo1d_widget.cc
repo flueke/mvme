@@ -21,6 +21,11 @@
 #include "histo1d_widget.h"
 #include "histo1d_widget_p.h"
 
+#if _WIN32
+#define _USE_MATH_DEFINES // to make MS C++ define M_PI
+#include <math.h>
+#endif
+
 #include <qwt_interval.h>
 #include <qwt_painter.h>
 #include <qwt_plot_curve.h>

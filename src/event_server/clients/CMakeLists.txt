@@ -6,7 +6,8 @@ add_executable(mvme_event_server_example_client mvme_event_server_example_client
 target_link_libraries(mvme_event_server_example_client PUBLIC nlohmann-json)
 
 if (WIN32)
-    target_link_libraries(mvme_event_server_example_client PRIVATE ws2_32)
+    find_package(unofficial-getopt-win32 REQUIRED)
+    target_link_libraries(mvme_event_server_example_client PRIVATE ws2_32 unofficial::getopt-win32::getopt)
 endif (WIN32)
 
 install(TARGETS mvme_event_server_example_client

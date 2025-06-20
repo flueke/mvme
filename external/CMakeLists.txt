@@ -45,7 +45,7 @@ endif()
 add_subdirectory(qgv)
 
 # nng - networking library
-find_package(nng QUIET)
+find_package(nng REQUIRED GLOBAL)
 
 #if(NOT nng)
 #    message("-- Using nng from external/nng")

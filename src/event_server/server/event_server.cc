@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "event_server/server/event_server.h"
+#include "event_server/server/event_server_util.h"
 
 #include <QCoreApplication>
 #include <QHostInfo>
@@ -32,7 +33,6 @@
 #include "analysis/a2/a2.h"
 #include "analysis/a2_adapter.h"
 #include "event_server/common/event_server_proto.h"
-#include "event_server/server/event_server_util.h"
 #include "git_sha1.h"
 
 using namespace mvme::event_server;

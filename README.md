@@ -56,6 +56,13 @@ http://www.msys2.org/
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
     ninja
 
+### Windows vcpkg
+   cmake -GNinja "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+   -DCMAKE_C_COMPILER="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\clang-cl.exe" ^
+   -DCMAKE_CXX_COMPILER="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\clang-cl.exe" ..
+   cmake --build .
+
+
 ## Mac OS X using Homebrew (out of date, needs verification)
 * Note that the OS X port has only been tested with our MVLC VME Controller via
   Ethernet. USB support has not been tested. There are also some ugly fonts and

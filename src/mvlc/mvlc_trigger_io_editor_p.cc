@@ -36,6 +36,11 @@
 #include <QStyledItemDelegate>
 #include <QWheelEvent>
 
+#if _WIN32
+#define _USE_MATH_DEFINES // to make MS C++ define M_PI
+#include <math.h>
+#endif
+
 #include "qt_util.h"
 #include "mvme_qthelp.h"
 

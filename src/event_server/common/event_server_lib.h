@@ -22,13 +22,16 @@
 #define __MVME_DATA_SERVER_CLIENT_LIB_H__
 
 #ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h> // getaddrinfo
+    #ifndef _WINSOCKAPI_
+        //#include <winsock2.h>
+        #include <ws2tcpip.h> // getaddrinfo
+    #endif
+    #include <io.h>
 #else
-// POSIX socket API
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+    // POSIX socket API
+    #include <netdb.h>
+    #include <sys/socket.h>
+    #include <sys/types.h>
 #endif
 
 #include <cassert>
@@ -37,7 +40,9 @@
 #include <iostream>
 #include <system_error>
 
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 // header-only json parser library
 #include <nlohmann/json.hpp>
@@ -50,6 +55,8 @@ namespace event_server
 {
 
 using json = nlohmann::json;
+
+using s64 = std::int64_t;
 
 // Error handling:
 // Most exceptions thrown by the library are a subtype of
@@ -225,7 +232,11 @@ static void read_data(int fd, uint8_t *dest, size_t size)
 {
     while (size > 0)
     {
-        ssize_t bytesRead = read(fd, dest, size);
+        #ifndef _WIN32
+        s64 bytesRead = read(fd, dest, size);
+        #else
+        s64 bytesRead = _read(fd, dest, size);
+        #endif
 
         if (bytesRead < 0)
         {

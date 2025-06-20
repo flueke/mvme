@@ -18,7 +18,7 @@ endif()
 find_package(Threads)
 
 # libusb-0.1
-if (WIN32)
+if (MINGW)
     find_path(LIBUSB_INCLUDE_PATH lusb0_usb.h
         PATHS "C:/libusb-win32-bin-1.2.6.0/include")
 
@@ -35,6 +35,10 @@ if (WIN32)
             PATHS "C:/libusb-win32-bin-1.2.6.0/bin/x86")
         message("Using 32 bit libusb: ${LIBUSB_LIBRARY}")
     endif()
+elseif(WIN32) # vcpkg, etc
+    find_path(LIBUSB_INCLUDE_PATH lusb0_usb.h)
+    find_library(LIBUSB_LIBRARY NAMES libusb0)
+    message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}, LIBUSB_INCLUDE_PATH=${LIBUSB_INCLUDE_PATH}")
 else()
     find_library(LIBUSB_LIBRARY usb)
     find_path(LIBUSB_INCLUDE_PATH usb.h)
@@ -205,8 +209,6 @@ add_library(libmvme SHARED
     multi_crate.cc
     multi_crate_gui.cc
     multi_crate_mainwindow.cc
-    multi_crate_nng.cc
-    multi_crate_nng_gui.cc
     multi_event_splitter.cc
     multiplot_widget.cc
     multiplot_widget_p.cc
@@ -322,9 +324,7 @@ set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 generate_export_header(libmvme)
 
 target_link_libraries(libmvme
-    PRIVATE ${GRAPHVIZ_CDT_LIBRARY}
-    PRIVATE ${GRAPHVIZ_CGRAPH_LIBRARY}
-    PRIVATE ${GRAPHVIZ_GVC_LIBRARY}
+    PRIVATE ${GRAPHVIZ_LIBRARIES}
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
@@ -347,7 +347,7 @@ target_link_libraries(libmvme
     PUBLIC libmvme_resources
     PUBLIC libmvme_mdpp_decode
     PUBLIC mesytec-mvlc
-    PUBLIC nng
+    PUBLIC nng::nng
     PUBLIC yaml-cpp
     )
 
@@ -525,24 +525,20 @@ add_mvme_dev_exe(dev_analysis_to_dot dev_analysis_to_dot.cc)
 
 if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
     add_mvme_dev_exe(dev_graphviz_lib_test0 dev_graphviz_lib_test0.cc)
-    target_link_libraries(dev_graphviz_lib_test0 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+    target_link_libraries(dev_graphviz_lib_test0 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     add_mvme_dev_exe(dev_graphviz_lib_test1 dev_graphviz_lib_test1.cc)
-    target_link_libraries(dev_graphviz_lib_test1 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+    target_link_libraries(dev_graphviz_lib_test1 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     add_mvme_dev_exe(dev_graphviz_lib_test2 dev_graphviz_lib_test2.cc)
-    target_link_libraries(dev_graphviz_lib_test2 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+    target_link_libraries(dev_graphviz_lib_test2 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     add_mvme_dev_exe(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
     #target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc PRIVATE libgvplugin_dot_layout)
     install(TARGETS dev_graphviz_lib_test3 RUNTIME DESTINATION bin)
 
     add_executable(dev_graphviz_lib_test4 dev_graphviz_lib_test4.cc)
-    target_link_libraries(dev_graphviz_lib_test4
-        PRIVATE cdt
-        PRIVATE cgraph
-        PRIVATE gvc
-    )
+    target_link_libraries(dev_graphviz_lib_test4 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     qt5_wrap_ui(dev_graphviz_lib_test5_uic dev_graphviz_lib_test5_mainwin.ui)
     add_executable(dev_graphviz_lib_test5
