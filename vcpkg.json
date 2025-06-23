@@ -8,9 +8,9 @@
     "libusb-win32",
     "lz4",
     "nng",
-    "quazip-qt5",
     "qt5",
-    "qwt",
+    "quazip-qt5",
+    "qwt-qt5",
     "zlib"
   ]
 }
