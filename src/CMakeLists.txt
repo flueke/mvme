@@ -122,6 +122,48 @@ generate_export_header(libmvme_mdpp_decode)
 
 install(TARGETS libmvme_mdpp_decode RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
+# Debugging linker issues under windows with qwt.
+# Directly linking an exe against qwt seems to work.
+# Indirectly using qwt stuff that's in my own dll does not work.
+#
+# qwt macro stuff is in qwt_global.h
+# Both QWT_DLL and QWT_MAKEDLL => QWT_EXPORT = Q_DECL_EXPORT
+# If only QWT_DLL is set       => QWT_EXPORT = Q_DECL_IMPORT
+
+message(STATUS "QWT_LIBRARY=${QWT_LIBRARY}")
+
+# Links directly against qwt.
+add_executable(dev_qwt_simple dev_qwt_simple.cc)
+set_target_properties(dev_qwt_simple PROPERTIES WIN32_EXECUTABLE OFF)
+# This is needed to make the standalone executable link under windows (clang-cl with vcpkg).
+target_compile_options(dev_qwt_simple PUBLIC -DQWT_DLL)
+target_link_libraries(dev_qwt_simple ${QWT_LIBRARY} Qt5::Widgets spdlog::spdlog)
+
+# Now building a lib that uses qwt. Trying both shared and static.
+
+# Build the STATIC lib
+add_library(qwt_simple_static STATIC lib_qwt_simple.cc)
+target_link_libraries(qwt_simple_static PUBLIC ${QWT_LIBRARY} Qt5::Widgets spdlog::spdlog)
+target_compile_options(qwt_simple_static PRIVATE -DQWT_DLL -DQWT_MAKEDLL)
+
+# Build the SHARED lib
+add_library(qwt_simple_shared SHARED lib_qwt_simple.cc)
+target_link_libraries(qwt_simple_shared PUBLIC ${QWT_LIBRARY} Qt5::Widgets spdlog::spdlog)
+target_compile_options(qwt_simple_shared PRIVATE -DQWT_DLL)
+
+# Link against STATIC
+add_executable(dev_qwt_simple_static dev_qwt_simple2.cc)
+set_target_properties(dev_qwt_simple_static PROPERTIES WIN32_EXECUTABLE OFF)
+target_compile_options(dev_qwt_simple_static PRIVATE -DQWT_DLL)
+target_link_libraries(dev_qwt_simple_static qwt_simple_static)
+
+# Link against SHARED
+add_executable(dev_qwt_simple_shared dev_qwt_simple2.cc)
+set_target_properties(dev_qwt_simple_shared PROPERTIES WIN32_EXECUTABLE OFF)
+target_compile_options(dev_qwt_simple_shared PRIVATE -DQWT_DLL)
+target_link_libraries(dev_qwt_simple_shared qwt_simple_shared)
+
+
 #
 # libmvme
 #
@@ -354,14 +396,20 @@ target_link_libraries(libmvme
 #add_compile_definitions(QT_DISABLE_DEPRECATED_UP_TO=0x060700)
 
 target_compile_options(libmvme PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700 -Wno-deprecated-declarations)
+
+if (WIN32)
+    # This fixes undefined references to qwt symbols like "undefined symbol:
+    # public: static double const QwtLogTransform::LogMin".
+    # It does cause a duplicate symbol error though :-(
+    target_compile_options(libmvme PUBLIC -DQWT_DLL)
+endif()
+
 #target_compile_options(libmvme
 #    PRIVATE $<${not-msvc}:-Wall -Wextra>
 #    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
 #    PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
 #    PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
 #    )
-
-#target_include_directories(libmvme PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/analysis/a2)
 
 find_package(prometheus-cpp CONFIG)
 
