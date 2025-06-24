@@ -155,7 +155,7 @@ void dump_histo(const Histo1D &histo)
     }
 }
 
-TEST(Histograms, AddHistogramsAxisRanges)
+TEST(Histograms, AddHistogramsSameBinsDifferentRanges)
 {
     // Same number of bins but different axis ranges.
     Histo1D histo1(10, 0.0, 10.0);
@@ -179,18 +179,38 @@ TEST(Histograms, AddHistogramsAxisRanges)
 
     dump_histo(histo1);
     dump_histo(histo2);
+    const double epsilon = 0.0000001;
 
-    auto result = add(histo1, histo2);
-    result->setTitle("Result");
-    dump_histo(*result);
-    auto binning = result->getAxisBinning(Qt::XAxis);
-    ASSERT_EQ(binning.getBins(), 10u);
-    ASSERT_EQ(binning.getMin(), 0.0);
-    ASSERT_EQ(binning.getMax(), 15.0);
+    ASSERT_NEAR(histo1.getCounts(4.5, 6.0), 1.0, epsilon);
+    ASSERT_NEAR(histo2.getCounts(4.5, 6.0), 1.0, epsilon);
+
+    for (auto mode: {HistoOpsBinningMode::MinimumBins, HistoOpsBinningMode::MaximumBins})
+    {
+        auto result = add(histo1, histo2, mode);
+        result->setTitle(fmt::format("Result ({})", mode == HistoOpsBinningMode::MinimumBins
+                                                        ? "minbins"
+                                                        : "maxbins")
+                             .c_str());
+        dump_histo(*result);
+        auto binning = result->getAxisBinning(Qt::XAxis);
+        ASSERT_EQ(binning.getBins(), 10u);
+        ASSERT_EQ(binning.getMin(), 0.0);
+        ASSERT_EQ(binning.getMax(), 15.0);
+        ASSERT_NEAR(result->getBinContent(0), 0.5, epsilon);
+        ASSERT_NEAR(result->getBinContent(1), 2.5, epsilon);
+        ASSERT_NEAR(result->getBinContent(2), 1.0, epsilon);
+        ASSERT_NEAR(result->getBinContent(3), 2.0, epsilon);
+        ASSERT_NEAR(result->getBinContent(4), 1.5, epsilon);
+        ASSERT_NEAR(result->getBinContent(5), 1.5, epsilon);
+        ASSERT_NEAR(result->getBinContent(6), 2.0, epsilon);
+        ASSERT_NEAR(result->getBinContent(7), 0.0, epsilon);
+        ASSERT_NEAR(result->getBinContent(8), 0.0, epsilon);
+        ASSERT_NEAR(result->getBinContent(9), 1.0, epsilon);
+    }
 }
 
 #if 0
-TEST(Histograms, AddHistogramsUnequalBinnings)
+TEST(Histograms, AddHistogramsUnequalBinningsMinBins)
 {
     Histo1D histo1(10, 0.0, 10.0);
     Histo1D histo2(20, 5.0, 20.0);
@@ -206,17 +226,45 @@ TEST(Histograms, AddHistogramsUnequalBinnings)
     ASSERT_GE(histo2.fill(10.0), 0);
     ASSERT_GE(histo2.fill(19.5), 0);
 
-    auto result = add(histo1, histo2);
+    auto result = add(histo1, histo2, HistoOpsBinningMode::MinimumBins);
     auto binning = result->getAxisBinning(Qt::XAxis);
     ASSERT_EQ(binning.getBins(), 10u);
     ASSERT_EQ(binning.getMin(), 0.0);
     ASSERT_EQ(binning.getMax(), 20.0);
+    ASSERT_EQ(binning.getBinWidth(), 2.0);
 
-    for (auto bin = 0u; bin < binning.getBins(); ++bin)
-    {
-        spdlog::info("Bin {} ({}, {}]): {}", bin, binning.getBinLowEdge(bin),
-                     binning.getBinLowEdge(bin) + binning.getBinWidth(),
-                     result->getBinContent(bin));
-    }
+    dump_histo(histo1);
+    dump_histo(histo2);
+    dump_histo(*result);
+
+    const double epsilon = 0.0000001;
+    ASSERT_NEAR(result->getCounts(0.0, 2.0), 1.0, epsilon);
+    ASSERT_NEAR(result->getCounts(2.0, 4.0), 3.0, epsilon);
+    ASSERT_NEAR(result->getCounts(4.0, 6.0), 0.0, epsilon);
+}
+
+TEST(Histograms, AddHistogramsUnequalBinningsMaxBins)
+{
+    Histo1D histo1(10, 0.0, 10.0);
+    Histo1D histo2(20, 5.0, 20.0);
+
+    // assert the fills to ensure there's no under/overflow.
+    ASSERT_GE(histo1.fill(1.0), 0);
+    ASSERT_GE(histo1.fill(2.0), 0);
+    ASSERT_GE(histo1.fill(2.0), 0);
+    ASSERT_GE(histo1.fill(3.0), 0);
+
+    ASSERT_GE(histo2.fill(5.0), 0);
+    ASSERT_GE(histo2.fill(6.0), 0);
+    ASSERT_GE(histo2.fill(10.0), 0);
+    ASSERT_GE(histo2.fill(19.5), 0);
+
+    auto result = add(histo1, histo2, HistoOpsBinningMode::MaximumBins);
+    auto binning = result->getAxisBinning(Qt::XAxis);
+    ASSERT_EQ(binning.getBins(), 20u);
+    ASSERT_EQ(binning.getMin(), 0.0);
+    ASSERT_EQ(binning.getMax(), 20.0);
+
+    dump_histo(*result);
 }
 #endif
