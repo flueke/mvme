@@ -144,10 +144,10 @@ double Histo1D::getCounts(double xMin, double xMax) const
     if (xMin >= xMax)
         std::swap(xMin, xMax);
 
-    double minBinF = m_xAxisBinning.getBinUnchecked(xMin);
-    double maxBinF = m_xAxisBinning.getBinUnchecked(xMax);
+    double minBinF = std::max(0.0, m_xAxisBinning.getBinUnchecked(xMin));
+    double maxBinF = std::max(0.0, m_xAxisBinning.getBinUnchecked(xMax));
 
-    if (minBinF < 0.0 || maxBinF < 0.0 || minBinF > maxBinF)
+    if (minBinF > maxBinF)
         return 0.0;
 
     double minBin;
