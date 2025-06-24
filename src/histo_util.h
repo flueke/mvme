@@ -390,7 +390,13 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
     double startX, double endX, double startY, double endY,
     ResolutionReductionFactors rrfs = {});
 
-Histo1DPtr add(const Histo1D &a, const Histo1D &b);
-Histo1DPtr add(const Histo1DList &histos);
+enum class HistoOpsBinningMode
+{
+    MinimumBins, // the resulting histogram has the smalles number of bins of the input histos
+    MaximumBins  // the resulting histogram has the largest number of bins of the input histos
+};
+
+Histo1DPtr add(const Histo1D &a, const Histo1D &b, const HistoOpsBinningMode &bm = HistoOpsBinningMode::MinimumBins);
+Histo1DPtr add(const Histo1DList &histos, const HistoOpsBinningMode &bm = HistoOpsBinningMode::MinimumBins);
 
 #endif /* __HISTO_UTIL_H__ */

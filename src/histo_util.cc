@@ -399,9 +399,18 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
     return result;
 }
 
-Histo1DPtr add(const Histo1D &a, const Histo1D &b)
+Histo1DPtr add(const Histo1D &a, const Histo1D &b, const HistoOpsBinningMode &bm)
 {
-    size_t nBins = std::min(a.getNumberOfBins(), b.getNumberOfBins());
+    size_t nBins = 0;
+    switch (bm)
+    {
+        case HistoOpsBinningMode::MinimumBins:
+            nBins = std::min(a.getNumberOfBins(), b.getNumberOfBins());
+            break;
+        case HistoOpsBinningMode::MaximumBins:
+            nBins = std::max(a.getNumberOfBins(), b.getNumberOfBins());
+            break;
+    }
     size_t xMin = std::min(a.getXMin(), b.getXMin());
     size_t xMax = std::max(a.getXMax(), b.getXMax());
 
@@ -422,7 +431,7 @@ Histo1DPtr add(const Histo1D &a, const Histo1D &b)
     return result;
 }
 
-Histo1DPtr add(const Histo1DList &histos)
+Histo1DPtr add(const Histo1DList &histos, const HistoOpsBinningMode &bm)
 {
     size_t nBins = 0;
     double xMin = 0;
@@ -430,7 +439,15 @@ Histo1DPtr add(const Histo1DList &histos)
 
     for (const auto &histo: histos)
     {
-        nBins = std::min(nBins, static_cast<size_t>(histo->getNumberOfBins()));
+        switch (bm)
+        {
+            case HistoOpsBinningMode::MinimumBins:
+                nBins = std::min(nBins, static_cast<size_t>(histo->getNumberOfBins()));
+                break;
+            case HistoOpsBinningMode::MaximumBins:
+                nBins = std::max(nBins, static_cast<size_t>(histo->getNumberOfBins()));
+                break;
+        }
         xMin = std::min(xMin, histo->getXMin());
         xMax = std::max(xMax, histo->getXMax());
     }
