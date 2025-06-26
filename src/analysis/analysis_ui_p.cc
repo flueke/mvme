@@ -1007,6 +1007,7 @@ AddEditOperatorDialog::AddEditOperatorDialog(OperatorPtr op,
     theSplitter->setChildrenCollapsible(false);
     theSplitter->setOrientation(Qt::Vertical);
     theSplitter->setHandleWidth(theSplitter->handleWidth() + 20);
+    theSplitter->setStretchFactor(0, 1);
 
     s32 row = 0;
     // row, col, rowSpan, colSpan
