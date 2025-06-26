@@ -24,17 +24,19 @@
 #include <QDebug>
 
 #include <cmath>
-#include <qwt_curve_fitter.h>
+
+//#include <qwt_curve_fitter.h>
 #include <qwt_date_scale_draw.h>
 #include <qwt_date_scale_engine.h>
-#include <qwt_plot_curve.h>
-#include <qwt_plot.h>
+//#include <qwt_plot_curve.h>
+//#include <qwt_plot.h>
 #include <qwt_plot_legenditem.h>
-#include <qwt_scale_engine.h>
-#include <qwt_scale_widget.h>
+//#include <qwt_scale_engine.h>
+//#include <qwt_scale_widget.h>
 
 #include "analysis/a2/util/nan.h"
 #include "histo_util.h"
+#include "mvme_qwt.h"
 #include "qt_util.h"
 #include "scrollzoomer.h"
 #include "util/assert.h"

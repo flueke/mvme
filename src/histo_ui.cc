@@ -186,10 +186,12 @@ PlotPicker::PlotPicker(QWidget *canvas)
     : QwtPlotPicker(canvas)
 {
     //qDebug() << __PRETTY_FUNCTION__ << this;
-#ifdef Q_OS_WIN
+#ifdef Q_OS_WIN && 0
+    #warning Using old SIGNAL/SLOT macro syntax.
     [[maybe_unused]] bool b = connect(this, SIGNAL(removed(const QPoint &)),
                                       this, SLOT(onPointRemoved(const QPoint &)));
 #else
+    #warning Using typed SIGNAL/SLOT syntax.
     [[maybe_unused]] bool b = connect(this, qOverload<const QPoint &>(&QwtPicker::removed),
                                       this, &PlotPicker::onPointRemoved);
 #endif
@@ -1423,6 +1425,7 @@ QActionGroup *group_picker_actions(PlotWidget *w)
 
 void debug_watch_plot_pickers(QWidget *w)
 {
+#if 0
     for (auto picker: w->findChildren<QwtPlotPicker *>())
     {
         QObject::connect(
@@ -1477,6 +1480,7 @@ void debug_watch_plot_pickers(QWidget *w)
                              picker->objectName().toStdString(), pos.x(), pos.y());
             });
     }
+#endif
 }
 
 void watch_mouse_move(PlotWidget *w)

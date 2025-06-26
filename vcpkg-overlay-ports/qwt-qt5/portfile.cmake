@@ -6,6 +6,7 @@ vcpkg_from_sourceforge(
     SHA512 4008c3e4dace0f18e572b473a51a293bb896abbd62b9c5f0a92734b2121923d2e2cbf67c997b84570a13bf4fdd7669b56497c82fbae35049ed856b2f0a65e475
     PATCHES
         fix-dynamic-static.patch
+        inlined-templates.patch
 )
 
 vcpkg_configure_qmake(

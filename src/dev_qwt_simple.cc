@@ -5,6 +5,7 @@
 
 #include <qwt_transform.h>
 #include <qwt_plot_picker.h>
+#include <qwt_series_data.h>
 
 int main(int argc, char *argv[])
 {
@@ -23,6 +24,9 @@ int main(int argc, char *argv[])
 
     spdlog::info("QwtLogTransform::LogMin={}", QwtLogTransform::LogMin);
     spdlog::info("QwtLogTransform::LogMax={}", QwtLogTransform::LogMax);
+
+    QwtPointSeriesData data;
+    qDebug() << data.size();
 
     //qDebug() << get_log_min_inl() << get_log_min();
 }

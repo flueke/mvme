@@ -1,0 +1,63 @@
+diff --git a/src/qwt_series_data.h b/src/qwt_series_data.h
+index 2bdf5a5..0eaf555 100644
+--- a/src/qwt_series_data.h
++++ b/src/qwt_series_data.h
+@@ -127,18 +127,18 @@ class QwtSeriesData
+ };
+ 
+ template< typename T >
+-QwtSeriesData< T >::QwtSeriesData()
++inline QwtSeriesData< T >::QwtSeriesData()
+     : cachedBoundingRect( 0.0, 0.0, -1.0, -1.0 )
+ {
+ }
+ 
+ template< typename T >
+-QwtSeriesData< T >::~QwtSeriesData()
++inline QwtSeriesData< T >::~QwtSeriesData()
+ {
+ }
+ 
+ template< typename T >
+-void QwtSeriesData< T >::setRectOfInterest( const QRectF& )
++inline void QwtSeriesData< T >::setRectOfInterest( const QRectF& )
+ {
+ }
+ 
+@@ -187,31 +187,31 @@ class QwtArraySeriesData : public QwtSeriesData< T >
+ };
+ 
+ template< typename T >
+-QwtArraySeriesData< T >::QwtArraySeriesData()
++inline QwtArraySeriesData< T >::QwtArraySeriesData()
+ {
+ }
+ 
+ template< typename T >
+-QwtArraySeriesData< T >::QwtArraySeriesData( const QVector< T >& samples )
++inline QwtArraySeriesData< T >::QwtArraySeriesData( const QVector< T >& samples )
+     : m_samples( samples )
+ {
+ }
+ 
+ template< typename T >
+-void QwtArraySeriesData< T >::setSamples( const QVector< T >& samples )
++inline void QwtArraySeriesData< T >::setSamples( const QVector< T >& samples )
+ {
+     QwtSeriesData< T >::cachedBoundingRect = QRectF( 0.0, 0.0, -1.0, -1.0 );
+     m_samples = samples;
+ }
+ 
+ template< typename T >
+-const QVector< T > QwtArraySeriesData< T >::samples() const
++inline const QVector< T > QwtArraySeriesData< T >::samples() const
+ {
+     return m_samples;
+ }
+ 
+ template< typename T >
+-size_t QwtArraySeriesData< T >::size() const
++inline size_t QwtArraySeriesData< T >::size() const
+ {
+     return m_samples.size();
+ }

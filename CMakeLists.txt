@@ -82,7 +82,7 @@ find_path(QUAZIP_INCLUDE_DIR
 )
 
 find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5 quazip1-qt5)
-find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)
+find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d quazip1-qt5d)
 
 if (WIN32 OR QUAZIP_QT5_DEBUG)
     if (QUAZIP_QT5_DEBUG)

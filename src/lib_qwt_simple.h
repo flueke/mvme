@@ -3,6 +3,7 @@
 
 #include <qwt_plot_picker.h>
 #include <qwt_transform.h>
+#include <qwt_series_data.h>
 
 inline double get_log_min_inl()
 {

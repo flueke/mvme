@@ -92,7 +92,7 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 # libmvme_resources
 #
 qt5_add_resources(LIBMVME_RES_RC_OUT mvme_resources.qrc)
-add_library(libmvme_resources SHARED
+add_library(libmvme_resources
     ${LIBMVME_RES_RC_OUT})
 
 set_target_properties(libmvme_resources PROPERTIES OUTPUT_NAME mvme_resources)
@@ -136,7 +136,7 @@ message(STATUS "QWT_LIBRARY=${QWT_LIBRARY}")
 add_executable(dev_qwt_simple dev_qwt_simple.cc)
 set_target_properties(dev_qwt_simple PROPERTIES WIN32_EXECUTABLE OFF)
 # This is needed to make the standalone executable link under windows (clang-cl with vcpkg).
-target_compile_options(dev_qwt_simple PUBLIC -DQWT_DLL)
+target_compile_options(dev_qwt_simple PRIVATE -DQWT_DLL)
 target_link_libraries(dev_qwt_simple ${QWT_LIBRARY} Qt5::Widgets spdlog::spdlog)
 
 # Now building a lib that uses qwt. Trying both shared and static.
@@ -144,23 +144,23 @@ target_link_libraries(dev_qwt_simple ${QWT_LIBRARY} Qt5::Widgets spdlog::spdlog)
 # Build the STATIC lib
 add_library(qwt_simple_static STATIC lib_qwt_simple.cc)
 target_link_libraries(qwt_simple_static PUBLIC ${QWT_LIBRARY} Qt5::Widgets spdlog::spdlog)
-target_compile_options(qwt_simple_static PRIVATE -DQWT_DLL -DQWT_MAKEDLL)
+target_compile_options(qwt_simple_static PUBLIC -DQWT_DLL PRIVATE -DQWT_MAKEDLL)
 
 # Build the SHARED lib
 add_library(qwt_simple_shared SHARED lib_qwt_simple.cc)
 target_link_libraries(qwt_simple_shared PUBLIC ${QWT_LIBRARY} Qt5::Widgets spdlog::spdlog)
-target_compile_options(qwt_simple_shared PRIVATE -DQWT_DLL)
+target_compile_options(qwt_simple_shared PUBLIC -DQWT_DLL)
 
 # Link against STATIC
 add_executable(dev_qwt_simple_static dev_qwt_simple2.cc)
 set_target_properties(dev_qwt_simple_static PROPERTIES WIN32_EXECUTABLE OFF)
-target_compile_options(dev_qwt_simple_static PRIVATE -DQWT_DLL)
+#target_compile_options(dev_qwt_simple_static PRIVATE -DQWT_DLL)
 target_link_libraries(dev_qwt_simple_static qwt_simple_static)
 
 # Link against SHARED
 add_executable(dev_qwt_simple_shared dev_qwt_simple2.cc)
 set_target_properties(dev_qwt_simple_shared PROPERTIES WIN32_EXECUTABLE OFF)
-target_compile_options(dev_qwt_simple_shared PRIVATE -DQWT_DLL)
+#target_compile_options(dev_qwt_simple_shared PRIVATE -DQWT_DLL)
 target_link_libraries(dev_qwt_simple_shared qwt_simple_shared)
 
 
@@ -401,6 +401,7 @@ if (WIN32)
     # This fixes undefined references to qwt symbols like "undefined symbol:
     # public: static double const QwtLogTransform::LogMin".
     # It does cause a duplicate symbol error though :-(
+    #target_compile_options(libmvme PUBLIC -DQWT_DLL -DQWT_MAKEDLL)
     target_compile_options(libmvme PUBLIC -DQWT_DLL)
 endif()
 

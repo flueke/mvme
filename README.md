@@ -40,14 +40,17 @@ http://www.msys2.org/
 
 #### ucrt64 dependencies
 
-    mingw-w64-ucrt-x86_64-clang
-    mingw-w64-ucrt-x86_64-ninja
-    mingw-w64-ucrt-x86_64-quazip-qt5
-    mingw-w64-ucrt-x86_64-qt5-websockets
-    mingw-w64-ucrt-x86_64-qt5-svg
-    mingw-w64-ucrt-x86_64-boost
-    mingw-w64-ucrt-x86_64-qwt-qt5
-    mingw-w64-ucrt-x86_64-graphviz
+    pacman -S \
+    mingw-w64-ucrt-x86_64-clang \
+    mingw-w64-ucrt-x86_64-cmake \
+    mingw-w64-ucrt-x86_64-gdb \
+    mingw-w64-ucrt-x86_64-ninja \
+    mingw-w64-ucrt-x86_64-quazip-qt5 \
+    mingw-w64-ucrt-x86_64-qt5-websockets \
+    mingw-w64-ucrt-x86_64-qt5-svg \
+    mingw-w64-ucrt-x86_64-boost \
+    mingw-w64-ucrt-x86_64-qwt-qt5 \
+    mingw-w64-ucrt-x86_64-graphviz \
     mingw-w64-ucrt-x86_64-quazip-qt5
 
 #### ucrt64 build
@@ -55,13 +58,7 @@ http://www.msys2.org/
     mkdir build; cd build
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
     ninja
-
-### Windows vcpkg
-   cmake -GNinja "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
-   -DCMAKE_C_COMPILER="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\clang-cl.exe" ^
-   -DCMAKE_CXX_COMPILER="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\clang-cl.exe" ..
-   cmake --build .
-
+   
 
 ## Mac OS X using Homebrew (out of date, needs verification)
 * Note that the OS X port has only been tested with our MVLC VME Controller via
