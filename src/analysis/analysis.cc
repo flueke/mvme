@@ -592,6 +592,66 @@ void PlotGridView::accept(ObjectVisitor &visitor)
 }
 
 //
+// HistogramOperation
+//
+
+// To create the result histo:
+//   If entries point only to H1D sinks:
+//     1) Walk entries. For each sinkId find the histo sink. Use
+//        get_runtime_h1dsink_data() to query the a2 adapter for the sink data.
+
+
+struct HistogramOperation::Private
+{
+    std::vector<HistogramOperation::Entry> entries_;
+    HistogramOperation::Operation operationType_ = HistogramOperation::Add;
+    QString title_;
+};
+
+HistogramOperation::HistogramOperation(QObject *parent)
+    : AnalysisObject(parent)
+    , d(std::make_unique<HistogramOperation::Private>())
+{
+}
+
+HistogramOperation::~HistogramOperation()
+{
+}
+
+const std::vector<HistogramOperation::Entry> &HistogramOperation::entries() const { return d->entries_; }
+void HistogramOperation::setEntries(const std::vector<Entry> &entries) { d->entries_ = entries; }
+void HistogramOperation::setEntries(std::vector<Entry> &&entries) { d->entries_ = entries; }
+void HistogramOperation::addEntry(const Entry &entry) { d->entries_.push_back(entry); }
+
+HistogramOperation::Operation HistogramOperation::getOperationType() const { return d->operationType_; }
+void HistogramOperation::setOperationType(Operation type) { d->operationType_ = type; }
+
+QString HistogramOperation::getTitle() const { return d->title_; }
+void HistogramOperation::setTitle(const QString &title) { d->title_ = title; }
+
+std::shared_ptr<Histo1D> HistogramOperation::getResultHisto1D()
+{
+    return {};
+}
+
+std::shared_ptr<Histo2D> HistogramOperation::getResultHisto2D()
+{
+    return {};
+}
+
+void HistogramOperation::read(const QJsonObject &json)
+{
+}
+
+void HistogramOperation::write(QJsonObject &json) const
+{
+}
+
+void HistogramOperation::accept(ObjectVisitor &visitor)
+{
+}
+
+//
 // Extractor
 //
 
@@ -4568,6 +4628,7 @@ Analysis::Analysis(QObject *parent)
 
     // generics
     m_objectFactory.registerGeneric<PlotGridView>();
+    m_objectFactory.registerGeneric<HistogramOperation>();
 
 #ifndef QT_NO_DEBUG
     qDebug() << "Registered Sources:   " << m_objectFactory.getSourceNames();

@@ -723,6 +723,49 @@ class LIBMVME_EXPORT PlotGridView: public AnalysisObject
         bool gaussEnabled_ = {};
 };
 
+// Addition of all histograms in the entries array.
+// Passive object similar to PlotGridView. The calculation of the resulting
+// histogram is performed on deman in getResultHisto1D();
+class LIBMVME_EXPORT HistogramOperation: public AnalysisObject
+{
+    Q_OBJECT
+    public:
+        enum Operation {
+            Add,
+        };
+
+        struct Entry {
+            QUuid sinkId;        // id of the source sink (H1D or H2D)
+            int histoIndex = 0;  // Index of the histogram in the sink
+        };
+
+        Q_INVOKABLE explicit HistogramOperation(QObject *parent = nullptr);
+        ~HistogramOperation() override;
+
+        const std::vector<Entry> &entries() const;
+        void setEntries(const std::vector<Entry> &entries);
+        void setEntries(std::vector<Entry> &&entries);
+        void addEntry(const Entry &entry);
+
+        Operation getOperationType() const;
+        void setOperationType(Operation type);
+
+        QString getTitle() const;
+        void setTitle(const QString &title);
+
+        std::shared_ptr<Histo1D> getResultHisto1D();
+        std::shared_ptr<Histo2D> getResultHisto2D();
+
+        // Serialization
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+        void accept(ObjectVisitor &visitor) override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 } // end namespace analysis
 
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"
