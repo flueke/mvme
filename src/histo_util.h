@@ -392,11 +392,29 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
 
 enum class HistoOpsBinningMode
 {
-    MinimumBins, // the resulting histogram has the smalles number of bins of the input histos
+    MinimumBins, // the resulting histogram has the smallest number of bins of the input histos
     MaximumBins  // the resulting histogram has the largest number of bins of the input histos
 };
 
+// Add the histograms a and b. The number of bins in the resulting histogram
+// depends on the binning mode. Sampling the source histograms makes use of bin
+// subsampling/multi bin sampling if needed.
+
+// This is different from ROOT TH1 and boost::histogram where the binnings of
+// the operands have to match exactly.
 Histo1DPtr add(const Histo1D &a, const Histo1D &b, const HistoOpsBinningMode &bm = HistoOpsBinningMode::MinimumBins);
+
+// Same as above but add all histograms in the list.
 Histo1DPtr add(const Histo1DList &histos, const HistoOpsBinningMode &bm = HistoOpsBinningMode::MinimumBins);
+
+// Calculates the binning for the resulting sum histogram.
+AxisBinning calculate_addition_dest_binning(const Histo1D &a, const Histo1D &b,
+                                         const HistoOpsBinningMode &bm = HistoOpsBinningMode::MinimumBins);
+
+// Calculates the binning for the resulting sum histogram.
+AxisBinning calculate_addition_dest_binning(const Histo1DList &histos,
+                                         const HistoOpsBinningMode &bm = HistoOpsBinningMode::MinimumBins);
+
+
 
 #endif /* __HISTO_UTIL_H__ */

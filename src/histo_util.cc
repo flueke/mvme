@@ -401,20 +401,8 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
 
 Histo1DPtr add(const Histo1D &a, const Histo1D &b, const HistoOpsBinningMode &bm)
 {
-    size_t nBins = 0;
-    switch (bm)
-    {
-        case HistoOpsBinningMode::MinimumBins:
-            nBins = std::min(a.getNumberOfBins(), b.getNumberOfBins());
-            break;
-        case HistoOpsBinningMode::MaximumBins:
-            nBins = std::max(a.getNumberOfBins(), b.getNumberOfBins());
-            break;
-    }
-    size_t xMin = std::min(a.getXMin(), b.getXMin());
-    size_t xMax = std::max(a.getXMax(), b.getXMax());
-
-    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
+    auto result = std::make_shared<Histo1D>(calculate_addition_dest_binning(a, b, bm));
+    auto nBins = result->getNumberOfBins();
 
     for (size_t destbin = 0; destbin < nBins; ++destbin)
     {
@@ -428,10 +416,51 @@ Histo1DPtr add(const Histo1D &a, const Histo1D &b, const HistoOpsBinningMode &bm
             countsA + countsB,
             countsA + countsB);
     }
+
     return result;
 }
 
 Histo1DPtr add(const Histo1DList &histos, const HistoOpsBinningMode &bm)
+{
+    auto result = std::make_shared<Histo1D>(calculate_addition_dest_binning(histos, bm));
+    auto nBins = result->getNumberOfBins();
+
+    for (const auto &histo: histos)
+    {
+        for (size_t destbin = 0; destbin < nBins; ++destbin)
+        {
+            double xLow = result->getBinLowEdge(destbin);
+            double xHigh = xLow + result->getBinWidth();
+            auto counts = histo->getCounts(xLow, xHigh);
+            auto newCounts = result->getBinContent(destbin) + counts;
+            result->setBinContent(destbin, newCounts, newCounts);
+        }
+    }
+
+    return result;
+}
+
+AxisBinning calculate_addition_dest_binning(const Histo1D &a, const Histo1D &b,
+                                            const HistoOpsBinningMode &bm)
+{
+    size_t nBins = 0;
+    switch (bm)
+    {
+        case HistoOpsBinningMode::MinimumBins:
+            nBins = std::min(a.getNumberOfBins(), b.getNumberOfBins());
+            break;
+        case HistoOpsBinningMode::MaximumBins:
+            nBins = std::max(a.getNumberOfBins(), b.getNumberOfBins());
+            break;
+    }
+    size_t xMin = std::min(a.getXMin(), b.getXMin());
+    size_t xMax = std::max(a.getXMax(), b.getXMax());
+
+    return AxisBinning(nBins, xMin, xMax);
+}
+
+AxisBinning calculate_addition_dest_binning(const Histo1DList &histos,
+                                            const HistoOpsBinningMode &bm)
 {
     size_t nBins = 0;
     double xMin = 0;
@@ -452,19 +481,5 @@ Histo1DPtr add(const Histo1DList &histos, const HistoOpsBinningMode &bm)
         xMax = std::max(xMax, histo->getXMax());
     }
 
-    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
-
-    for (const auto &histo: histos)
-    {
-        for (size_t destbin = 0; destbin < nBins; ++destbin)
-        {
-            double xLow = result->getBinLowEdge(destbin);
-            double xHigh = xLow + result->getBinWidth();
-            auto counts = histo->getCounts(xLow, xHigh);
-            auto newCounts = result->getBinContent(destbin) + counts;
-            result->setBinContent(destbin, newCounts, newCounts);
-        }
-    }
-
-    return result;
+    return AxisBinning(nBins, xMin, xMax);
 }
