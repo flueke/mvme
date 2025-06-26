@@ -112,7 +112,7 @@ TEST(Histograms, Histo1DNegativeAxisGetCountsInRange)
     histo.fill(-7.0, 2.0);
     histo.fill(-1.0);
 
-    dump_histo(histo);
+    //dump_histo(histo);
 
     // value   0  1  1  2  0  0  0  0  0  0
     // start -10 -9 -8 -7 -6 -5 -4 -3 -2 -1
@@ -196,8 +196,8 @@ TEST(Histograms, AddHistogramsSameBinsDifferentRanges)
     ASSERT_GE(histo2.fill(9.0), 0);
     ASSERT_GE(histo2.fill(14.0), 0);
 
-    dump_histo(histo1);
-    dump_histo(histo2);
+    //dump_histo(histo1);
+    //dump_histo(histo2);
     const double epsilon = 0.0000001;
 
     ASSERT_NEAR(histo1.getCounts(4.5, 6.0), 1.0, epsilon);
@@ -210,7 +210,7 @@ TEST(Histograms, AddHistogramsSameBinsDifferentRanges)
                                                         ? "minbins"
                                                         : "maxbins")
                              .c_str());
-        dump_histo(*result);
+        //dump_histo(*result);
         auto binning = result->getAxisBinning(Qt::XAxis);
         ASSERT_EQ(binning.getBins(), 10u);
         ASSERT_EQ(binning.getMin(), 0.0);
@@ -251,9 +251,9 @@ TEST(Histograms, AddHistogramsUnequalBinningsMinBins)
     ASSERT_EQ(binning.getMax(), 20.0);
     ASSERT_EQ(binning.getBinWidth(), 2.0);
 
-    dump_histo(histo1);
-    dump_histo(histo2);
-    dump_histo(*result);
+    //dump_histo(histo1);
+    //dump_histo(histo2);
+    //dump_histo(*result);
 
     const double epsilon = 0.001;
     ASSERT_NEAR(result->getCounts(0.0, 2.0), 1.0, epsilon);
@@ -289,9 +289,9 @@ TEST(Histograms, AddHistogramsUnequalBinningsMaxBins)
     ASSERT_EQ(binning.getMax(), 20.0);
     ASSERT_EQ(binning.getBinWidth(), 1.0);
 
-    dump_histo(histo1);
-    dump_histo(histo2);
-    dump_histo(*result);
+    //dump_histo(histo1);
+    //dump_histo(histo2);
+    //dump_histo(*result);
 
     const double epsilon = 0.001;
     ASSERT_NEAR(result->getCounts(0.0, 2.0), 1.0, epsilon);
