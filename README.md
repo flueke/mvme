@@ -40,14 +40,18 @@ http://www.msys2.org/
 
 #### ucrt64 dependencies
 
-    mingw-w64-ucrt-x86_64-clang
-    mingw-w64-ucrt-x86_64-ninja
+    pacman -S \
+    mingw-w64-ucrt-x86_64-clang \
+    mingw-w64-ucrt-x86_64-cmake \
+    mingw-w64-ucrt-x86_64-gdb \
+    mingw-w64-ucrt-x86_64-ninja \
+    mingw-w64-ucrt-x86_64-quazip-qt5 \
+    mingw-w64-ucrt-x86_64-qt5-websockets \
+    mingw-w64-ucrt-x86_64-qt5-svg \
+    mingw-w64-ucrt-x86_64-boost \
+    mingw-w64-ucrt-x86_64-qwt-qt5 \
+    mingw-w64-ucrt-x86_64-graphviz \
     mingw-w64-ucrt-x86_64-quazip-qt5
-    mingw-w64-ucrt-x86_64-qt5-websockets
-    mingw-w64-ucrt-x86_64-qt5-svg
-    mingw-w64-ucrt-x86_64-boost
-    mingw-w64-ucrt-x86_64-qwt-qt5
-    mingw-w64-ucrt-x86_64-graphviz
     mingw-w64-ucrt-x86_64-quazip-qt5
 
 #### ucrt64 build
