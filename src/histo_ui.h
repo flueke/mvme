@@ -377,7 +377,7 @@ struct BasicRasterData: public QwtMatrixRasterData
         QwtRasterData::discardRaster();
     }
 
-    void preReplot()
+    virtual void preReplot()
     {
 #ifndef QT_NO_DEBUG
         //qDebug() << __PRETTY_FUNCTION__ << this;
@@ -385,11 +385,19 @@ struct BasicRasterData: public QwtMatrixRasterData
 #endif
     }
 
-    void postReplot()
+    virtual void postReplot()
     {
 #ifndef QT_NO_DEBUG
-        //qDebug() << __PRETTY_FUNCTION__ << this
-        //    << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+        qDebug() << __PRETTY_FUNCTION__ << this
+            << "sampled values for last replot: " << m_sampledValuesForLastReplot;
+#endif
+    }
+
+    protected:
+    void countSampleForReplot() const
+    {
+#ifndef QT_NO_DEBUG
+        ++m_sampledValuesForLastReplot;
 #endif
     }
 };
@@ -406,9 +414,7 @@ struct Histo2DRasterData: public BasicRasterData
 
     virtual double value(double x, double y) const override
     {
-#ifndef QT_NO_DEBUG
-        m_sampledValuesForLastReplot++;
-#endif
+        countSampleForReplot();
         //qDebug() << __PRETTY_FUNCTION__ << this
         //    << "x" << x << ", y" << y;
 
@@ -442,17 +448,33 @@ using HistoList = QVector<std::shared_ptr<Histo1D>>;
 struct Histo1DListRasterData: public BasicRasterData
 {
     HistoList m_histos;
+    // max y value that was sampled by qwt during the last replot.
+    mutable double m_lastReplotMaxY = 0.0;
 
     explicit Histo1DListRasterData(const HistoList &histos)
         : BasicRasterData()
         , m_histos(histos)
     {}
 
-    virtual double value(double x, double y) const override
+    void preReplot() override
     {
-#ifndef QT_NO_DEBUG
-        m_sampledValuesForLastReplot++;
-#endif
+        BasicRasterData::preReplot();
+        m_lastReplotMaxY = 0.0;
+    }
+
+    void postReplot() override
+    {
+        BasicRasterData::postReplot();
+        qDebug() << __PRETTY_FUNCTION__ << this
+            << "sampled values for last replot: " << m_sampledValuesForLastReplot
+            << ", max y value: " << m_lastReplotMaxY;
+    }
+
+    double value(double x, double y) const override
+    {
+        countSampleForReplot();
+        m_lastReplotMaxY = std::max(m_lastReplotMaxY, y);
+
         int histoIndex = x;
 
         if (histoIndex < 0 || histoIndex >= m_histos.size())
@@ -460,25 +482,34 @@ struct Histo1DListRasterData: public BasicRasterData
 
         double v = m_histos[histoIndex]->getValue(y, m_rrf.y);
         double r = (v > 0.0 ? v : mesytec::mvme::util::make_quiet_nan());
+
+        //qDebug() << __PRETTY_FUNCTION__ << "histoIndex" << histoIndex
+        //         << "x =" << x << ", y =" << y
+        //         << "rrf.y =" << m_rrf.y << ", value =" << v << ", r =" << r;
+
         return r;
     }
 
-    virtual QRectF pixelHint(const QRectF &/*area*/) const override
+    QRectF pixelHint(const QRectF &area) const override
     {
+        qDebug() << __PRETTY_FUNCTION__ << "area =" << area;
+        return QRectF{};
         double sizeX = 1.0;
         double sizeY = 1.0;
 
+        #if 0
         if (!m_histos.isEmpty())
         {
             sizeY = m_histos[0]->getBinWidth(m_rrf.y);
         }
+        #endif
 
         QRectF result
         {
             0.0, 0.0, sizeX, sizeY
         };
 
-        //qDebug() << __PRETTY_FUNCTION__ << ">>>>>>" << result;
+        qDebug() << __PRETTY_FUNCTION__ << "area =" << area << ">>>>>>" << result;
 
         return result;
     }
