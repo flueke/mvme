@@ -110,14 +110,11 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
         }
     }
 
-    auto firstHisto   = sink->m_histos.at(firstHistoIndex);
-    auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
-
     result.intervals[Qt::XAxis] = {
         static_cast<double>(firstHistoIndex),
         static_cast<double>(lastHistoIndex + 1)
     };
-    result.intervals[Qt::YAxis] = { firstBinning.getMin(), firstBinning.getMax() };
+    result.intervals[Qt::YAxis] = { yInterval.minValue, yInterval.maxValue };
     result.intervals[Qt::ZAxis] = { 0.0, result.maxZ };
 
     return result;
@@ -769,8 +766,8 @@ void Histo2DWidget::replot()
                 //    << ", max=" << visibleYInterval.maxValue();
             }
 
-            //qDebug() << __PRETTY_FUNCTION__ << "final visYInterval: min" << visibleYInterval.minValue()
-            //        << ", max=" << visibleYInterval.maxValue();
+            qDebug() << __PRETTY_FUNCTION__ << "final visYInterval: min" << visibleYInterval.minValue()
+                    << ", max=" << visibleYInterval.maxValue();
         }
 
         m_d->m_plot->setAxisScale(QwtPlot::xBottom,
