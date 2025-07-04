@@ -1135,9 +1135,10 @@ void Histo2DWidget::zoomerZoomed(const QRectF &)
     replot();
 }
 
-// TODO: RR
 void Histo2DWidget::updateCursorInfoLabel()
 {
+    if (!m_d->m_labelCursorInfo->isVisible())
+        return;
     double plotX = m_d->m_cursorPosition.x();
     double plotY = m_d->m_cursorPosition.y();
     s64 binX = -1;
@@ -1154,13 +1155,16 @@ void Histo2DWidget::updateCursorInfoLabel()
     else if (m_d->m_histo1DSink && m_d->m_histo1DSink->getNumberOfHistos() > 0)
     {
         /* x goes from 0 to #histos.
-         * For y the x binning of the first histo is used. */
+           y goes from [xmin, xmax) of all histos.
+        */
 
         auto xBinning = AxisBinning(m_d->m_histo1DSink->getNumberOfHistos(),
                                     0.0, m_d->m_histo1DSink->getNumberOfHistos());
         binX = xBinning.getBin(plotX);
-        binY = m_d->m_histo1DSink->getHisto(0)->getAxisBinning(Qt::XAxis)
-            .getBin(plotY, m_d->m_rrf.y);
+        if (auto histoX = m_d->m_histo1DSink->getHisto(binX))
+        {
+            binY = histoX->getAxisBinning(Qt::XAxis).getBin(plotY, m_d->m_rrf.y);
+        }
 
         auto histData = reinterpret_cast<Histo1DListRasterData *>(m_d->m_plotItem->data());
         value = histData->value(plotX, plotY);
