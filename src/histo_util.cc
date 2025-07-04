@@ -272,12 +272,33 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     {
         projBinning  = xBinning;
         otherBinning = histos[0]->getAxisBinning(Qt::XAxis);
+
+        for (const auto &histo: histos)
+        {
+            otherBinning.setBins(std::min(otherBinning.getBins(), histo->getAxisBinning(Qt::XAxis).getBins()));
+            otherBinning.setMin(std::min(otherBinning.getMin(), histo->getAxisBinning(Qt::XAxis).getMin()));
+            otherBinning.setMax(std::max(otherBinning.getMax(), histo->getAxisBinning(Qt::XAxis).getMax()));
+        }
     }
     else if (axis == Qt::YAxis)
     {
         projBinning  = histos[0]->getAxisBinning(Qt::XAxis);
         otherBinning = xBinning;
+
+        for (const auto &histo: histos)
+        {
+            projBinning.setBins(std::min(projBinning.getBins(), histo->getAxisBinning(Qt::XAxis).getBins()));
+            projBinning.setMin(std::min(projBinning.getMin(), histo->getAxisBinning(Qt::XAxis).getMin()));
+            projBinning.setMax(std::max(projBinning.getMax(), histo->getAxisBinning(Qt::XAxis).getMax()));
+        }
     }
+
+    qDebug() << "projBinning:" << projBinning.getMin() << projBinning.getMax()
+             << "otherBinning:" << otherBinning.getMin() << otherBinning.getMax();
+
+    // TODO/FIXME: have to use the new Histo1D::getCounts() method to correctly
+    // sample from the possibly non-uniform 1d histos. Bin based sampling does
+    // not work as the histos may have wildy varying axis scales.
 
     s64 projStartBin = projBinning.getBinBounded(projStart);
     s64 projEndBin   = projBinning.getBinBounded(projEnd);
