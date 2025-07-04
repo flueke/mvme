@@ -5814,24 +5814,17 @@ QTreeWidgetItem *EventWidgetPrivate::findNode(const void *rawPtr)
 
 void EventWidgetPrivate::copyToClipboard(const AnalysisObjectVector &objects)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    QVector<AnalysisObjectRef> objectRefs;
+    //qDebug() << __PRETTY_FUNCTION__ << objectRefs;
+    std::for_each(objects.begin(), objects.end(),
+                  [&objectRefs](const AnalysisObjectPtr &obj)
+                  {
+                      objectRefs.push_back(AnalysisObjectRef(obj->getId(), -1));
+                  });
 
-    QVector<QByteArray> idData;
-    idData.reserve(objects.size());
-
-    for (auto obj: objects)
-    {
-        idData.push_back(obj->getId().toByteArray());
-    }
-
-    QByteArray buffer;
-    QDataStream stream(&buffer, QIODevice::WriteOnly);
-    stream << idData;
-
-    auto mimeData = new QMimeData;
-    mimeData->setData(ObjectRefMimeType, buffer);
-
-    QGuiApplication::clipboard()->setMimeData(mimeData);
+    auto result = std::make_unique<QMimeData>();
+    result->setData(ObjectRefMimeType, encode_object_ref_list(objectRefs));
+    QGuiApplication::clipboard()->setMimeData(result.release());
 }
 
 bool EventWidgetPrivate::canPaste()
