@@ -296,10 +296,6 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     qDebug() << "projBinning:" << projBinning.getMin() << projBinning.getMax()
              << "otherBinning:" << otherBinning.getMin() << otherBinning.getMax();
 
-    // TODO/FIXME: have to use the new Histo1D::getCounts() method to correctly
-    // sample from the possibly non-uniform 1d histos. Bin based sampling does
-    // not work as the histos may have wildy varying axis scales.
-
     s64 projStartBin = projBinning.getBinBounded(projStart);
     s64 projEndBin   = projBinning.getBinBounded(projEnd);
 
@@ -315,10 +311,11 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     // adjust start and end to low edge of corresponding bin
     projStart = projBinning.getBinLowEdge(projStartBin);
     projEnd   = projBinning.getBinLowEdge(projEndBin + 1);
+    const auto projBinWidth = projBinning.getBinWidth();
 
     auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
 
-    // FIXME: TODO
+    // FIXME: TODO: set object names, set window title, etc
     //result->setAxisInfo(Qt::XAxis, histo->getAxisInfo(axis));
     //result->setObjectName(histo->objectName() + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y")) + QSL(" Projection"));
     //
@@ -334,13 +331,18 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
              binJ <= otherEndBin;
              ++binJ)
         {
+            // Note: Cannot sample directly from the source histogram bins as
+            // the scaling of that histogram may be different than the
+            // calculated projection binning.
             if (axis == Qt::XAxis)
             {
-                value += histos[binI]->getBinContent(binJ);
+                auto lowEdge = projBinning.getBinLowEdge(binJ);
+                value += histos[binI]->getCounts(lowEdge, lowEdge + projBinWidth);
             }
             else
             {
-                value += histos[binJ]->getBinContent(binI);
+                auto lowEdge = projBinning.getBinLowEdge(binI);
+                value += histos[binJ]->getCounts(lowEdge, lowEdge + projBinWidth);
             }
         }
 
