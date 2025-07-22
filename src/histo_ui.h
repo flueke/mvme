@@ -465,9 +465,11 @@ struct Histo1DListRasterData: public BasicRasterData
     void postReplot() override
     {
         BasicRasterData::postReplot();
+#ifndef QT_NO_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << this
             << "sampled values for last replot: " << m_sampledValuesForLastReplot
             << ", max y value: " << m_lastReplotMaxY;
+#endif
     }
 
     double value(double x, double y) const override
