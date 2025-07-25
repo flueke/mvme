@@ -221,6 +221,8 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         paramIndex = newParamIndex;
         inputPipe->addDestination(this);
         Q_ASSERT(parentOperator);
+        if (parentOperator)
+            parentOperator->slotConnected(this);
     }
     else
     {
@@ -235,6 +237,9 @@ void Slot::disconnectPipe()
         inputPipe->removeDestination(this);
         inputPipe = nullptr;
         paramIndex = Slot::NoParamIndex;
+        Q_ASSERT(parentOperator);
+        if (parentOperator)
+            parentOperator->slotDisconnected(this);
     }
 }
 
