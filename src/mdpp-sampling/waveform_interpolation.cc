@@ -189,7 +189,7 @@ void interpolate_spline(const std::vector<double> &xs, const std::vector<double>
     if (xs.size() != ys.size())
         return;
 
-    if (factor <= 1 || xs.size() < 2)
+    if (factor <= 1 || xs.size() < 3) // xs.size() >= 3 is asserted in spline.h spline::set_points()
     {
         emit(xs.data(), xs.data() + xs.size(), ys.data(), emitter);
         return;
