@@ -576,7 +576,7 @@ QString format_result(const Result &result)
 
         case CommandType::Accu_Test:
             // actual non-warning errors are handled at the top
-            QString status = result.error.isWarning() ? "warning" : "ok";
+            QString status = result.error.isError() ? (result.error.isWarning() ? "warning" : "error") : "ok";
             ret = QSL("accu test %4: %1 (accu=0x%2 (%3 dec))")
                 .arg(result.command.accuTestMessage)
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
