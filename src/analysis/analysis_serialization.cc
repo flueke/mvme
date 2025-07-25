@@ -89,6 +89,19 @@ QJsonObject serialize(PlotGridView *view)
     return dest;
 }
 
+QJsonObject serialize(HistogramOperation *histOp)
+{
+    QJsonObject dest;
+    dest["id"]        = histOp->getId().toString();
+    dest["name"]      = histOp->objectName();
+    dest["class"]     = getClassName(histOp);
+    dest["userLevel"] = histOp->getUserLevel();
+    QJsonObject dataJson;
+    histOp->write(dataJson);
+    dest["data"] = dataJson;
+    return dest;
+}
+
 uint qHash(const Connection &con, uint seed)
 {
     return ::qHash(con.srcObject.get(), seed)
@@ -247,6 +260,12 @@ void ObjectSerializerVisitor::visit(PlotGridView *view)
 {
     genericObjectsArray.append(serialize(view));
     visitedObjects.append(view->shared_from_this());
+}
+
+void ObjectSerializerVisitor::visit(HistogramOperation *histOp)
+{
+    genericObjectsArray.append(serialize(histOp));
+    visitedObjects.append(histOp->shared_from_this());
 }
 
 QJsonArray ObjectSerializerVisitor::serializeConnections() const

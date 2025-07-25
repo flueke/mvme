@@ -92,6 +92,7 @@ const char *node_type_to_string(NodeType type)
         case NodeType::NodeType_Histo1D: return "Histo1D";
         case NodeType::NodeType_Directory: return "Directory";
         case NodeType::NodeType_PlotGridView: return "PlotGridView";
+        case NodeType::NodeType_HistogramOperation: return "HistogramOperation";
         default: break;
     }
 
@@ -686,6 +687,7 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
             case NodeType_Histo2DSink:
             case NodeType_Sink:
             case NodeType_PlotGridView:
+            case NodeType_HistogramOperation:
                 {
                     if (auto op = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
                     {
@@ -2369,6 +2371,26 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
                 else
                     result.sinkTree->addTopLevelItem(node.release());
             }
+
+            if (auto histoOps = std::dynamic_pointer_cast<HistogramOperation>(obj);
+                histoOps && obj->getUserLevel() == level)
+            {
+                std::unique_ptr<TreeNode> node(
+                    make_node(histoOps.get(), NodeType_HistogramOperation, DataRole_AnalysisObject));
+
+                node->setData(0, Qt::DisplayRole, QSL("<b>HistoOp</b> %1").arg(histoOps->objectName()));
+                node->setData(0, Qt::EditRole, histoOps->objectName());
+                node->setFlags(node->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
+                node->setIcon(0, QIcon(":/histo_ops.png"));
+
+                if (auto dir = analysis->getParentDirectory(histoOps))
+                {
+                    if (auto dirNode = dirNodes.value(dir))
+                        dirNode->addChild(node.release());
+                }
+                else
+                    result.sinkTree->addTopLevelItem(node.release());
+            }
         }
     }
 
@@ -3404,6 +3426,25 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 node->treeWidget()->editItem(node);
             }
         });
+
+        menuNew->addAction(QIcon(":/histo_ops.png"), QSL("New Histogram Operation"), parentMenu,
+                           [this, userLevel, destDir]()
+                           {
+                               auto histoOp = std::make_shared<HistogramOperation>();
+                               histoOp->setObjectName("New Histogram Operation");
+                               histoOp->setUserLevel(userLevel);
+                               m_serviceProvider->getAnalysis()->addObject(histoOp);
+                               if (destDir)
+                               {
+                                   destDir->push_back(histoOp);
+                               }
+                               repopulate();
+                               if (auto node = findNode(histoOp))
+                               {
+                                   node->setExpanded(true);
+                                   node->treeWidget()->editItem(node);
+                               }
+                           });
 
         menuNew->addSeparator();
         menuNew->addAction(

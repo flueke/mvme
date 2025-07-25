@@ -47,6 +47,7 @@ struct LIBMVME_EXPORT ObjectSerializerVisitor: public ObjectVisitor
     void visit(ConditionInterface *cond) override;
     void visit(Directory *dir) override;
     void visit(PlotGridView *view) override;
+    void visit(HistogramOperation *histOp) override;
 
     QJsonArray serializeConnections() const;
     QJsonObject serializeConditionLinks(const ConditionLinks &links) const;

@@ -63,6 +63,7 @@ enum NodeType
 
     NodeType_Directory,
     NodeType_PlotGridView,
+    NodeType_HistogramOperation,
 
     NodeType_MaxNodeType
 };

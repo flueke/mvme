@@ -605,12 +605,12 @@ void PlotGridView::accept(ObjectVisitor &visitor)
 //     1) Walk entries. For each sinkId find the histo sink. Use
 //        get_runtime_h1dsink_data() to query the a2 adapter for the sink data.
 
-
 struct HistogramOperation::Private
 {
     std::vector<HistogramOperation::Entry> entries_;
     HistogramOperation::Operation operationType_ = HistogramOperation::Add;
     QString title_;
+    std::vector<std::shared_ptr<Slot>> inputs_;
 };
 
 HistogramOperation::HistogramOperation(QObject *parent)
@@ -623,16 +623,21 @@ HistogramOperation::~HistogramOperation()
 {
 }
 
-const std::vector<HistogramOperation::Entry> &HistogramOperation::entries() const { return d->entries_; }
-void HistogramOperation::setEntries(const std::vector<Entry> &entries) { d->entries_ = entries; }
-void HistogramOperation::setEntries(std::vector<Entry> &&entries) { d->entries_ = entries; }
-void HistogramOperation::addEntry(const Entry &entry) { d->entries_.push_back(entry); }
-
 HistogramOperation::Operation HistogramOperation::getOperationType() const { return d->operationType_; }
 void HistogramOperation::setOperationType(Operation type) { d->operationType_ = type; }
 
-QString HistogramOperation::getTitle() const { return d->title_; }
-void HistogramOperation::setTitle(const QString &title) { d->title_ = title; }
+QString HistogramOperation::getHistogramTitle() const { return d->title_; }
+void HistogramOperation::setHistogramTitle(const QString &title) { d->title_ = title; }
+
+bool HistogramOperation::isHisto1D() const
+{
+    return false;
+}
+
+bool HistogramOperation::isHisto2D() const
+{
+    return !isHisto1D();
+}
 
 std::shared_ptr<Histo1D> HistogramOperation::getResultHisto1D()
 {
@@ -654,6 +659,7 @@ void HistogramOperation::write(QJsonObject &json) const
 
 void HistogramOperation::accept(ObjectVisitor &visitor)
 {
+    visitor.visit(this);
 }
 
 //
