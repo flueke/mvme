@@ -739,15 +739,28 @@ class LIBMVME_EXPORT HistogramOperation: public AnalysisObject
         };
 
         struct Entry {
-            QUuid sinkId;        // id of the source sink (H1D or H2D)
-            int histoIndex = 0;  // Index of the histogram in the sink
+            QUuid sinkId;           // id of the source sink (H1D or H2D)
+            int elementIndex = -1;  // Index of the histogram in the sink
         };
+
+        enum class EntryType {
+            Histo1D,
+            Histo2D,
+        };
+
+        static const std::string operationTypeToString(const Operation &op);
+        static std::optional<Operation> operationTypeFromString(const std::string &str);
 
         Q_INVOKABLE explicit HistogramOperation(QObject *parent = nullptr);
         ~HistogramOperation() override;
 
-        bool isHisto1D() const;
-        bool isHisto2D() const;
+        // Calls into the analysis instance to determine sinkIds concrete object
+        // type.
+        std::optional<EntryType> getEntryType(const QUuid &sinkId) const;
+        std::optional<EntryType> getEntryType(const Entry &entry) const
+        {
+            return getEntryType(entry.sinkId);
+        }
 
         const std::vector<Entry> &entries() const;
         // These return false if the histogram types pointed to by the entries
@@ -757,12 +770,19 @@ class LIBMVME_EXPORT HistogramOperation: public AnalysisObject
         bool setEntries(std::vector<Entry> &&entries);
         bool addEntry(const Entry &entry);
         void clearEntries();
+        bool isEmpty() const;
 
         Operation getOperationType() const;
         void setOperationType(Operation type);
 
         QString getHistogramTitle() const;
         void setHistogramTitle(const QString &title);
+
+        // Get this instances entry type. Returns nullopt if no entries are
+        // present, otherwise the type of the first entry is returned.
+        std::optional<EntryType> getEntryType() const;
+        bool isHisto1D() const;
+        bool isHisto2D() const;
 
         std::shared_ptr<Histo1D> getResultHisto1D();
         std::shared_ptr<Histo2D> getResultHisto2D();

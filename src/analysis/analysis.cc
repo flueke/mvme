@@ -30,6 +30,8 @@
 #include <set>
 #include <sstream>
 
+#include <mesytec-mvlc/util/string_util.h>
+
 #include "analysis/a2_adapter.h"
 #include "analysis/a2/multiword_datafilter.h"
 #include "analysis/analysis_serialization.h"
@@ -607,16 +609,52 @@ void PlotGridView::accept(ObjectVisitor &visitor)
 
 struct HistogramOperation::Private
 {
+    HistogramOperation *q;
     std::vector<HistogramOperation::Entry> entries_;
     HistogramOperation::Operation operationType_ = HistogramOperation::Add;
     QString title_;
     std::vector<std::shared_ptr<Slot>> inputs_;
 };
 
+std::optional<HistogramOperation::EntryType> HistogramOperation::getEntryType(const QUuid &sinkId) const
+{
+    if (auto ana = getAnalysis())
+    {
+        if (ana->getObject<Histo1DSink>(sinkId))
+            return EntryType::Histo1D;
+        if (ana->getObject<Histo2DSink>(sinkId))
+            return EntryType::Histo2D;
+    }
+
+    return std::nullopt;
+}
+
+const std::string HistogramOperation::operationTypeToString(const Operation &op)
+{
+    switch (op)
+    {
+        case Operation::Add:
+            return "add";
+    }
+
+    return {};
+}
+
+std::optional<HistogramOperation::Operation> HistogramOperation::operationTypeFromString(const std::string &str)
+{
+    if (mesytec::mvlc::util::str_tolower(str) == "add")
+    {
+        return Operation::Add;
+    }
+
+    return std::nullopt;
+}
+
 HistogramOperation::HistogramOperation(QObject *parent)
     : AnalysisObject(parent)
     , d(std::make_unique<HistogramOperation::Private>())
 {
+    d->q = this;
 }
 
 HistogramOperation::~HistogramOperation()
@@ -629,32 +667,188 @@ void HistogramOperation::setOperationType(Operation type) { d->operationType_ = 
 QString HistogramOperation::getHistogramTitle() const { return d->title_; }
 void HistogramOperation::setHistogramTitle(const QString &title) { d->title_ = title; }
 
+bool HistogramOperation::setEntries(const std::vector<Entry> &entries)
+{
+    auto newEntries = entries; // copy, then move. Not ideal but allows to share the code.
+    return setEntries(std::move(newEntries));
+}
+
+bool HistogramOperation::setEntries(std::vector<Entry> &&entries)
+{
+    if (entries.empty())
+    {
+        d->entries_.clear();
+        return true;
+    }
+
+    auto firstNewEntryType = getEntryType(entries.front());
+
+    if (!std::all_of(std::begin(entries), std::end(entries),
+                     [firstNewEntryType, this](const Entry &e)
+                     {
+                         auto entryType = getEntryType(e);
+                         return entryType && *entryType == *firstNewEntryType;
+                     }))
+    {
+        return false; // cannot mix H1D and H2D entries
+    }
+
+    auto thisEntryType = getEntryType();
+
+    if (!thisEntryType)
+    {
+        // We are still undetermined, most likely due to being empty. Just replace the entries.
+        d->entries_ = entries;
+        return true;
+    }
+
+    if (*thisEntryType != *firstNewEntryType)
+    {
+        return false; // cannot mix H1D and H2D entries
+    }
+
+    d->entries_ = std::move(entries);
+    return true;
+}
+
+bool HistogramOperation::addEntry(const Entry &entry)
+{
+    auto newEntryType = getEntryType(entry);
+
+    if (!newEntryType.has_value())
+        return false; // neither H1DSink nor H2DSink
+
+    if (isEmpty())
+    {
+        d->entries_.push_back(entry);
+        return true;
+    }
+
+    auto firstEntryType = getEntryType(d->entries_.front());
+
+    if (firstEntryType != newEntryType)
+    {
+        return false; // cannot mix H1D and H2D entries
+    }
+
+    d->entries_.push_back(entry);
+    return true;
+}
+
+void HistogramOperation::clearEntries()
+{
+    d->entries_.clear();
+}
+
+bool HistogramOperation::isEmpty() const
+{
+    return d->entries_.empty();
+}
+
+std::optional<HistogramOperation::EntryType> HistogramOperation::getEntryType() const
+{
+    if (isEmpty())
+        return std::nullopt;
+
+    return getEntryType(d->entries_.front().sinkId);
+}
+
 bool HistogramOperation::isHisto1D() const
 {
-    return false;
+    if (isEmpty())
+        return false;
+
+    return getEntryType(d->entries_.front()) == EntryType::Histo1D;
 }
 
 bool HistogramOperation::isHisto2D() const
 {
-    return !isHisto1D();
+    if (isEmpty())
+        return false;
+
+    return getEntryType(d->entries_.front()) == EntryType::Histo2D;
 }
 
 std::shared_ptr<Histo1D> HistogramOperation::getResultHisto1D()
 {
+    if (getEntryType() != EntryType::Histo1D)
+        return nullptr;
+
+    auto ana = getAnalysis();
+
+    if (!ana)
+        return nullptr;
+
+    // Collect all histograms from all sinks.
+    auto histos = std::accumulate(
+        std::begin(d->entries_), std::end(d->entries_), std::vector<std::shared_ptr<Histo1D>>{},
+        [ana](std::vector<std::shared_ptr<Histo1D>> &result, const Entry &e)
+        {
+            if (auto sink = ana->getObject<Histo1DSink>(e.sinkId))
+            {
+                if (e.elementIndex >= 0)
+                {
+                    auto histo = sink->getHisto(e.elementIndex);
+                }
+                else
+                {
+                    std::copy(std::begin(sink->m_histos), std::end(sink->m_histos),
+                              std::back_inserter(result));
+                }
+            }
+        });
+
+    if (histos.empty())
+    {
+        return nullptr;
+    }
+
+    // XXX: leftoff here
+
     return {};
 }
 
 std::shared_ptr<Histo2D> HistogramOperation::getResultHisto2D()
 {
+    if (getEntryType() != EntryType::Histo2D)
+        return nullptr;
     return {};
 }
 
 void HistogramOperation::read(const QJsonObject &json)
 {
+    d->entries_.clear();
+
+    auto entriesArray = json["entries"].toArray();
+
+    for (auto it = entriesArray.begin(); it != entriesArray.end(); ++it)
+    {
+        auto entryJson = it->toObject();
+        Entry e;
+        e.sinkId = QUuid(entryJson["sinkId"].toString());
+        e.elementIndex = entryJson["elementIndex"].toInt(-1);
+        d->entries_.emplace_back(std::move(e));
+    }
+
+    d->operationType_ = static_cast<Operation>(json["operationType"].toInt());
+    setHistogramTitle(json["title"].toString());
 }
 
 void HistogramOperation::write(QJsonObject &json) const
 {
+    QJsonArray entriesArray;
+
+    for (const auto &e: d->entries_)
+    {
+        QJsonObject entryJson;
+        entryJson["sinkId"] = e.sinkId.toString();
+        entryJson["elementIndex"] = e.elementIndex;
+        entriesArray.append(entryJson);
+    }
+
+    json["entries"] = entriesArray;
+    json["operationType"] = static_cast<s32>(getOperationType());
+    json["title"] = getHistogramTitle();
 }
 
 void HistogramOperation::accept(ObjectVisitor &visitor)
