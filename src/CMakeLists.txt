@@ -195,6 +195,7 @@ add_library(libmvme SHARED
     histo2d.cc
     histo2d_widget.cc
     histo2d_widget_p.cc
+    histo_algo.cc
     histo_gui_util.cc
     histo_stats_widget.cc
     histo_ui.cc

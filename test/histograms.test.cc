@@ -1,6 +1,9 @@
 #include "histo1d.h"
+#include "histo_algo.h"
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
+
+using namespace mesytec::mvme;
 
 void dump_histo(const Histo1D &histo)
 {
