@@ -246,20 +246,21 @@ class LIBMVME_EXPORT PlotAxisScaleChanger: public QObject
 class LIBMVME_EXPORT Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample>
 {
     public:
-        explicit Histo1DIntervalData(Histo1D *histo)
+        explicit Histo1DIntervalData(Histo1D *histo = nullptr)
             : QwtSeriesData<QwtIntervalSample>()
             , m_histo(histo)
         {
-            assert(histo);
         }
 
         size_t size() const override
         {
+            assert(m_histo);
             return m_histo->getNumberOfBins(m_rrf);
         }
 
         QwtIntervalSample sample(size_t i) const override
         {
+            assert(m_histo);
             auto result = QwtIntervalSample(
                 m_histo->getBinContent(i, m_rrf),
                 m_histo->getBinLowEdge(i, m_rrf),
@@ -270,6 +271,7 @@ class LIBMVME_EXPORT Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample
 
         QRectF boundingRect() const override
         {
+            assert(m_histo);
             auto xMin = m_histo->getXMin();
             auto yMin = m_histo->getMinValue(m_rrf);
             auto yMax = m_histo->getMaxValue(m_rrf);
@@ -285,9 +287,11 @@ class LIBMVME_EXPORT Histo1DIntervalData: public QwtSeriesData<QwtIntervalSample
 
         Histo1D *getHisto() { return m_histo; }
         const Histo1D *getHisto() const { return m_histo; }
+        // Do not call this while plotting is active!
+        void setHisto(Histo1D *histo) { m_histo = histo; }
 
     private:
-        Histo1D *m_histo;
+        Histo1D *m_histo = nullptr;
         u32 m_rrf = Histo1D::NoRR;
 };
 

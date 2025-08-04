@@ -236,7 +236,7 @@ struct Histo2DWidgetPrivate
     QString makeInfoText(const Histo2DStatistics &stats);
 };
 
-/* The private constructor doing most of the object creation and initialization. To be
+/* Constructor doing most of the object creation and initialization. To be
  * invoked by all other, more specific constructors. */
 Histo2DWidget::Histo2DWidget(QWidget *parent)
     : IPlotWidget(parent)
@@ -631,7 +631,6 @@ Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceP
     displayChanged();
 }
 
-
 Histo2DWidget::~Histo2DWidget()
 {
     if (m_d->m_xProjWidget)
@@ -716,6 +715,9 @@ void Histo2DWidget::replot()
      * - update window title
      * - update projections
      */
+
+    if (!(m_d->m_histo || m_d->m_histo1DSink))
+        return;
 
     const auto rrf = m_d->m_rrf;
 
@@ -1342,6 +1344,9 @@ void Histo2DWidget::on_tb_subRange_clicked()
 
 void Histo2DWidget::doXProjection()
 {
+    if (!m_d->m_histo && !m_d->m_histo1DSink)
+        return;
+
     double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     double visibleMinY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
@@ -1406,6 +1411,9 @@ void Histo2DWidget::doXProjection()
 
 void Histo2DWidget::doYProjection()
 {
+    if (!m_d->m_histo && !m_d->m_histo1DSink)
+        return;
+
     double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     double visibleMinY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();

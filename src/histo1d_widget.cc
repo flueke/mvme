@@ -331,6 +331,9 @@ struct Histo1DWidgetPrivate
 
     u32 getRRF()
     {
+        if (!getCurrentHisto())
+            return Histo1D::NoRR;
+
         auto xBinning = getCurrentHisto()->getAxisBinning(Qt::XAxis);
         u32 rrf = 0;
 
@@ -360,7 +363,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     : IPlotWidget(parent)
     , m_d(std::make_unique<Histo1DWidgetPrivate>())
 {
-    assert(!histos.isEmpty());
+    //assert(!histos.isEmpty());
 
     m_d->m_q = this;
     m_d->m_histos = histos;
@@ -369,7 +372,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_cursorPosition = { make_quiet_nan(), make_quiet_nan() };
     m_d->m_plot = new QwtPlot;
     m_d->m_histoSpin = new QSpinBox(this);
-    m_d->m_histoSpin->setMaximum(histos.size() - 1);
+    m_d->m_histoSpin->setMaximum(histos.isEmpty() ? 0 : histos.size() - 1);
     set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
 
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
@@ -390,15 +393,19 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo1DWidget::mouseCursorLeftPlot));
 
-    DO_AND_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
-                       this, [this] (Qt::Axis) {
-        // Handle axis changes by zooming out fully. This will make sure
-        // possible axis scale changes are immediately visible and the zoomer
-        // is in a clean state.
-        m_d->m_zoomer->setZoomStack(QStack<QRectF>(), -1);
-        m_d->m_zoomer->zoom(0);
-        replot();
-    }));
+    if (auto rawHisto = m_d->getCurrentHisto().get())
+    {
+        DO_AND_ASSERT(connect(rawHisto, &Histo1D::axisBinningChanged, this,
+                              [this](Qt::Axis)
+                              {
+                                  // Handle axis changes by zooming out fully. This will make sure
+                                  // possible axis scale changes are immediately visible and the
+                                  // zoomer is in a clean state.
+                                  m_d->m_zoomer->setZoomStack(QStack<QRectF>(), -1);
+                                  m_d->m_zoomer->zoom(0);
+                                  replot();
+                              }));
+    }
 
     DO_AND_ASSERT(connect(m_d->m_plot->axisWidget(QwtPlot::xBottom), SIGNAL(scaleDivChanged()),
                           this, SLOT(onPlotBottomScaleDivChanged())));
@@ -849,6 +856,12 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->combo_maxRes_->setCurrentIndex(m_d->combo_maxRes_->count() - 1);
 }
 
+// no histo
+Histo1DWidget::Histo1DWidget(QWidget *parent)
+    : Histo1DWidget(HistoList{}, parent)
+{
+}
+
 Histo1DWidget::~Histo1DWidget()
 {
     delete m_d->m_plotHisto;
@@ -1161,6 +1174,9 @@ void Histo1DWidgetPrivate::displayChanged()
 
 void Histo1DWidget::onZoomerZoomed(const QRectF &)
 {
+    if (!m_d->getCurrentHisto())
+        return;
+
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
@@ -1694,6 +1710,9 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
 
 void Histo1DWidget::on_tb_gauss_toggled(bool checked)
 {
+    if (!m_d->getCurrentHisto())
+        return;
+
     if (checked)
     {
         m_d->m_gaussCurve->show();
@@ -1714,6 +1733,9 @@ void Histo1DWidget::on_tb_test_clicked()
 
 void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 {
+    if (!m_d->getCurrentHisto())
+        return;
+
     if (std::isnan(m_d->m_rateEstimationData.x1))
     {
         m_d->m_rateEstimationData.x1 = pos.x();

@@ -58,6 +58,9 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
         // list of histos
         Histo1DWidget(const HistoList &histos, QWidget *parent = nullptr);
 
+        // no histo
+        explicit Histo1DWidget(QWidget *parent = nullptr);
+
         virtual ~Histo1DWidget();
 
         HistoList getHistograms() const;
