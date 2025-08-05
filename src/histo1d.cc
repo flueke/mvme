@@ -175,6 +175,9 @@ double Histo1D::getCounts(double xMin, double xMax) const
         return binValue * (maxFraction - minFraction);
     }
 
+    if (minBin > getBinCount())
+        return 0.0;
+
     // Range crosses multiple bins, sum the (fractional) bin counts
     double result = 0.0;
 
