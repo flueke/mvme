@@ -57,12 +57,17 @@ class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
 
         void setServiceProvider(AnalysisServiceProvider *asp);
         AnalysisServiceProvider *getServiceProvider() const;
+        // Analysis sink
         void setSink(const SinkPtr &sink,
                      HistoSinkCallback addSinkCallback,
                      HistoSinkCallback sinkModifiedCallback,
                      MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
 
         SinkPtr getSink() const;
+
+        // Direct Histo2D
+        void setHistogram(const Histo2DPtr &histo);
+        Histo2DPtr getHistogram() const;
 
         bool event(QEvent *event) override;
 

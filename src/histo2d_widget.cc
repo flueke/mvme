@@ -1326,6 +1326,17 @@ Histo2DWidget::SinkPtr Histo2DWidget::getSink() const
     return m_d->m_sink;
 }
 
+void Histo2DWidget::setHistogram(const Histo2DPtr &histo)
+{
+    m_d->m_histoPtr = histo;
+    replot();
+}
+
+Histo2DPtr Histo2DWidget::getHistogram() const
+{
+    return m_d->m_histoPtr;
+}
+
 void Histo2DWidget::on_tb_subRange_clicked()
 {
     Q_ASSERT(m_d->m_sink);
