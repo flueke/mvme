@@ -1467,16 +1467,19 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
         double x = plotX;
         double y = getCurrentHisto()->getBinContent(binX, rrf);
         double binLowEdge = binning.getBinLowEdge((u32)binX, rrf);
+        double binWidth   = binning.getBinWidth(rrf);
 
         text = QString("x=%1\n"
                        "y=%2\n"
                        "bin=%3\n"
-                       "low edge=%4"
+                       "low edge=%4\n"
+                       "width=%5"
                       )
             .arg(x)
             .arg(y)
             .arg(binX)
             .arg(binLowEdge)
+            .arg(binWidth)
             ;
 #if 0
         double binXUnchecked = binning.getBinUnchecked(plotX);
