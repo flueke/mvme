@@ -39,6 +39,7 @@
 #include "analysis/exportsink_codegen.h"
 #include "analysis/object_visitor.h"
 #include "analysis/analysis_json_util.h"
+#include "histo_algo.h"
 #include "mdpp-sampling/mdpp_decode.h"
 #include "util/algo.h"
 #include "util/qt_metaobject.h"
@@ -611,9 +612,11 @@ struct HistogramOperation::Private
 {
     HistogramOperation *q;
     std::vector<HistogramOperation::Entry> entries_;
-    HistogramOperation::Operation operationType_ = HistogramOperation::Add;
+    HistogramOperation::Operation operationType_ = HistogramOperation::Sum;
+    mesytec::mvme::HistoOpsBinningMode binningMode_ = mesytec::mvme::HistoOpsBinningMode::MinimumBins;
     QString title_;
-    std::vector<std::shared_ptr<Slot>> inputs_;
+    std::shared_ptr<Histo1D> resultHisto1D_;
+    std::shared_ptr<Histo2D> resultHisto2D_;
 };
 
 std::optional<HistogramOperation::EntryType> HistogramOperation::getEntryType(const QUuid &sinkId) const
@@ -633,8 +636,8 @@ const std::string HistogramOperation::operationTypeToString(const Operation &op)
 {
     switch (op)
     {
-        case Operation::Add:
-            return "add";
+        case Operation::Sum:
+            return "sum";
     }
 
     return {};
@@ -642,9 +645,9 @@ const std::string HistogramOperation::operationTypeToString(const Operation &op)
 
 std::optional<HistogramOperation::Operation> HistogramOperation::operationTypeFromString(const std::string &str)
 {
-    if (mesytec::mvlc::util::str_tolower(str) == "add")
+    if (mesytec::mvlc::util::str_tolower(str) == "sum")
     {
-        return Operation::Add;
+        return Operation::Sum;
     }
 
     return std::nullopt;
@@ -663,6 +666,16 @@ HistogramOperation::~HistogramOperation()
 
 HistogramOperation::Operation HistogramOperation::getOperationType() const { return d->operationType_; }
 void HistogramOperation::setOperationType(Operation type) { d->operationType_ = type; }
+
+mesytec::mvme::HistoOpsBinningMode HistogramOperation::getBinningMode() const
+{
+    return d->binningMode_;
+}
+
+void HistogramOperation::setBinningMode(const mesytec::mvme::HistoOpsBinningMode &mode)
+{
+    d->binningMode_ = mode;
+}
 
 QString HistogramOperation::getHistogramTitle() const { return d->title_; }
 void HistogramOperation::setHistogramTitle(const QString &title) { d->title_ = title; }
@@ -753,6 +766,11 @@ std::optional<HistogramOperation::EntryType> HistogramOperation::getEntryType() 
     return getEntryType(d->entries_.front().sinkId);
 }
 
+const std::vector<HistogramOperation::Entry> &HistogramOperation::getEntries() const
+{
+    return d->entries_;
+}
+
 bool HistogramOperation::isHisto1D() const
 {
     if (isEmpty())
@@ -781,14 +799,15 @@ std::shared_ptr<Histo1D> HistogramOperation::getResultHisto1D()
 
     // Collect all histograms from all sinks.
     auto histos = std::accumulate(
-        std::begin(d->entries_), std::end(d->entries_), std::vector<std::shared_ptr<Histo1D>>{},
-        [ana](std::vector<std::shared_ptr<Histo1D>> &result, const Entry &e)
+        std::begin(d->entries_), std::end(d->entries_), std::vector<std::shared_ptr<Histo1D>>(),
+        [&ana](std::vector<std::shared_ptr<Histo1D>> &result, const Entry &e)
         {
             if (auto sink = ana->getObject<Histo1DSink>(e.sinkId))
             {
                 if (e.elementIndex >= 0)
                 {
-                    auto histo = sink->getHisto(e.elementIndex);
+                    if (auto histo = sink->getHisto(e.elementIndex))
+                        result.push_back(histo);
                 }
                 else
                 {
@@ -796,23 +815,33 @@ std::shared_ptr<Histo1D> HistogramOperation::getResultHisto1D()
                               std::back_inserter(result));
                 }
             }
+            return result;
         });
 
     if (histos.empty())
-    {
         return nullptr;
+
+    if (!d->resultHisto1D_)
+    {
+        qDebug() << "creating new resultHisto1D for" << this;
+        d->resultHisto1D_ = mesytec::mvme::add(std::begin(histos), std::end(histos), getBinningMode());
+    }
+    else
+    {
+        qDebug() << "reusing existing resultHisto1D for" << this;
+        d->resultHisto1D_->clear();
+        mesytec::mvme::add(d->resultHisto1D_, std::begin(histos), std::end(histos), getBinningMode());
     }
 
-    // XXX: leftoff here
-
-    return {};
+    return d->resultHisto1D_;
 }
 
 std::shared_ptr<Histo2D> HistogramOperation::getResultHisto2D()
 {
     if (getEntryType() != EntryType::Histo2D)
         return nullptr;
-    return {};
+    assert(!"implement me please");
+    return {}; // TODO: implement addition for H2D
 }
 
 void HistogramOperation::read(const QJsonObject &json)
@@ -831,6 +860,13 @@ void HistogramOperation::read(const QJsonObject &json)
     }
 
     d->operationType_ = static_cast<Operation>(json["operationType"].toInt());
+    d->binningMode_ = mesytec::mvme::HistoOpsBinningMode::MinimumBins;
+    if (auto mode = mesytec::mvme::histo_ops_binning_mode_from_string(
+            json["binningMode"].toString().toStdString());
+        mode.has_value())
+    {
+        d->binningMode_ = *mode;
+    }
     setHistogramTitle(json["title"].toString());
 }
 
@@ -848,6 +884,7 @@ void HistogramOperation::write(QJsonObject &json) const
 
     json["entries"] = entriesArray;
     json["operationType"] = static_cast<s32>(getOperationType());
+    json["binningMode"] = mesytec::mvme::to_string(getBinningMode()).c_str();
     json["title"] = getHistogramTitle();
 }
 

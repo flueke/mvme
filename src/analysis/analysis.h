@@ -41,6 +41,7 @@
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
+#include "histo_algo.h"
 #include "libmvme_export.h"
 #include "mdpp-sampling/mdpp_decode.h"
 #include "object_factory.h"
@@ -735,7 +736,7 @@ class LIBMVME_EXPORT HistogramOperation: public AnalysisObject
     Q_OBJECT
     public:
         enum Operation {
-            Add,
+            Sum,
         };
 
         struct Entry {
@@ -762,18 +763,23 @@ class LIBMVME_EXPORT HistogramOperation: public AnalysisObject
             return getEntryType(entry.sinkId);
         }
 
-        const std::vector<Entry> &entries() const;
+        const std::vector<Entry> &getEntries() const;
+
         // These return false if the histogram types pointed to by the entries
-        // does not match the HistogramOperations histo type or the entries
+        // do not match the HistogramOperations histo type or the entries
         // themselves contain different types of histograms.
         bool setEntries(const std::vector<Entry> &entries);
         bool setEntries(std::vector<Entry> &&entries);
         bool addEntry(const Entry &entry);
+        bool addEntries(const Entry &entry);
         void clearEntries();
         bool isEmpty() const;
 
         Operation getOperationType() const;
         void setOperationType(Operation type);
+
+        mesytec::mvme::HistoOpsBinningMode getBinningMode() const;
+        void setBinningMode(const mesytec::mvme::HistoOpsBinningMode &mode);
 
         QString getHistogramTitle() const;
         void setHistogramTitle(const QString &title);
