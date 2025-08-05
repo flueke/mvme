@@ -61,6 +61,7 @@
 #include "graphviz_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "histo_ops_widget.h"
 #include "listfile_filtering.h"
 #include "multiplot_widget.h"
 #include "mvme_context.h"
@@ -121,6 +122,7 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Sink:
         case NodeType_Directory:
         case NodeType_PlotGridView:
+        case NodeType_HistogramOperation:
             {
                 auto qo = get_qobject(node, dataRole);
                 if (qo == nullptr)
@@ -1245,6 +1247,25 @@ QWidget *open_or_raise_multiplot_widget(
     {
         show_and_activate(widget);
         return widget;
+    }
+
+    return {};
+}
+
+QWidget *open_or_raise_histo_ops_widget(
+    AnalysisServiceProvider *asp,
+    std::shared_ptr<HistogramOperation> &histOps)
+{
+    if (!asp->getWidgetRegistry()->hasObjectWidget(histOps.get())
+        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+    {
+        return open_new_histogram_operations_widget(asp, histOps);
+    }
+    else if (auto w = qobject_cast<HistogramOperationsWidget *>(
+            asp->getWidgetRegistry()->getObjectWidget(histOps.get())))
+    {
+        show_and_activate(w);
+        return w;
     }
 
     return {};
@@ -4726,6 +4747,12 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 if (auto gridView = get_shared_analysis_object<PlotGridView>(node, DataRole_AnalysisObject))
                 {
                     open_or_raise_multiplot_widget(m_serviceProvider, gridView);
+                } break;
+
+            case NodeType_HistogramOperation:
+                if (auto histoOp = get_shared_analysis_object<HistogramOperation>(node, DataRole_AnalysisObject))
+                {
+                    open_or_raise_histo_ops_widget(m_serviceProvider, histoOp);
                 } break;
         }
     }

@@ -165,6 +165,8 @@ add_library(libmvme SHARED
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
     analysis/event_builder_monitor.cc
+    analysis/histo_ops_widget.cc
+    analysis/histo_ops_widget_p.cc
     analysis/listfilter_extractor_dialog.cc
     analysis/mdpp_sample_decoder_monitor_widget.cc
     analysis/object_editor_dialog.cc
