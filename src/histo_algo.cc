@@ -1,45 +1,32 @@
 #include "histo_algo.h"
+#include <mesytec-mvlc/util/string_util.h>
 
 namespace mesytec::mvme
 {
 
-Histo1DPtr add(const Histo1D &a, const Histo1D &b, const HistoOpsBinningMode &bm)
+std::string to_string(const HistoOpsBinningMode &mode)
 {
-    auto result = std::make_shared<Histo1D>(calculate_addition_dest_binning(a, b, bm));
-    auto nBins = result->getNumberOfBins();
-
-    for (size_t destbin = 0; destbin < nBins; ++destbin)
+    switch (mode)
     {
-        double xLow = result->getBinLowEdge(destbin);
-        double xHigh = xLow + result->getBinWidth();
-
-        auto countsA = a.getCounts(xLow, xHigh);
-        auto countsB = b.getCounts(xLow, xHigh);
-
-        result->setBinContent(destbin, countsA + countsB, countsA + countsB);
+    case HistoOpsBinningMode::MinimumBins:
+        return "MinimumBins";
+    case HistoOpsBinningMode::MaximumBins:
+        return "MaximumBins";
+    default:
+        return "Unknown";
     }
-
-    return result;
 }
 
-Histo1DPtr add(const Histo1DList &histos, const HistoOpsBinningMode &bm)
+std::optional<HistoOpsBinningMode> histo_ops_binning_mode_from_string(const std::string &mode_)
 {
-    auto result = std::make_shared<Histo1D>(calculate_addition_dest_binning(histos, bm));
-    auto nBins = result->getNumberOfBins();
+    auto mode = mvlc::util::str_tolower(mode_);
 
-    for (const auto &histo: histos)
-    {
-        for (size_t destbin = 0; destbin < nBins; ++destbin)
-        {
-            double xLow = result->getBinLowEdge(destbin);
-            double xHigh = xLow + result->getBinWidth();
-            auto counts = histo->getCounts(xLow, xHigh);
-            auto newCounts = result->getBinContent(destbin) + counts;
-            result->setBinContent(destbin, newCounts, newCounts);
-        }
-    }
+    if (mode == "minimumbins")
+        return HistoOpsBinningMode::MinimumBins;
+    else if (mode == "maximumbins")
+        return HistoOpsBinningMode::MaximumBins;
 
-    return result;
+    return std::nullopt;
 }
 
-} // namespace mesytec::mvme
+}
