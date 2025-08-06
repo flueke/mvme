@@ -76,8 +76,13 @@ HistogramOperationsWidget::HistogramOperationsWidget(AnalysisServiceProvider *as
     d->replotTimer_.start(ReplotPeriod_ms);
 
     d->editDialog_ = new HistoOpsEditDialog(this);
-    d->editDialog_->show();
     add_widget_close_action(this);
+    // When directly showing the dialog it becomes modal and sticks in front of
+    // all other application windows. Showing it delayed in the event loop makes
+    // it non-modal and stay on the same layer as the histo ops widget itself.
+    QTimer::singleShot(0, this, [this] {
+        d->editDialog_->show();
+    });
 }
 
 HistogramOperationsWidget::~HistogramOperationsWidget()

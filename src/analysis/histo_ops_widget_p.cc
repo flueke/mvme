@@ -4,7 +4,7 @@
 #include <QHeaderView>
 
 HistoOpsEditDialog::HistoOpsEditDialog(HistogramOperationsWidget *histoOpsWidget)
-    : QDialog()
+    : QDialog(histoOpsWidget)
     , histoOpsWidget_(histoOpsWidget)
     , combo_operationType_(new QComboBox)
     , tw_entries_(new QTableWidget)
