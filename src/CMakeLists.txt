@@ -260,6 +260,7 @@ add_library(libmvme SHARED
     mvme_stream_processor.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
+    mvme_tcp_stream_server.cc
     mvmecontext_analysis_service_provider.cc
     qt_assistant_remote_control.cc
     qt_util.cc
@@ -339,6 +340,7 @@ target_link_libraries(libmvme
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
+    PRIVATE asio
     PUBLIC liba2_static
     PRIVATE nlohmann-json
     PRIVATE qgvcore
