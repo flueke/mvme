@@ -97,11 +97,13 @@ void MvmeTcpStreamServer::processBuffer(s32 bufferType, u32 bufferNumber, const 
     {
         try
         {
+            asio::write(socket, asio::buffer(&bufferNumber, sizeof(bufferNumber)));
             asio::write(socket, asio::buffer(buffer, bufferSize * sizeof(u32)));
         }
         catch (const std::exception &e)
         {
-            d->logger_->error("Failed to send buffer to client: {}", e.what());
+            d->logger_->error("Failed to send buffer to client {}: {}",
+                socket.remote_endpoint().address().to_string(), e.what());
         }
     }
 }

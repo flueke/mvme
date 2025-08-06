@@ -7,6 +7,20 @@
 namespace mesytec::mvme
 {
 
+// MvmeTcpStreamServer is a server for streaming raw VME readout data over TCP.
+// Implements the IStreamBufferConsumer interface, so it can be attached to any
+// StreamWorkerBase instance. Stream workers take data from the non-blocking,
+// possibly lossfull queue between the readout and the analysis systems. This
+// means slow clients will not block the readout but will slow down the internal
+// mvme analysis.
+//
+// The server guarantees that only complete readout buffers as taken from the
+// queue are sent. Each buffer is prefixed by a 32-bit word specifying the
+// number of words in the data buffer. Newly connected clients will receive the
+// next complete buffer. There is no need to handle partial buffers on clients.
+//
+// TODO: write down where to find the client code.
+
 class MvmeTcpStreamServer: public IStreamBufferConsumer
 {
   public:
