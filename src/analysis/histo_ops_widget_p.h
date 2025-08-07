@@ -18,6 +18,10 @@ class HistoOpsEditDialog: public QDialog
         void updateDialogPosition();
         void refresh();
 
+    protected:
+        void dragEnterEvent(QDragEnterEvent *ev) override;
+        void dropEvent(QDropEvent *ev) override;
+
     private:
         HistogramOperationsWidget *histoOpsWidget_ = nullptr;
         QComboBox *combo_operationType_ = nullptr;
@@ -63,18 +67,9 @@ class HistoOpsWidgetPlaceHolder: public QWidget
 
 };
 
-template <typename ...Args>
-QAction *insert_action_at_front(QToolBar *toolBar, Args &&...args)
-{
-    auto newAction = toolBar->addAction(std::forward<Args>(args)...);
+// Helper to allow sharing drag&drop code between HistogramOperationsWidget and HistoOpsEditDialog.
+void handle_drag_enter(std::shared_ptr<analysis::HistogramOperation> &histoOp, QDragEnterEvent *ev);
+bool handle_drop_event(std::shared_ptr<analysis::HistogramOperation> &histoOp, QDropEvent *ev);
 
-    if (auto actions = toolBar->actions(); actions.size() > 1 && actions.first() != newAction)
-    {
-        toolBar->removeAction(newAction);
-        toolBar->insertAction(actions.first(), newAction);
-    }
-
-    return newAction;
-}
 
 #endif /* DB567E97_7518_4A0A_8B37_02478E96BC7C */

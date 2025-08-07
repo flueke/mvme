@@ -317,4 +317,20 @@ QAction *make_copy_to_clipboard_action(ItemWidget *widget, QWidget *actionParent
     return result;
 }
 
+// Helper to insert an action at the front of a toolbar.
+template <typename ...Args>
+QAction *insert_action_at_front(QToolBar *toolBar, Args &&...args)
+{
+    auto newAction = toolBar->addAction(std::forward<Args>(args)...);
+
+    if (auto actions = toolBar->actions(); actions.size() > 1 && actions.first() != newAction)
+    {
+        toolBar->removeAction(newAction);
+        toolBar->insertAction(actions.first(), newAction);
+    }
+
+    return newAction;
+}
+
+
 #endif /* __QT_UTIL_H__ */

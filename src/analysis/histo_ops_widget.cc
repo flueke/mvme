@@ -20,12 +20,6 @@ struct HistogramOperationsWidget::Private
     AnalysisServiceProvider *asp_ = nullptr;
     // This is the analysis object we should display/work on.
     std::shared_ptr<analysis::HistogramOperation> histoOp_;
-    // Copy of the 1D histogram obtained from histoOp_ if it is operating on 1D histograms.
-    //std::shared_ptr<Histo1D> histo_ = {};
-    // Qwt plot item for the 1D histogram.
-    //QwtPlotHistogram *plotHisto_ = {};
-    // Qwt data object for the 1D histogram. This is owned by qwt.
-    //histo_ui::Histo1DIntervalData *histoData_ = {};
 
     // Widgets to display the resulting histogram or a placeholder message. Only
     // one can be visible/active at a time.
@@ -33,8 +27,8 @@ struct HistogramOperationsWidget::Private
     Histo2DWidget *histo2DWidget_ = nullptr;
     HistoOpsWidgetPlaceHolder *placeHolderWidget_ = nullptr;
 
+    // Stack holding the display widgets.
     QStackedWidget *plotStackWidget_ = nullptr;
-
     QTimer replotTimer_;
 };
 
@@ -59,14 +53,18 @@ HistogramOperationsWidget::HistogramOperationsWidget(AnalysisServiceProvider *as
     auto l = make_vbox<0, 0>(this);
     l->addWidget(d->plotStackWidget_);
 
-    auto switch_to_next_in_stack = [this]() {
+    auto switch_to_next_in_stack = [this]()
+    {
         auto idx = (d->plotStackWidget_->currentIndex() + 1) % d->plotStackWidget_->count();
         d->plotStackWidget_->setCurrentIndex(idx);
     };
 
-    insert_action_at_front(d->histo1DWidget_->getToolBar(), "dev next display widget", this, switch_to_next_in_stack);
-    insert_action_at_front(d->histo2DWidget_->getToolBar(), "dev next display widget", this, switch_to_next_in_stack);
-    insert_action_at_front(d->placeHolderWidget_->getToolBar(), "dev next display widget", this, switch_to_next_in_stack);
+    insert_action_at_front(d->histo1DWidget_->getToolBar(), "dev next display widget", this,
+                           switch_to_next_in_stack);
+    insert_action_at_front(d->histo2DWidget_->getToolBar(), "dev next display widget", this,
+                           switch_to_next_in_stack);
+    insert_action_at_front(d->placeHolderWidget_->getToolBar(), "dev next display widget", this,
+                           switch_to_next_in_stack);
 
     setAcceptDrops(true);
     setMouseTracking(true);
@@ -80,14 +78,15 @@ HistogramOperationsWidget::HistogramOperationsWidget(AnalysisServiceProvider *as
     // When directly showing the dialog it becomes modal and sticks in front of
     // all other application windows. Showing it delayed in the event loop makes
     // it non-modal and stay on the same layer as the histo ops widget itself.
-    QTimer::singleShot(0, this, [this] {
-        d->editDialog_->show();
-    });
+    QTimer::singleShot(0, this,
+                       [this]
+                       {
+                           d->editDialog_->show();
+                           d->editDialog_->updateDialogPosition();
+                       });
 }
 
-HistogramOperationsWidget::~HistogramOperationsWidget()
-{
-}
+HistogramOperationsWidget::~HistogramOperationsWidget() {}
 
 void HistogramOperationsWidget::setHistoOp(const std::shared_ptr<analysis::HistogramOperation> &op)
 {
@@ -100,30 +99,15 @@ std::shared_ptr<analysis::HistogramOperation> HistogramOperationsWidget::getHist
     return d->histoOp_;
 }
 
-QwtPlot *HistogramOperationsWidget::getPlot()
-{
-    return d->histo1DWidget_->getPlot();
-}
+QwtPlot *HistogramOperationsWidget::getPlot() { return d->histo1DWidget_->getPlot(); }
 
-const QwtPlot *HistogramOperationsWidget::getPlot() const
-{
-    return d->histo1DWidget_->getPlot();
-}
+const QwtPlot *HistogramOperationsWidget::getPlot() const { return d->histo1DWidget_->getPlot(); }
 
-QToolBar *HistogramOperationsWidget::getToolBar()
-{
-    return d->histo1DWidget_->getToolBar();
-}
+QToolBar *HistogramOperationsWidget::getToolBar() { return d->histo1DWidget_->getToolBar(); }
 
-QStatusBar *HistogramOperationsWidget::getStatusBar()
-{
-    return d->histo1DWidget_->getStatusBar();
-}
+QStatusBar *HistogramOperationsWidget::getStatusBar() { return d->histo1DWidget_->getStatusBar(); }
 
-AnalysisServiceProvider *HistogramOperationsWidget::getServiceProvider() const
-{
-    return d->asp_;
-}
+AnalysisServiceProvider *HistogramOperationsWidget::getServiceProvider() const { return d->asp_; }
 
 void HistogramOperationsWidget::replot()
 {
@@ -164,62 +148,16 @@ void HistogramOperationsWidget::replot()
 
 void HistogramOperationsWidget::dragEnterEvent(QDragEnterEvent *ev)
 {
-    auto analysis = d->asp_->getAnalysis();
+    handle_drag_enter(d->histoOp_, ev);
 
-    if (!analysis || !ev->mimeData()->hasFormat(SinkObjectRefMimeType))
-    {
+    if (!ev->isAccepted())
         QWidget::dragEnterEvent(ev);
-        return;
-    }
-
-    auto curEntryType = d->histoOp_->getEntryType();
-
-    auto objectRefs = decode_object_ref_list(ev->mimeData()->data(SinkObjectRefMimeType));
-
-    for (const auto &ref: objectRefs)
-    {
-        if (auto sink = analysis->getObject<analysis::Histo1DSink>(ref.id))
-        {
-            if (curEntryType.has_value() && *curEntryType != analysis::HistogramOperation::EntryType::Histo1D)
-            {
-                QWidget::dragEnterEvent(ev);
-                return;
-            }
-        }
-        else if (auto sink = analysis->getObject<analysis::Histo2DSink>(ref.id))
-        {
-            if (curEntryType.has_value() && *curEntryType != analysis::HistogramOperation::EntryType::Histo2D)
-            {
-                QWidget::dragEnterEvent(ev);
-                return;
-            }
-        }
-    }
-
-    ev->acceptProposedAction();
 }
 
 void HistogramOperationsWidget::dropEvent(QDropEvent *ev)
 {
-    auto analysis = d->asp_->getAnalysis();
-
-    if (!d->histoOp_ || !analysis || !ev->mimeData()->hasFormat(SinkObjectRefMimeType))
-    {
-        QWidget::dropEvent(ev);
-        return;
-    }
-
-    auto objectRefs = decode_object_ref_list(ev->mimeData()->data(SinkObjectRefMimeType));
-
-    for (const auto &ref: objectRefs)
-    {
-        analysis::HistogramOperation::Entry entry{ref.id, ref.index};
-        // try to add the entries. if it does not match the current type it's
-        // not going to be added.
-        d->histoOp_->addEntry(entry);
-    }
-
+    if (handle_drop_event(d->histoOp_, ev))
+        replot();
     // Note: deliberately not accepting the drop event here. Otherwise it will
     // _move_ nodes from the analysis trees onto this.
-    replot();
 }
