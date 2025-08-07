@@ -332,5 +332,4 @@ QAction *insert_action_at_front(QToolBar *toolBar, Args &&...args)
     return newAction;
 }
 
-
 #endif /* __QT_UTIL_H__ */

@@ -25,7 +25,9 @@ class HistoOpsEditDialog: public QDialog
     private:
         HistogramOperationsWidget *histoOpsWidget_ = nullptr;
         QComboBox *combo_operationType_ = nullptr;
+        QLabel *explanationLabel_ = nullptr;
         QTableWidget *tw_entries_ = nullptr;
+        QStatusBar *statusBar_ = nullptr;
 };
 
 class HistoOpsWidgetPlaceHolder: public QWidget
@@ -47,12 +49,13 @@ class HistoOpsWidgetPlaceHolder: public QWidget
                 fl->addWidget(toolBar_);
             }
 
-            auto label = new QLabel(QSL("<h2>Drag & Drop 1D or 2D histograms here to sum them up</h2>"));
+            auto label = new QLabel(QSL("<h2>Drop 1D or 2D histograms to add them to the operation.</h2>"));
             label->setAlignment(Qt::AlignCenter | Qt::AlignVCenter);
             auto layout = make_vbox<0, 0>(this);
             layout->addWidget(toolBarFrame);
             layout->addWidget(label);
             layout->setStretch(1, 1);
+            add_widget_close_action(this);
         }
 
         ~HistoOpsWidgetPlaceHolder() override = default;

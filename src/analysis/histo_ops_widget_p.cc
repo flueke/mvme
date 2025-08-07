@@ -13,10 +13,14 @@ HistoOpsEditDialog::HistoOpsEditDialog(HistogramOperationsWidget *histoOpsWidget
     : QDialog(histoOpsWidget)
     , histoOpsWidget_(histoOpsWidget)
     , combo_operationType_(new QComboBox)
+    , explanationLabel_(new QLabel)
     , tw_entries_(new QTableWidget)
+    , statusBar_(new QStatusBar)
 {
-    combo_operationType_->addItem(QSL("Addition"), analysis::HistogramOperation::Operation::Sum);
-    auto box = make_hbox_container("Operation", combo_operationType_);
+    auto opType = analysis::HistogramOperation::Operation::Sum;
+    combo_operationType_->addItem(analysis::HistogramOperation::operationTypeToString(opType).c_str(), opType);
+    auto box = make_hbox_container("Operation:", combo_operationType_);
+    box.layout->addStretch(1);
 
     auto toolBarFrame = new QFrame;
     toolBarFrame->setFrameStyle(QFrame::StyledPanel);
@@ -27,7 +31,9 @@ HistoOpsEditDialog::HistoOpsEditDialog(HistogramOperationsWidget *histoOpsWidget
 
     auto layout = make_vbox(this);
     layout->addWidget(toolBarFrame);
+    layout->addWidget(explanationLabel_);
     layout->addWidget(tw_entries_);
+    layout->addWidget(statusBar_);
 
     histoOpsWidget->installEventFilter(this);
 
@@ -40,6 +46,12 @@ HistoOpsEditDialog::HistoOpsEditDialog(HistogramOperationsWidget *histoOpsWidget
 
     setAcceptDrops(true);
     setMouseTracking(true);
+
+    set_widget_font_pointsize_relative(explanationLabel_, -2);
+    explanationLabel_->setText(QSL(
+        "Drop histograms here to add them to the operation.<br/>"
+        "Single histograms use the <i>[index]</i> syntax, arrays of histograms use the <i>&lt;size&gt;</i> syntax.<br/>"
+    ));
 }
 
 bool HistoOpsEditDialog::eventFilter(QObject *watched, QEvent *event)
@@ -75,6 +87,8 @@ void HistoOpsEditDialog::refresh()
 
         combo_operationType_->setCurrentIndex(
             combo_operationType_->findData(static_cast<int>(histoOp->getOperationType())));
+
+        size_t totalHistograms = 0;
         auto entries = histoOp->getEntries();
         if (tw_entries_->rowCount() != static_cast<qint64>(entries.size()))
         {
@@ -95,9 +109,15 @@ void HistoOpsEditDialog::refresh()
                     title = obj->objectName();
 
                 if (entry.elementIndex >= 0)
-                    title = QSL("%1[%2]").arg(title, QString::number(entry.elementIndex));
+                {
+                    title = QSL("%1[%2]").arg(title).arg(entry.elementIndex);
+                    ++totalHistograms;
+                }
                 else if (auto h1dSink = std::dynamic_pointer_cast<analysis::Histo1DSink>(obj))
-                    title = QSL("%1<%2>").arg(title, QString::number(h1dSink->getNumberOfHistos()));
+                {
+                    title = QSL("%1<%2>").arg(title).arg(h1dSink->getNumberOfHistos());
+                    totalHistograms += h1dSink->getNumberOfHistos();
+                }
             }
             auto item = new QTableWidgetItem(title);
             item->setFlags(item->flags() & ~Qt::ItemIsEditable);
@@ -105,6 +125,8 @@ void HistoOpsEditDialog::refresh()
         }
 
         tw_entries_->horizontalHeader()->setStretchLastSection(true);
+        statusBar_->showMessage(
+            QSL("Total histograms: %1").arg(totalHistograms), 5000);
         updateDialogPosition();
     }
 }

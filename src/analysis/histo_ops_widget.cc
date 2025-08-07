@@ -75,9 +75,12 @@ HistogramOperationsWidget::HistogramOperationsWidget(AnalysisServiceProvider *as
 
     d->editDialog_ = new HistoOpsEditDialog(this);
     add_widget_close_action(this);
+    add_widget_close_action(d->placeHolderWidget_);
     // When directly showing the dialog it becomes modal and sticks in front of
     // all other application windows. Showing it delayed in the event loop makes
     // it non-modal and stay on the same layer as the histo ops widget itself.
+    // The position update is still delayed from some reason. My guess is that
+    // the first one has no effect because the widget is not fully visible yet.
     QTimer::singleShot(0, this,
                        [this]
                        {
