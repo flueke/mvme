@@ -2619,6 +2619,7 @@ ConditionFilter::ConditionFilter(QObject *parent)
     m_output.setSource(this);
     m_dataInput.acceptedInputTypes = InputType::Both;
     m_conditionInput.acceptedInputTypes = InputType::Both;
+    setProperty("mvme_deprecated", true);
     setProperty("operator_category", "Conditions");
 }
 
