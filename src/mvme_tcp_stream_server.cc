@@ -37,6 +37,7 @@ struct MvmeTcpStreamServer::Private
     mvlc::Protected<std::vector<tcp::socket>> sockets_;
     std::thread acceptorThread_;
     std::atomic<bool> quitAcceptor_{false};
+    StreamConsumerBase::Logger mvmeLogger_;
 };
 
 MvmeTcpStreamServer::MvmeTcpStreamServer(const std::string &address, u16 port)
@@ -48,6 +49,10 @@ MvmeTcpStreamServer::MvmeTcpStreamServer(const std::string &address, u16 port)
     d->port_ = port;
 }
 
+MvmeTcpStreamServer::~MvmeTcpStreamServer()
+{
+}
+
 void MvmeTcpStreamServer::startup()
 {
     if (!d->acceptor_)
@@ -56,6 +61,16 @@ void MvmeTcpStreamServer::startup()
         {
             d->acceptor_ = std::make_unique<tcp::acceptor>(
                 d->ioContext_, tcp::endpoint(asio::ip::make_address(d->address_), d->port_));
+
+            if (d->acceptorThread_.joinable())
+            {
+                d->quitAcceptor_ = true;
+                d->acceptorThread_.join();
+            }
+
+            d->quitAcceptor_ = false;
+            d->acceptorThread_ = std::thread(run_acceptor, std::ref(d->ioContext_), std::ref(*d->acceptor_),
+                                     std::ref(d->sockets_), std::ref(d->quitAcceptor_));
         }
         catch (const std::exception &e)
         {
@@ -63,24 +78,13 @@ void MvmeTcpStreamServer::startup()
         }
     }
 
-    if (d->acceptorThread_.joinable())
-    {
-        d->quitAcceptor_ = true;
-        d->acceptorThread_.join();
-    }
-
-    d->quitAcceptor_ = false;
-    d->acceptorThread_ = std::thread(run_acceptor, std::ref(d->ioContext_), std::ref(*d->acceptor_),
-                                     std::ref(d->sockets_), std::ref(d->quitAcceptor_));
 }
 
 void MvmeTcpStreamServer::shutdown()
 {
     d->quitAcceptor_ = true;
     if (d->acceptorThread_.joinable())
-    {
         d->acceptorThread_.join();
-    }
 }
 
 void MvmeTcpStreamServer::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig,
@@ -93,12 +97,28 @@ void MvmeTcpStreamServer::endRun(const DAQStats &stats, const std::exception *e)
 void MvmeTcpStreamServer::processBuffer(s32 bufferType, u32 bufferNumber, const u32 *buffer,
                                         size_t bufferSize)
 {
+    assert(bufferSize <= std::numeric_limits<u32>::max());
+    u32 bufferSizeU32 = static_cast<u32>(bufferSize);
+
     for (auto &socket: d->sockets_.access().ref())
     {
         try
         {
-            asio::write(socket, asio::buffer(&bufferNumber, sizeof(bufferNumber)));
-            asio::write(socket, asio::buffer(buffer, bufferSize * sizeof(u32)));
+            auto a = asio::buffer(&bufferNumber, sizeof(bufferNumber));
+            auto b = asio::buffer(&bufferSizeU32, sizeof(bufferSizeU32));
+            auto c = asio::buffer(reinterpret_cast<const u8 *>(buffer), bufferSize * sizeof(u32));
+
+            std::array<asio::const_buffer, 3> buffers = { a, b, c };
+            asio::error_code ec;
+
+            asio::write(socket, buffers, ec);
+
+            if (ec)
+            {
+                d->logger_->error("Failed to send buffer to client {}: {}",
+                    socket.remote_endpoint().address().to_string(), ec.message());
+                continue;
+            }
         }
         catch (const std::exception &e)
         {
@@ -106,6 +126,16 @@ void MvmeTcpStreamServer::processBuffer(s32 bufferType, u32 bufferNumber, const 
                 socket.remote_endpoint().address().to_string(), e.what());
         }
     }
+}
+
+void MvmeTcpStreamServer::setLogger(StreamConsumerBase::Logger logger)
+{
+    d->mvmeLogger_ = logger;
+}
+
+StreamConsumerBase::Logger &MvmeTcpStreamServer::getLogger()
+{
+    return d->mvmeLogger_;
 }
 
 } // namespace mesytec::mvme

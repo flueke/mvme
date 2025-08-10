@@ -24,8 +24,8 @@ namespace mesytec::mvme
 class MvmeTcpStreamServer: public IStreamBufferConsumer
 {
   public:
-    explicit MvmeTcpStreamServer(const std::string &address = "localhost", uint16_t port = 42333u);
-    ~MvmeTcpStreamServer() override = default;
+    explicit MvmeTcpStreamServer(const std::string &address = "127.0.0.1", uint16_t port = 42333u);
+    ~MvmeTcpStreamServer() override;
 
     void startup() override;
     void shutdown() override;
@@ -37,6 +37,9 @@ class MvmeTcpStreamServer: public IStreamBufferConsumer
 
     void processBuffer(s32 bufferType, u32 bufferNumber, const u32 *buffer,
                        size_t bufferSize) override;
+
+    void setLogger(Logger logger);
+    Logger &getLogger();
 
   private:
     struct Private;

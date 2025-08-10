@@ -53,6 +53,7 @@
 #include "mvme_mvlc_listfile.h"
 #include "mvme_prometheus.h"
 #include "mvme_stream_worker.h"
+#include "mvme_tcp_stream_server.h"
 #include "mvme_workspace.h"
 #include "remote_control.h"
 #include "sis3153.h"
@@ -174,6 +175,7 @@ struct MVMEContextPrivate
 #ifdef MVME_ENABLE_PROMETHEUS
     std::shared_ptr<StreamProcCountersPromExporter> m_streamCountersPromExporter;
 #endif
+    std::shared_ptr<mesytec::mvme::MvmeTcpStreamServer> m_tcpStreamServer;
     using StreamConsumer = std::variant<std::shared_ptr<IStreamModuleConsumer>, std::shared_ptr<IStreamBufferConsumer>>;
     std::vector<StreamConsumer> streamConsumers_;
 
@@ -549,6 +551,9 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     m_d->m_streamCountersPromExporter = std::make_shared<StreamProcCountersPromExporter>();
     m_d->streamConsumers_.push_back(m_d->m_streamCountersPromExporter);
 #endif
+
+    m_d->m_tcpStreamServer = std::make_shared<mesytec::mvme::MvmeTcpStreamServer>();
+    m_d->streamConsumers_.push_back(m_d->m_tcpStreamServer);
 
     {
         auto logger = [this](const QString &msg) { this->logMessage(msg); };
