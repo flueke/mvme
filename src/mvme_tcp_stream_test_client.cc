@@ -21,9 +21,15 @@ int main(int argc, char *argv[])
 
         while (!mvlc::util::signal_received())
         {
+            std::uint32_t bufferNumber = 0u;
             std::uint32_t bufferSize = 0u;
-            auto bytesRead = asio::read(socket, asio::buffer(&bufferSize, sizeof(bufferSize)));
-            assert(bytesRead == sizeof(bufferSize));
+
+            auto a = asio::mutable_buffer(&bufferNumber, sizeof(bufferNumber));
+            auto b = asio::mutable_buffer(&bufferSize, sizeof(bufferSize));
+
+            auto bytesRead = asio::read(socket, std::array<asio::mutable_buffer, 2>{a, b});
+            assert(bytesRead == sizeof(bufferNumber) + sizeof(bufferSize));
+
             destBuffer.resize(bufferSize);
             bytesRead = asio::read(socket, asio::buffer(destBuffer.data(), destBuffer.size() * sizeof(std::uint32_t)));
             assert(bytesRead == destBuffer.size() * sizeof(std::uint32_t));

@@ -2,6 +2,11 @@
 #include <asio.hpp>
 #include <mesytec-mvlc/util/logging.h>
 #include <mesytec-mvlc/util/protected.h>
+#include <cassert>
+
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 
 namespace mesytec::mvme
 {
@@ -11,11 +16,16 @@ using asio::ip::tcp;
 void run_acceptor(asio::io_context &ioContext, tcp::acceptor &acceptor,
                   mvlc::Protected<std::vector<tcp::socket>> &sockets, std::atomic<bool> &quit)
 {
+#ifdef __linux__
+    prctl(PR_SET_NAME,"tcp_stream_server_acceptor", 0,0,0);
+#endif
+
     while (!quit)
     {
         try
         {
             tcp::socket socket(ioContext);
+            assert(acceptor.is_open());
             acceptor.accept(socket);
             sockets.access().ref().emplace_back(std::move(socket));
         }
@@ -54,6 +64,8 @@ MvmeTcpStreamServer::~MvmeTcpStreamServer()
     if (d->acceptorThread_.joinable())
     {
         d->quitAcceptor_ = true;
+        d->acceptor_->cancel(); // FIXME: does not unblock the acceptor thread. find a solution
+        d->acceptor_->close();
         d->acceptorThread_.join();
     }
 }
