@@ -51,6 +51,11 @@ MvmeTcpStreamServer::MvmeTcpStreamServer(const std::string &address, u16 port)
 
 MvmeTcpStreamServer::~MvmeTcpStreamServer()
 {
+    if (d->acceptorThread_.joinable())
+    {
+        d->quitAcceptor_ = true;
+        d->acceptorThread_.join();
+    }
 }
 
 void MvmeTcpStreamServer::startup()
