@@ -16,6 +16,9 @@ using asio::ip::tcp;
 void run_acceptor(asio::io_context &ioContext, tcp::acceptor &acceptor,
                   mvlc::Protected<std::vector<tcp::socket>> &sockets, std::atomic<bool> &quit)
 {
+#if 0
+
+
 #ifdef __linux__
     prctl(PR_SET_NAME,"tcp_stream_server_acceptor", 0,0,0);
 #endif
@@ -24,16 +27,38 @@ void run_acceptor(asio::io_context &ioContext, tcp::acceptor &acceptor,
     {
         try
         {
+            auto accept_handler = [&](const asio::error_code &ec)
+            {
+                if (!ec)
+                {
+                    sockets.access().ref().emplace_back(std::move(socket));
+                }
+                else
+                {
+                    mvlc::get_logger("MvmeTcpStreamServer")->error("async_accept error: {}", ec.message());
+                }
+            };
+
+            auto start_accept = [&]
+            {
+                tcp::socket socket(ioContext);
+                acceptor.async_accept(socket, accept_handler);
+            };
+
+
             tcp::socket socket(ioContext);
+
             assert(acceptor.is_open());
-            acceptor.accept(socket);
-            sockets.access().ref().emplace_back(std::move(socket));
+            acceptor.async_accept(socket, accept_handler);
+            auto handlerCount = ioContext.run_one();
+            spdlog::debug("acceptor: io_context.run_one() returned, continuing to accept new connections, handlerCount={}", handlerCount);
         }
         catch (const std::exception &e)
         {
             mvlc::get_logger("MvmeTcpStreamServer")->error("Accept error: {}", e.what());
         }
     }
+#endif
 }
 
 struct MvmeTcpStreamServer::Private
@@ -78,6 +103,7 @@ void MvmeTcpStreamServer::startup()
         {
             d->acceptor_ = std::make_unique<tcp::acceptor>(
                 d->ioContext_, tcp::endpoint(asio::ip::make_address(d->address_), d->port_));
+            d->acceptor_->non_blocking(true);
 
             if (d->acceptorThread_.joinable())
             {
@@ -86,8 +112,8 @@ void MvmeTcpStreamServer::startup()
             }
 
             d->quitAcceptor_ = false;
-            d->acceptorThread_ = std::thread(run_acceptor, std::ref(d->ioContext_), std::ref(*d->acceptor_),
-                                     std::ref(d->sockets_), std::ref(d->quitAcceptor_));
+            //d->acceptorThread_ = std::thread(run_acceptor, std::ref(d->ioContext_), std::ref(*d->acceptor_),
+            //                         std::ref(d->sockets_), std::ref(d->quitAcceptor_));
         }
         catch (const std::exception &e)
         {
