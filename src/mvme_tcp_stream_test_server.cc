@@ -526,19 +526,19 @@ int main()
         {
             std::error_code ec;
             size_t bytesTransferred = 0;
-            if (ec = write_to_socket(clientSocket, reinterpret_cast<const u8 *>(&bufferNumber), sizeof(bufferNumber), bytesTransferred))
+            if (ec = write_to_socket(clientSocket, reinterpret_cast<const u8 *>(&bufferNumber), sizeof(bufferNumber), bytesTransferred), ec)
             {
                 spdlog::error("Failed to send buffer number to client {}: {}", clientSocket, ec.message());
                 goto fail;
             }
 
-            if (ec = write_to_socket(clientSocket, reinterpret_cast<const u8 *>(&bufferSize), sizeof(bufferSize), bytesTransferred))
+            if (ec = write_to_socket(clientSocket, reinterpret_cast<const u8 *>(&bufferSize), sizeof(bufferSize), bytesTransferred), ec)
             {
                 spdlog::error("Failed to send buffer size to client {}: {}", clientSocket, ec.message());
                 goto fail;
             }
 
-            if (ec = write_to_socket(clientSocket, reinterpret_cast<const u8 *>(fakeBuffer.data()), fakeBuffer.size() * sizeof(u32), bytesTransferred))
+            if (ec = write_to_socket(clientSocket, reinterpret_cast<const u8 *>(fakeBuffer.data()), fakeBuffer.size() * sizeof(u32), bytesTransferred), ec)
             {
                 spdlog::error("Failed to send buffer to client {}: {}", clientSocket, ec.message());
                 goto fail;
@@ -561,7 +561,8 @@ int main()
         auto socketsAccess = clientSockets.access();
         std::for_each(std::begin(clientSocketsToRemove), std::end(clientSocketsToRemove),
             [](int socket) { ::close(socket); });
-
+        std::for_each(std::begin(clientSocketsToRemove), std::end(clientSocketsToRemove),
+            [&socketsAccess](int socket) { socketsAccess->erase(socket); });
     }
 
     if (acceptorThread.joinable())

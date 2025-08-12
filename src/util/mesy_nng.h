@@ -1,6 +1,7 @@
 #ifndef B18E3651_CA9A_43BC_AA25_810EA16533CD
 #define B18E3651_CA9A_43BC_AA25_810EA16533CD
 
+#include <arpa/inet.h>
 #include <nng/nng.h>
 #include <nng/protocol/pair0/pair.h>
 #include <nng/protocol/pipeline0/pull.h>
@@ -414,6 +415,23 @@ inline int marry_listen_dial(nng_socket listen, nng_socket dial, const char *url
     }
 
     return 0;
+}
+
+inline std::string nng_sockaddr_to_string(const nng_sockaddr &addr)
+{
+    char buf[INET_ADDRSTRLEN];
+    // TODO: implement support for the other address families
+    switch (addr.s_family)
+    {
+    case NNG_AF_INET:
+        inet_ntop(AF_INET, &addr.s_in.sa_addr, buf, sizeof(buf));
+        return fmt::format("tcp://{}:{}", buf, ntohs(addr.s_in.sa_port));
+    case NNG_AF_INET6:
+        inet_ntop(AF_INET6, &addr.s_in6.sa_addr, buf, sizeof(buf));
+        return fmt::format("tcp://{}:{}", buf, ntohs(addr.s_in.sa_port));
+    }
+
+    return {};
 }
 
 }

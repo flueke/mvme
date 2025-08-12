@@ -624,6 +624,9 @@ target_link_libraries(mvme_tcp_stream_test_client PRIVATE asio PRIVATE mesytec-m
 add_executable(mvme_tcp_stream_test_server mvme_tcp_stream_test_server.cc)
 target_link_libraries(mvme_tcp_stream_test_server PRIVATE asio PRIVATE mesytec-mvlc)
 
+add_executable(mvme_tcp_stream_nng_test_server mvme_tcp_stream_nng_test_server.cc)
+target_link_libraries(mvme_tcp_stream_nng_test_server PRIVATE asio mesytec-mvlc nng libmvme)
+
 add_custom_target(multicrate2_dev_tools)
 add_dependencies(multicrate2_dev_tools
     mvme_multicrate_replay2
