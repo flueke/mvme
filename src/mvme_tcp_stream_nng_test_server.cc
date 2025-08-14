@@ -1,6 +1,6 @@
-//#include <cassert>
-//#include <set>
-//#include <system_error>
+#include <atomic>
+#include <mutex>
+#include <vector>
 
 #include <mesytec-mvlc/util/fmt.h>
 #include <mesytec-mvlc/util/logging.h>
@@ -8,49 +8,206 @@
 #include <mesytec-mvlc/util/signal_handling.h>
 #include <mesytec-mvlc/util/stopwatch.h>
 #include <util/mesy_nng.h>
-#include <set>
 
 using namespace mesytec;
 using namespace mesytec::mvlc;
 
-struct ServerContext
+struct nng_exception: public std::runtime_error
 {
-    nng_stream_listener *listener = nullptr;
-    nng_aio *aio = nullptr;
-    mvlc::Protected<std::set<nng_stream *>> streams;
+    explicit nng_exception(int nng_rv_)
+        : std::runtime_error(fmt::format("NNG error: {}", nng_strerror(nng_rv_)))
+        , nng_rv(nng_rv_)
+    {
+    }
+
+    int nng_rv;
 };
 
-void listener_callback(void *arg)
+struct ClientConnection
 {
-    auto ctx = reinterpret_cast<ServerContext *>(arg);
+    nng_stream *stream;
+    nng_aio *aio;
 
-    if (!ctx->aio)
+    explicit ClientConnection(nng_stream *s)
+        : stream(s)
+        , aio(nullptr)
     {
-        if (int res = nng_aio_alloc(&ctx->aio, listener_callback, ctx))
+        if (int rv = nng_aio_alloc(&aio, nullptr, nullptr))
         {
-            spdlog::error("Failed to allocate AIO for listener: {}", nng_strerror(res));
+            spdlog::error("Failed to allocate client AIO: {}", nng_strerror(rv));
+            throw nng_exception(rv);
+        }
+    }
+
+    ~ClientConnection()
+    {
+        if (aio)
+            nng_aio_free(aio);
+
+        if (stream)
+            nng_stream_free(stream);
+    }
+
+    nng_sockaddr remoteAddress() const
+    {
+        nng_sockaddr addr{};
+        nng_stream_get_addr(stream, NNG_OPT_REMADDR, &addr);
+        return addr;
+    }
+
+    std::string remoteAddressString() const { return nng::nng_sockaddr_to_string(remoteAddress()); }
+};
+
+struct ServerContext
+{
+    nng_stream_listener *listener;
+    nng_aio *accept_aio;
+    std::vector<std::unique_ptr<ClientConnection>> clients;
+    std::mutex clients_mutex;
+    std::atomic<bool> shutdown{false};
+
+    ServerContext()
+        : listener(nullptr)
+        , accept_aio(nullptr)
+    {
+    }
+
+    ~ServerContext()
+    {
+        if (accept_aio)
+        {
+            nng_aio_free(accept_aio);
+        }
+        if (listener)
+        {
+            nng_stream_listener_free(listener);
+        }
+    }
+};
+
+void accept_cb(void *arg);
+
+void start_accept(ServerContext *ctx)
+{
+    if (ctx->shutdown)
+        return;
+
+    if (ctx->accept_aio == nullptr)
+    {
+        int rv = nng_aio_alloc(&ctx->accept_aio, accept_cb, ctx);
+        if (rv != 0)
+        {
+            spdlog::error("Failed to allocate accept AIO: {}", nng_strerror(rv));
             return;
         }
-
-        nng_stream_listener_accept(ctx->listener, ctx->aio);
     }
-    else if (auto stream = reinterpret_cast<nng_stream *>(nng_aio_get_output(ctx->aio, 0)))
+
+    nng_aio_set_timeout(ctx->accept_aio, 100);
+    nng_stream_listener_accept(ctx->listener, ctx->accept_aio);
+}
+
+void accept_cb(void *arg)
+{
+    auto ctx = static_cast<ServerContext *>(arg);
+
+    if (ctx->shutdown)
+        return;
+
+    int rv = nng_aio_result(ctx->accept_aio);
+    if (rv != 0)
     {
-        nng_sockaddr addr;
-
-        if (int res = nng_stream_get_addr(stream, NNG_OPT_REMADDR, &addr))
+        if (rv != NNG_ETIMEDOUT)
         {
-            spdlog::error("Failed to get remote address: {}", nng_strerror(res));
-            spdlog::info("Accepted connection from <unknown>");
+            spdlog::error("Accept failed: {}, restarting", nng_strerror(rv));
         }
-        else
-            spdlog::info("Accepted connection from {}", nng::nng_sockaddr_to_string(addr));
-
-        ctx->streams.access()->insert(stream);
-        nng_aio_reap(ctx->aio);
-        ctx->aio = nullptr;
-        listener_callback(arg); // Accept the next connection
+        start_accept(ctx);
+        return;
     }
+
+    // Retrieve the nng stream object from the aio
+    nng_stream *stream = static_cast<nng_stream *>(nng_aio_get_output(ctx->accept_aio, 0));
+    if (stream == nullptr)
+    {
+        spdlog::error("Accepted null stream");
+        start_accept(ctx);
+        return;
+    }
+
+    try
+    {
+        auto client = std::make_unique<ClientConnection>(stream);
+
+        // Add to client list
+        {
+            auto addrStr = client->remoteAddressString();
+            std::lock_guard<std::mutex> lock(ctx->clients_mutex);
+            ctx->clients.emplace_back(std::move(client));
+            spdlog::info("Accepted new connection from {}", addrStr);
+        }
+    } catch (const nng_exception &e)
+    {
+        spdlog::warn("Failed to handle new connection: {}", e.what());
+    }
+
+    // Continue accepting
+    start_accept(ctx);
+}
+
+// Send data to all clients in a blocking fashion
+bool send_to_all_clients(ServerContext *ctx, u32 bufferNumber, const u32 *data, u32 bufferElements)
+{
+    if (ctx->shutdown)
+        return false;
+
+    std::unique_lock<std::mutex> lock(ctx->clients_mutex);
+    if (ctx->clients.empty())
+    {
+        return true; // No clients to send to
+    }
+
+    std::array<nng_iov, 3> iovs = {{{&bufferNumber, sizeof(bufferNumber)},
+                                    {&bufferElements, sizeof(bufferElements)},
+                                    {const_cast<u32 *>(data), bufferElements * sizeof(u32)}}};
+
+    // Setup sends for each client
+    for (auto &client: ctx->clients)
+    {
+        assert(client->stream);
+        assert(client->aio);
+
+        int rv = nng_aio_set_iov(client->aio, iovs.size(), iovs.data());
+        assert(rv == 0); // will only fail if iov is too large
+
+        nng_stream_send(client->stream, client->aio);
+    }
+
+    std::vector<size_t> clientsToRemove;
+
+    for (auto it = ctx->clients.begin(); it != ctx->clients.end(); ++it)
+    {
+        auto &client = *it;
+        auto addrStr = client->remoteAddressString();
+        nng_aio_wait(client->aio);
+        assert(!nng_aio_busy(client->aio));
+
+        if (int rv = nng_aio_result(client->aio))
+        {
+            spdlog::warn("Send to failed: {}", nng_strerror(rv));
+            clientsToRemove.push_back(std::distance(ctx->clients.begin(), it));
+        }
+    }
+
+    // reverse sort the indexes so we start removing from the end
+    std::sort(std::begin(clientsToRemove), std::end(clientsToRemove), std::greater<size_t>());
+
+    for (auto index: clientsToRemove)
+    {
+        auto &client = ctx->clients[index];
+        spdlog::info("Removing client @{}", index);
+        ctx->clients.erase(ctx->clients.begin() + index);
+    }
+
+    return true;
 }
 
 int main()
@@ -60,63 +217,62 @@ int main()
 
     ServerContext ctx;
 
-    if (int res = nng_stream_listener_alloc(&ctx.listener, "tcp4://localhost:42333"))
+    // Setup listener
+    int rv = nng_stream_listener_alloc(&ctx.listener, "tcp://0.0.0.0:42333");
+    if (rv != 0)
     {
-        spdlog::error("Failed to allocate stream listener: {}", nng_strerror(res));
-        return res;
+        spdlog::error("Failed to allocate listener: {}", nng_strerror(rv));
+        return 1;
     }
 
-    if (int res = nng_stream_listener_listen(ctx.listener))
+    rv = nng_stream_listener_listen(ctx.listener);
+    if (rv != 0)
     {
-        spdlog::error("Failed to listen on stream listener: {}", nng_strerror(res));
-        nng_stream_listener_free(ctx.listener);
-        return res;
+        spdlog::error("Failed to listen: {}", nng_strerror(rv));
+        return 1;
     }
 
-    listener_callback(&ctx); // kick of the listener
+    // Display local address
+    nng_sockaddr local_addr{};
+    if (nng_stream_listener_get_addr(ctx.listener, NNG_OPT_LOCADDR, &local_addr) == 0)
+    {
+        spdlog::info("Listening on {}", nng::nng_sockaddr_to_string(local_addr));
+    }
+
+    // Start accepting connections
+    start_accept(&ctx);
+
+    // Main loop - send data periodically to all clients
+    u32 bufferNumber = 0;
+    std::vector<u32> data = {1, 2, 3, 4, 5};
 
     while (!mvlc::util::signal_received())
     {
-        spdlog::info("main loop");
-        std::this_thread::sleep_for(std::chrono::seconds(100));
+        // spdlog::info("Main loop iteration, {} clients connected. bufferNumber={}",
+        // ctx.clients.size(), bufferNumber);
+
+        if (!send_to_all_clients(&ctx, bufferNumber, data.data(), data.size()))
+        {
+            spdlog::warn("Failed to send data to all clients");
+        }
+
+        bufferNumber++;
+        std::for_each(std::begin(data), std::end(data), [](u32 &val) { val++; });
+
+        // simulate daq/replay delay here
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 
-    spdlog::info("left main loop");
+    // Cleanup
+    spdlog::info("Shutting down server");
+    ctx.shutdown = true;
 
-    if (mvlc::util::signal_received())
+    if (ctx.accept_aio != nullptr)
     {
-        nng_aio_cancel(ctx.aio);
+        // nng_aio_abort(ctx.accept_aio, NNG_ECANCELED);
+        nng_aio_cancel(ctx.accept_aio);
+        nng_aio_wait(ctx.accept_aio);
     }
 
-    #if 0
-    nng_aio *send_aio = nullptr;
-
-    if (int res = nng_aio_alloc(&send_aio, nullptr, nullptr))
-    {
-        spdlog::error("Failed to allocate AIO for send: {}", nng_strerror(res));
-        nng_stream_listener_free(listener);
-        nng_aio_free(accept_aio);
-        return res;
-    }
-
-    std::vector<u32> fakeBuffer = { 1, 2, 3, 4, 5 }; // Example buffer data
-    u32 bufferNumber = 0;
-    u32 bufferSize = fakeBuffer.size();
-
-    std::array<nng_iov, 3> iov =
-    {{
-        { &bufferNumber, sizeof(bufferNumber) },
-        { &bufferSize, sizeof(bufferSize) },
-        { fakeBuffer.data(), fakeBuffer.size() * sizeof(u32) },
-    }};
-
-    if (int res = nng_aio_set_iov(send_aio, iov.size(), iov.data()))
-    {
-        spdlog::error("Failed to set IOV for send: {}", nng_strerror(res));
-        return res;
-    }
-
-    nng_stream_send(stream, send_aio);
-    nng_aio_wait(send_aio);
-    #endif
+    return 0;
 }

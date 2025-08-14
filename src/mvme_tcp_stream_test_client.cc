@@ -1,4 +1,4 @@
-#if 0
+#if 1
 #include <asio.hpp>
 #include <cassert>
 #include <mesytec-mvlc/util/fmt.h>
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
             destBuffer.resize(bufferSize);
             bytesRead = asio::read(socket, asio::buffer(destBuffer.data(), destBuffer.size() * sizeof(std::uint32_t)));
             assert(bytesRead == destBuffer.size() * sizeof(std::uint32_t));
-            fmt::println("Received buffer {} of size {}: ", bufferNumber, bufferSize);
+            fmt::println("Received buffer {} of size {}: {}", bufferNumber, bufferSize, fmt::join(destBuffer, ", "));
         }
     }
     catch(const std::exception& e)
@@ -53,6 +53,8 @@ int main(int argc, char *argv[])
 }
 
 #endif
+
+#if 0
 //
 // client.cpp
 // ~~~~~~~~~~
@@ -112,3 +114,4 @@ int main(int argc, char* argv[])
 
   return 0;
 }
+#endif
