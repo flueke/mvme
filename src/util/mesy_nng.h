@@ -11,6 +11,7 @@
 #include <spdlog/spdlog.h>
 
 #include <optional>
+#include <stdexcept>
 #include "thread_name.h"
 #include "typedefs.h"
 
@@ -433,6 +434,17 @@ inline std::string nng_sockaddr_to_string(const nng_sockaddr &addr)
 
     return {};
 }
+
+struct exception: public std::runtime_error
+{
+    explicit exception(int nng_rv_)
+        : std::runtime_error(fmt::format("NNG error: {}", nng_strerror(nng_rv_)))
+        , nng_rv(nng_rv_)
+    {
+    }
+
+    int nng_rv;
+};
 
 }
 

@@ -24,7 +24,10 @@ namespace mesytec::mvme
 class MvmeTcpStreamServer: public IStreamBufferConsumer
 {
   public:
-    explicit MvmeTcpStreamServer(const std::string &address = "127.0.0.1", uint16_t port = 42333u);
+
+    static const char *DefaultListenUri;
+
+    explicit MvmeTcpStreamServer(const std::string &listenUri = DefaultListenUri);
     ~MvmeTcpStreamServer() override;
 
     void startup() override;
@@ -40,6 +43,8 @@ class MvmeTcpStreamServer: public IStreamBufferConsumer
 
     void setLogger(Logger logger);
     Logger &getLogger();
+
+    void reloadConfiguration() override;
 
   private:
     struct Private;

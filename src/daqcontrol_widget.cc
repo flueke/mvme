@@ -805,8 +805,10 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     : QDialog(parent)
     , gb_jsonRPC(new QGroupBox(QSL("Enable JSON-RPC Server")))
     , gb_eventServer(new QGroupBox(QSL("Enable Event Server")))
+    , gb_tcpStreamServer(new QGroupBox(QSL("TCP Stream Server")))
     , le_jsonRPCListenAddress(new QLineEdit)
     , le_eventServerListenAddress(new QLineEdit)
+    , le_tcpStreamServerListenUri(new QLineEdit)
     , le_listfileDir(new QLineEdit)
     , pb_listfileDir(new QPushButton(QSL("Select")))
     , spin_jsonRPCListenPort(new QSpinBox)
@@ -894,8 +896,22 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
         l->addRow(QSL("Listen Port"), spin_eventServerListenPort);
     }
 
+    // TCP Stream Server - duplicates the readout data stream
+    gb_tcpStreamServer->setCheckable(true);
+    {
+        auto label = make_explanation_label(QSL(
+            "Enables a TCP Stream Server which duplicates the readout data stream.\n"
+            "The listen URI must be in the format 'tcp://<address>:<port>'. 'tcp4://' and 'tcp6://'"
+            " schemes are also supported."
+        ));
+        auto l = new QFormLayout(gb_tcpStreamServer);
+        l->addRow(label);
+        l->addRow(QSL("Listen URI"), le_tcpStreamServerListenUri);
+    }
+
     widgetLayout->addWidget(gb_jsonRPC);
     widgetLayout->addWidget(gb_eventServer);
+    widgetLayout->addWidget(gb_tcpStreamServer);
     widgetLayout->addStretch(1);
     widgetLayout->addWidget(m_bb);
 
@@ -933,6 +949,9 @@ void WorkspaceSettingsDialog::populate()
     gb_eventServer->setChecked(m_settings->value(QSL("EventServer/Enabled")).toBool());
     le_eventServerListenAddress->setText(m_settings->value(QSL("EventServer/ListenAddress")).toString());
     spin_eventServerListenPort->setValue(m_settings->value(QSL("EventServer/ListenPort")).toInt());
+
+    gb_tcpStreamServer->setChecked(m_settings->value(QSL("TCPStreamServer/Enabled"), false).toBool());
+    le_tcpStreamServerListenUri->setText(m_settings->value(QSL("TCPStreamServer/ListenUri"), "tcp://*:42333").toString());
 }
 
 void WorkspaceSettingsDialog::accept()
@@ -951,6 +970,9 @@ void WorkspaceSettingsDialog::accept()
     m_settings->setValue(QSL("EventServer/Enabled"), gb_eventServer->isChecked());
     m_settings->setValue(QSL("EventServer/ListenAddress"), le_eventServerListenAddress->text());
     m_settings->setValue(QSL("EventServer/ListenPort"), spin_eventServerListenPort->value());
+
+    m_settings->setValue(QSL("TCPStreamServer/Enabled"), gb_tcpStreamServer->isChecked());
+    m_settings->setValue(QSL("TCPStreamServer/ListenUri"), le_tcpStreamServerListenUri->text());
 
     m_settings->sync();
 

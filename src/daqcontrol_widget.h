@@ -163,10 +163,12 @@ class LIBMVME_EXPORT WorkspaceSettingsDialog: public QDialog
         void populate();
 
         QGroupBox *gb_jsonRPC,
-                  *gb_eventServer;
+                  *gb_eventServer,
+                  *gb_tcpStreamServer;
 
         QLineEdit *le_jsonRPCListenAddress,
                   *le_eventServerListenAddress,
+                  *le_tcpStreamServerListenUri,
                   *le_expName,
                   *le_expTitle,
                   *le_listfileDir;

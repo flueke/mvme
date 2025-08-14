@@ -12,17 +12,6 @@
 using namespace mesytec;
 using namespace mesytec::mvlc;
 
-struct nng_exception: public std::runtime_error
-{
-    explicit nng_exception(int nng_rv_)
-        : std::runtime_error(fmt::format("NNG error: {}", nng_strerror(nng_rv_)))
-        , nng_rv(nng_rv_)
-    {
-    }
-
-    int nng_rv;
-};
-
 struct ClientConnection
 {
     nng_stream *stream;
@@ -35,7 +24,7 @@ struct ClientConnection
         if (int rv = nng_aio_alloc(&aio, nullptr, nullptr))
         {
             spdlog::error("Failed to allocate client AIO: {}", nng_strerror(rv));
-            throw nng_exception(rv);
+            throw nng::exception(rv);
         }
     }
 
@@ -144,7 +133,7 @@ void accept_cb(void *arg)
             ctx->clients.emplace_back(std::move(client));
             spdlog::info("Accepted new connection from {}", addrStr);
         }
-    } catch (const nng_exception &e)
+    } catch (const nng::exception &e)
     {
         spdlog::warn("Failed to handle new connection: {}", e.what());
     }

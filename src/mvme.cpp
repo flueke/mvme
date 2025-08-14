@@ -178,7 +178,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         auto loggerNames =
         {
              "listfile", "readout_worker", "replay", "readout_parser",
-             "mvlc_listfile_zmq_ganil"
+             "mvlc_listfile_zmq_ganil", "mvme_tcp_stream_server"
         };
 
         for (const auto &loggerName: loggerNames)
