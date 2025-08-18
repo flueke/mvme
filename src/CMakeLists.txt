@@ -262,6 +262,7 @@ add_library(libmvme SHARED
     mvme_stream_worker.cc
     mvme_tcp_stream_server.cc
     mvmecontext_analysis_service_provider.cc
+    nng_stream_server.cc
     qt_assistant_remote_control.cc
     qt_util.cc
     rate_monitor_base.cc
