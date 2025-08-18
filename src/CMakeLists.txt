@@ -619,11 +619,13 @@ add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
 add_mvme_exe(statemachine_test statemachine_test.cc)
 add_mvme_dev_exe(dev_some_gui_thing dev_some_gui_thing.cc)
 
+if (NOT WIN32)
 add_executable(mvme_tcp_stream_test_client mvme_tcp_stream_test_client.cc)
 target_link_libraries(mvme_tcp_stream_test_client PRIVATE asio PRIVATE mesytec-mvlc)
 
 add_executable(mvme_tcp_stream_test_server mvme_tcp_stream_test_server.cc)
 target_link_libraries(mvme_tcp_stream_test_server PRIVATE asio PRIVATE mesytec-mvlc)
+endif()
 
 add_executable(mvme_tcp_stream_nng_test_server mvme_tcp_stream_nng_test_server.cc)
 target_link_libraries(mvme_tcp_stream_nng_test_server PRIVATE asio mesytec-mvlc nng libmvme)

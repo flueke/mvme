@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <vector>
