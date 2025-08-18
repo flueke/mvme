@@ -2337,6 +2337,10 @@ void MVMEMainWindow::runDAQRunSettingsDialog()
 void MVMEMainWindow::runWorkspaceSettingsDialog()
 {
     WorkspaceSettingsDialog dialog(m_d->m_context->makeWorkspaceSettings());
+
+    m_d->m_geometrySaver->addAndRestore(
+        &dialog, QSL("WindowGeometries/WorkspaceSettingsDialog"));
+
     dialog.setWindowModality(Qt::ApplicationModal);
     if (dialog.exec() == QDialog::Accepted)
     {
