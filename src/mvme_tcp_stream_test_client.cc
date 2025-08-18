@@ -43,7 +43,9 @@ int main(int argc, char *argv[])
             destBuffer.resize(bufferSize);
             bytesRead = asio::read(socket, asio::buffer(destBuffer.data(), destBuffer.size() * sizeof(std::uint32_t)));
             assert(bytesRead == destBuffer.size() * sizeof(std::uint32_t));
-            fmt::println("Received buffer {} of size {}: {}", bufferNumber, bufferSize, fmt::join(destBuffer, ", "));
+            auto bufferView = std::basic_string_view<std::uint32_t>(reinterpret_cast<const std::uint32_t *>(
+              destBuffer.data()), std::min(bufferSize, static_cast<std::uint32_t>(10)));
+            fmt::println("Received buffer {} of size {}: {:#010x}...", bufferNumber, bufferSize, fmt::join(bufferView, ", "));
         }
     }
     catch(const std::exception& e)

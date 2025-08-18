@@ -34,6 +34,7 @@
 #include <QRadioButton>
 #include <QSettings>
 #include <QSpinBox>
+#include <QTableWidget>
 #include <QWidget>
 
 #include "globals.h"
@@ -168,10 +169,11 @@ class LIBMVME_EXPORT WorkspaceSettingsDialog: public QDialog
 
         QLineEdit *le_jsonRPCListenAddress,
                   *le_eventServerListenAddress,
-                  *le_tcpStreamServerListenUri,
                   *le_expName,
                   *le_expTitle,
                   *le_listfileDir;
+
+        QTableWidget *tw_streamServerListenUris;
 
         QPushButton *pb_listfileDir;
 

@@ -15,19 +15,22 @@ namespace mesytec::mvme
 // mvme analysis.
 //
 // The server guarantees that only complete readout buffers as taken from the
-// queue are sent. Each buffer is prefixed by a 32-bit word specifying the
-// number of words in the data buffer. Newly connected clients will receive the
-// next complete buffer. There is no need to handle partial buffers on clients.
+// queue are sent. Each buffer is prefixed by a 32-bit buffer number and a
+// 32-bit word specifying the number of elements in the buffer.
+// Newly connected clients will receive the next complete buffer. There is no
+// need to handle partial buffers on clients.
 //
 // TODO: write down where to find the client code.
+// TODO:: maybe make it work on u8 data. Not needed for the MVLC or the old mvme
+// listfile format but would make this more generic.
 
 class MvmeTcpStreamServer: public IStreamBufferConsumer
 {
   public:
 
-    static const char *DefaultListenUri;
+    static const std::vector<std::string> DefaultListenUris;
 
-    explicit MvmeTcpStreamServer(const std::string &listenUri = DefaultListenUri);
+    MvmeTcpStreamServer();
     ~MvmeTcpStreamServer() override;
 
     void startup() override;
