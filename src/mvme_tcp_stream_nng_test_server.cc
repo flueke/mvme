@@ -56,20 +56,69 @@ struct Acceptor
     nng_aio *accept_aio = nullptr;
 };
 
+void accept_cb(void *arg);
+void start_accept(Acceptor *acceptor);
+
 struct ServerContext
 {
     std::vector<Acceptor> acceptors;
     std::vector<std::unique_ptr<ClientConnection>> clients;
     std::mutex clients_mutex;
-    std::atomic<bool> shutdown{false};
+    std::atomic<bool> shutdown{true};
 
-    ServerContext()
+    void start(const std::vector<std::string> &listenUris)
     {
+        if (!shutdown)
+        {
+            spdlog::warn("ServerContext::start(): Server is already running");
+        }
+
+        shutdown = false;
+        spdlog::info("ServerContext::start(): Starting server");
+
+        // Start listening on all configures URIs
+        for (const auto &uri: listenUris)
+        {
+            Acceptor acceptor;
+            acceptor.ctx = this;
+
+            if (int rv = nng_stream_listener_alloc(&acceptor.listener, uri.c_str()))
+            {
+                spdlog::error("Failed to allocate listener for {}: {}", uri, nng_strerror(rv));
+                return;
+            }
+
+            if (int rv = nng_stream_listener_listen(acceptor.listener))
+            {
+                spdlog::error("Failed to listen on {}: {}", uri, nng_strerror(rv));
+                nng_stream_listener_free(acceptor.listener);
+                return;
+            }
+
+            nng_sockaddr local_addr{};
+            if (nng_stream_listener_get_addr(acceptor.listener, NNG_OPT_LOCADDR, &local_addr) == 0)
+            {
+                spdlog::info("Listening on {}", nng::nng_sockaddr_to_string(local_addr));
+            }
+
+            acceptors.emplace_back(std::move(acceptor));
+        }
+
+        for (auto &acceptor: acceptors)
+        {
+            start_accept(&acceptor);
+        }
     }
 
-    ~ServerContext()
+    void stop()
     {
-        spdlog::info("~ServerContext: Shutting down server");
+        if (shutdown)
+        {
+            spdlog::warn("ServerContext::stop(): Server is already stopped");
+            return;
+        }
+
+        spdlog::info("ServerContext::stop(): Stopping server");
         shutdown = true;
 
         for (auto &acceptor: acceptors)
@@ -83,9 +132,13 @@ struct ServerContext
             nng_stream_listener_free(acceptor.listener);
         }
     }
-};
 
-void accept_cb(void *arg);
+    ~ServerContext()
+    {
+        if (!shutdown)
+            stop();
+    }
+};
 
 void start_accept(Acceptor *acceptor)
 {
@@ -124,7 +177,7 @@ void accept_cb(void *arg)
 
     // Retrieve the nng stream object from the aio
     nng_stream *stream = static_cast<nng_stream *>(nng_aio_get_output(acceptor->accept_aio, 0));
-    if (stream == nullptr)
+    if (!stream)
     {
         spdlog::error("Accepted null stream");
         start_accept(acceptor);
@@ -200,7 +253,6 @@ bool send_to_all_clients(ServerContext *ctx, u32 bufferNumber, const u32 *data, 
 
     for (auto index: clientsToRemove)
     {
-        auto &client = ctx->clients[index];
         spdlog::info("Removing client @{}", index);
         ctx->clients.erase(ctx->clients.begin() + index);
     }
@@ -208,7 +260,7 @@ bool send_to_all_clients(ServerContext *ctx, u32 bufferNumber, const u32 *data, 
     return true;
 }
 
-const auto listenUris =
+static const std::vector<std::string> listenUris =
 {
     "tcp4://*:42333",
     "ipc:///tmp/mvme_tcp_stream_server.ipc",
@@ -222,38 +274,7 @@ int main()
         mvlc::util::setup_signal_handlers();
 
         ServerContext ctx;
-
-        // Start listening on all configures URIs
-        for (const auto &uri: listenUris)
-        {
-            Acceptor acceptor;
-            acceptor.ctx = &ctx;
-
-            if (int rv = nng_stream_listener_alloc(&acceptor.listener, uri))
-            {
-                spdlog::error("Failed to allocate listener for {}: {}", uri, nng_strerror(rv));
-                return 1;
-            }
-
-            if (int rv = nng_stream_listener_listen(acceptor.listener))
-            {
-                spdlog::error("Failed to listen on {}: {}", uri, nng_strerror(rv));
-                return 1;
-            }
-
-            nng_sockaddr local_addr{};
-            if (nng_stream_listener_get_addr(acceptor.listener, NNG_OPT_LOCADDR, &local_addr) == 0)
-            {
-                spdlog::info("Listening on {}", nng::nng_sockaddr_to_string(local_addr));
-            }
-
-            ctx.acceptors.emplace_back(std::move(acceptor));
-        }
-
-        for (auto &acceptor: ctx.acceptors)
-        {
-            start_accept(&acceptor);
-        }
+        ctx.start(listenUris);
 
         // Main loop - send data periodically to all clients
         u32 bufferNumber = 0;
