@@ -111,7 +111,7 @@ void NngStreamServer::stop()
         nng_stream_listener_free(acceptor.listener);
     }
 
-    return;
+    acceptors.clear();
 }
 
 NngStreamServer::~NngStreamServer()
