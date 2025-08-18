@@ -12,6 +12,7 @@
 
 #include <optional>
 #include <stdexcept>
+#include <string_view>
 #include "thread_name.h"
 #include "typedefs.h"
 
@@ -421,7 +422,6 @@ inline int marry_listen_dial(nng_socket listen, nng_socket dial, const char *url
 inline std::string nng_sockaddr_to_string(const nng_sockaddr &addr)
 {
     char buf[INET_ADDRSTRLEN];
-    // TODO: implement support for the other address families
     switch (addr.s_family)
     {
     case NNG_AF_INET:
@@ -430,6 +430,20 @@ inline std::string nng_sockaddr_to_string(const nng_sockaddr &addr)
     case NNG_AF_INET6:
         inet_ntop(AF_INET6, &addr.s_in6.sa_addr, buf, sizeof(buf));
         return fmt::format("tcp://{}:{}", buf, ntohs(addr.s_in.sa_port));
+    case NNG_AF_IPC:
+        return fmt::format("ipc://{}", addr.s_ipc.sa_path);
+    case NNG_AF_INPROC:
+        return fmt::format("inproc://{}", addr.s_inproc.sa_name);
+    #if 0
+    // TODO: have to use NNG_OPT_LOCADDR to get the actual address if auto
+    // binding is used. this is indicated by a zero length name
+    case NNG_AF_ABSTRACT:
+        {
+            std::string_view sv(reinterpret_cast<const char *>(addr.s_abstract.sa_name),
+             addr.s_abstract.sa_len);
+            return fmt::format("abstract://{}", sv);
+        }
+    #endif
     }
 
     return {};
