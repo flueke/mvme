@@ -627,6 +627,10 @@ add_executable(mvme_tcp_stream_test_server mvme_tcp_stream_test_server.cc)
 target_link_libraries(mvme_tcp_stream_test_server PRIVATE asio PRIVATE mesytec-mvlc)
 endif()
 
+# Standalone asio client for testing.
+add_executable(mvme_tcp_stream_client_asio mvme_tcp_stream_client_asio.cc)
+target_link_libraries(mvme_tcp_stream_client_asio PRIVATE asio)
+
 add_executable(mvme_tcp_stream_nng_test_server mvme_tcp_stream_nng_test_server.cc)
 target_link_libraries(mvme_tcp_stream_nng_test_server PRIVATE asio mesytec-mvlc nng libmvme)
 
