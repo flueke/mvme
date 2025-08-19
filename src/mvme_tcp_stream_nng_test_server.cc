@@ -45,9 +45,6 @@ int main()
 
             bufferNumber++;
             std::for_each(std::begin(data), std::end(data), [](u32 &val) { val++; });
-
-            // simulate daq/replay delay here
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     }
 
