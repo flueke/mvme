@@ -1,4 +1,5 @@
 #include "nng_stream_server.h"
+#include <algorithm>
 
 namespace mesytec::nng
 {

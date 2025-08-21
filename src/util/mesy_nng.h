@@ -1,7 +1,11 @@
 #ifndef B18E3651_CA9A_43BC_AA25_810EA16533CD
 #define B18E3651_CA9A_43BC_AA25_810EA16533CD
 
+#ifndef MESYTEC_MVLC_PLATFORM_WINDOWS
 #include <arpa/inet.h>
+#else
+#include <ws2tcpip.h>
+#endif
 #include <nng/nng.h>
 #include <nng/protocol/pair0/pair.h>
 #include <nng/protocol/pipeline0/pull.h>

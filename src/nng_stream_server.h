@@ -7,11 +7,12 @@
 // Use send_to_all_clients() to do a blocking send to all connected clients.
 
 #include <util/mesy_nng.h>
+#include "libmvme_export.h"
 
 namespace mesytec::nng
 {
 
-struct ClientConnection
+struct LIBMVME_EXPORT ClientConnection
 {
     nng_stream *stream = nullptr;
     nng_aio *aio = nullptr;
@@ -22,16 +23,16 @@ struct ClientConnection
     std::string remoteAddressString() const;
 };
 
-struct NngStreamServer;
+struct LIBMVME_EXPORT NngStreamServer;
 
-struct Acceptor
+struct LIBMVME_EXPORT Acceptor
 {
     NngStreamServer *ctx = nullptr;
     nng_stream_listener *listener = nullptr;
     nng_aio *accept_aio = nullptr;
 };
 
-struct NngStreamServer
+struct LIBMVME_EXPORT NngStreamServer
 {
     std::vector<Acceptor> acceptors;
     std::vector<std::unique_ptr<ClientConnection>> clients;
@@ -55,7 +56,7 @@ struct NngStreamServer
 // Message format is: u32 bufferNumber, u32 bufferSize, u32 data[bufferSize].
 // Clients won't receive partial data, only complete messages.
 // The senders network byte order is used, no reordering is done.
-bool send_to_all_clients(NngStreamServer *ctx, u32 bufferNumber, const u32 *data, u32 bufferElements);
+bool LIBMVME_EXPORT send_to_all_clients(NngStreamServer *ctx, u32 bufferNumber, const u32 *data, u32 bufferElements);
 
 }
 
