@@ -18,13 +18,14 @@ struct MvmeTcpStreamServer::Private
     std::shared_ptr<spdlog::logger> logger_;
     StreamConsumerBase::Logger mvmeLogger_;
     nng::NngStreamServer serverContext_;
+    std::mutex mutex_; // protects everything! :)
 };
 
 const std::vector<std::string> MvmeTcpStreamServer::DefaultListenUris = {
     "tcp4://*:42333",
-    #ifndef WIN32
+#ifndef WIN32
     "ipc:///${XDG_RUNTIME_DIR}/mvme_tcp_stream_server.socket",
-    #endif
+#endif
 };
 
 MvmeTcpStreamServer::MvmeTcpStreamServer()
@@ -34,11 +35,26 @@ MvmeTcpStreamServer::MvmeTcpStreamServer()
     d->logger_ = mvlc::get_logger("mvme_tcp_stream_server");
 }
 
-MvmeTcpStreamServer::~MvmeTcpStreamServer() { d->serverContext_.shutdown = true; }
+MvmeTcpStreamServer::~MvmeTcpStreamServer()
+{
 
-void MvmeTcpStreamServer::startup() { d->serverContext_.start(d->listenUris_); }
+    std::unique_lock<std::mutex> lock(d->mutex_);
+    d->serverContext_.shutdown = true;
+}
 
-void MvmeTcpStreamServer::shutdown() { d->serverContext_.stop(); }
+void MvmeTcpStreamServer::startup()
+{
+
+    std::unique_lock<std::mutex> lock(d->mutex_);
+    d->serverContext_.start(d->listenUris_);
+}
+
+void MvmeTcpStreamServer::shutdown()
+{
+
+    std::unique_lock<std::mutex> lock(d->mutex_);
+    d->serverContext_.stop();
+}
 
 void MvmeTcpStreamServer::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig,
                                    const analysis::Analysis *analysis)
@@ -57,15 +73,22 @@ void MvmeTcpStreamServer::endRun(const DAQStats &stats, const std::exception *e)
 void MvmeTcpStreamServer::processBuffer(s32 bufferType, u32 bufferNumber, const u32 *buffer,
                                         size_t bufferSize)
 {
+    std::unique_lock<std::mutex> lock(d->mutex_);
     Q_UNUSED(bufferType);
     assert(bufferSize <= std::numeric_limits<u32>::max());
     auto &ctx = d->serverContext_;
     send_to_all_clients(&ctx, bufferNumber, buffer, bufferSize);
 }
 
-void MvmeTcpStreamServer::setLogger(StreamConsumerBase::Logger logger) { d->mvmeLogger_ = logger; }
+void MvmeTcpStreamServer::setLogger(StreamConsumerBase::Logger logger)
+{
+    d->mvmeLogger_ = logger;
+}
 
-StreamConsumerBase::Logger &MvmeTcpStreamServer::getLogger() { return d->mvmeLogger_; }
+StreamConsumerBase::Logger &MvmeTcpStreamServer::getLogger()
+{
+    return d->mvmeLogger_;
+}
 
 void MvmeTcpStreamServer::reloadConfiguration()
 {
@@ -74,7 +97,7 @@ void MvmeTcpStreamServer::reloadConfiguration()
     d->enabled_ = settings.value(QSL("TcpStreamServer/Enabled")).toBool();
 
     spdlog::warn("MvmeTcpStreamServer::reloadConfiguration(): TcpStreamServer/Enabled={}",
-        d->enabled_);
+                 d->enabled_);
 
     if (!d->enabled_)
     {

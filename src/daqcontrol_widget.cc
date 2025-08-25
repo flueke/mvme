@@ -946,7 +946,7 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     {
         auto label = make_explanation_label(QSL(
             "Enables a TCP Stream Server which duplicates the readout data stream.\n"
-            "The listen URIs must be of the form 'tcp://<address>:<port>' or ipc:///path/to/socket. "
+            "The listen URIs must be of the form 'tcp://<address>:<port>' or 'ipc:///<path>/<to>/<socket>'. "
             "'tcp4://' and 'tcp6://' schemes are also supported.\n"
             "${env} vars in the uri strings are expanded (e.g. ${USER} or ${HOME}).\n"
         ));
