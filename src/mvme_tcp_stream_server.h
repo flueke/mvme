@@ -28,6 +28,7 @@ class MvmeTcpStreamServer: public IStreamBufferConsumer
 {
   public:
 
+    // Note: these must be expanded using expand_env_vars() from util/expand_env_vars.h
     static const std::vector<std::string> DefaultListenUris;
 
     MvmeTcpStreamServer();

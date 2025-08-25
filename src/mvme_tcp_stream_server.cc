@@ -5,6 +5,7 @@
 
 #include "mvme_workspace.h"
 #include "nng_stream_server.h"
+#include "util/expand_env_vars.h"
 #include "util/qt_str.h"
 
 namespace mesytec::mvme
@@ -21,7 +22,9 @@ struct MvmeTcpStreamServer::Private
 
 const std::vector<std::string> MvmeTcpStreamServer::DefaultListenUris = {
     "tcp4://*:42333",
-    "ipc:///tmp/mvme_tcp_stream_server.ipc",
+    #ifndef WIN32
+    "ipc:///${XDG_RUNTIME_DIR}/mvme_tcp_stream_server.socket",
+    #endif
 };
 
 MvmeTcpStreamServer::MvmeTcpStreamServer()
@@ -83,7 +86,10 @@ void MvmeTcpStreamServer::reloadConfiguration()
     d->listenUris_.clear();
 
     for (const auto &qtUri: settings.value(QSL("TcpStreamServer/ListenUris")).toStringList())
-        d->listenUris_.emplace_back(qtUri.toStdString());
+    {
+        auto expanded = util::expand_env_vars(qtUri.toStdString());
+        d->listenUris_.emplace_back(expanded);
+    }
 
     shutdown();
     startup();
