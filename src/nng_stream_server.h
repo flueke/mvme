@@ -48,6 +48,8 @@ struct LIBMVME_EXPORT NngStreamServer
     // otherwise.
     void stop();
 
+    bool isRunning() const { return !shutdown; }
+
     // Stops the server and releases allocated resources.
     ~NngStreamServer();
 };

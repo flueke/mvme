@@ -168,6 +168,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
 
 #if 1
     // Setup some of the mesytec-mvlc loggers to also log to the gui.
+    // FIXME: this is bugged in 1.16 and probably all earlier versions:
+    // loggers that are created before this code is run will not get the new
+    // sinks attached to them. It could be done here by modifying the sinks()
+    // vector, but that's not thread-safe.
     {
         auto consolesink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         auto qtsink = std::make_shared<spdlog::sinks::qt_sink_mt>(m_d->m_context, "logMessageRaw");

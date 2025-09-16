@@ -19,6 +19,7 @@ struct MvmeTcpStreamServer::Private
     StreamConsumerBase::Logger mvmeLogger_;
     nng::NngStreamServer serverContext_;
     std::mutex mutex_; // protects everything! :)
+    bool startupResult_ = false;
 };
 
 const std::vector<std::string> MvmeTcpStreamServer::DefaultListenUris = {
@@ -46,7 +47,7 @@ void MvmeTcpStreamServer::startup()
 {
 
     std::unique_lock<std::mutex> lock(d->mutex_);
-    d->serverContext_.start(d->listenUris_);
+    d->startupResult_ = d->serverContext_.start(d->listenUris_);
 }
 
 void MvmeTcpStreamServer::shutdown()
@@ -54,6 +55,7 @@ void MvmeTcpStreamServer::shutdown()
 
     std::unique_lock<std::mutex> lock(d->mutex_);
     d->serverContext_.stop();
+    d->startupResult_ = false;
 }
 
 void MvmeTcpStreamServer::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig,
@@ -96,10 +98,10 @@ void MvmeTcpStreamServer::reloadConfiguration()
 
     d->enabled_ = settings.value(QSL("TcpStreamServer/Enabled")).toBool();
 
-    spdlog::warn("MvmeTcpStreamServer::reloadConfiguration(): TcpStreamServer/Enabled={}",
+    d->logger_->trace("MvmeTcpStreamServer::reloadConfiguration(): TcpStreamServer/Enabled={}",
                  d->enabled_);
 
-    if (!d->enabled_)
+    if (!d->enabled_ && d->serverContext_.isRunning())
     {
         logMessage(QSL("TcpStreamServer is disabled, shutting down"));
         shutdown();
@@ -114,8 +116,12 @@ void MvmeTcpStreamServer::reloadConfiguration()
         d->listenUris_.emplace_back(expanded);
     }
 
+    logMessage(fmt::format("TcpStreamServer listening on: {}", fmt::join(d->listenUris_, ", ")).c_str());
+
     shutdown();
     startup();
+    if (!d->startupResult_)
+        logMessage(QSL("TcpStreamServer failed to listen on at least one URI! See the console log for details."));
 }
 
 } // namespace mesytec::mvme
