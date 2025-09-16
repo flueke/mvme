@@ -623,15 +623,16 @@ add_mvme_dev_exe(dev_some_gui_thing dev_some_gui_thing.cc)
 if (NOT WIN32)
 add_executable(mvme_tcp_stream_test_client mvme_tcp_stream_test_client.cc)
 target_link_libraries(mvme_tcp_stream_test_client PRIVATE asio PRIVATE mesytec-mvlc)
-
-add_executable(mvme_tcp_stream_test_server mvme_tcp_stream_test_server.cc)
-target_link_libraries(mvme_tcp_stream_test_server PRIVATE asio PRIVATE mesytec-mvlc)
 endif()
 
 # Standalone asio client for testing.
 add_executable(mvme_tcp_stream_client_asio mvme_tcp_stream_client_asio.cc)
 target_link_libraries(mvme_tcp_stream_client_asio PRIVATE asio)
 
+# POSIX/BSD variant of the above.
+add_executable(mvme_tcp_stream_client_posix mvme_tcp_stream_client_posix.cc)
+
+# Standalone tool to test the nng::NngStreamServer implementation
 add_executable(mvme_tcp_stream_nng_test_server mvme_tcp_stream_nng_test_server.cc)
 target_link_libraries(mvme_tcp_stream_nng_test_server PRIVATE asio mesytec-mvlc nng libmvme)
 

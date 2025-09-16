@@ -171,10 +171,9 @@ void accept_cb(void *arg)
 
         // Add to client list
         {
-            auto addrStr = client->remoteAddressString();
             std::lock_guard<std::mutex> lock(acceptor->ctx->clients_mutex);
             acceptor->ctx->clients.emplace_back(std::move(client));
-            spdlog::info("Accepted new connection from {}", addrStr);
+            spdlog::info("Accepted new connection from {}", client->remoteAddressString());
         }
     }
     catch (const nng::exception &e)
@@ -220,7 +219,6 @@ bool send_to_all_clients(NngStreamServer *ctx, u32 bufferNumber, const u32 *data
     for (auto it = ctx->clients.begin(); it != ctx->clients.end(); ++it)
     {
         auto &client = *it;
-        auto addrStr = client->remoteAddressString();
         nng_aio_wait(client->aio);
         assert(!nng_aio_busy(client->aio));
 

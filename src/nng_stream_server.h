@@ -4,7 +4,15 @@
 // Streaming server implementation for MVME/mesytec-mvlc using NNG to handle networking.
 // Supports tcp://, ipc://, inproc://, tcp4:// and tcp6:// URIs.
 // The acceptor runs asychronously in the background. No thread creation needed.
+// Message format is: u32 bufferNumber, u32 bufferSize, u32 data[bufferSize].
+// Endianess is left as is.
+//
+// Usage:
+// Create a NngStreamServer instance, call start() with a list of URIs to
+// listen on. Use stop() to stop the server, isRunning() to query the state.
 // Use send_to_all_clients() to do a blocking send to all connected clients.
+// This will internally queue up async sends, then wait for them to complete
+// before returning.
 
 #include <util/mesy_nng.h>
 #include "libmvme_export.h"
@@ -40,12 +48,10 @@ struct LIBMVME_EXPORT NngStreamServer
     std::atomic<bool> shutdown{true};
 
     // Start listening on the given URIs. Returns false if listening on any URI
-    // failed. You still have to call stop() in case the server listens on some
-    // of the URIs.
+    // failed or the server was already running.. You still have to call stop()
+    // in case the server listens on some of the URIs.
     bool start(const std::vector<std::string> &listenUris);
 
-    // Returns true if the server was running and could be stopped, false
-    // otherwise.
     void stop();
 
     bool isRunning() const { return !shutdown; }

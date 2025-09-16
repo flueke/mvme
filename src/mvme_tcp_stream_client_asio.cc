@@ -1,5 +1,6 @@
 #include <asio.hpp>
 #include <iostream>
+#include <iomanip>
 
 int main(int argc, char *argv[])
 {
@@ -17,11 +18,11 @@ int main(int argc, char *argv[])
         std::cout << "Connecting to " << host << ":" << port << "...\n";
 
         asio::io_context io_context;
-        asio::ip::tcp::socket socket(io_context);
 
         asio::ip::tcp::resolver resolver(io_context);
         auto endpoints = resolver.resolve(host, port);
 
+        asio::ip::tcp::socket socket(io_context);
         asio::connect(socket, endpoints);
 
         std::uint32_t bufferNumber = 0u;
@@ -35,23 +36,29 @@ int main(int argc, char *argv[])
 
             size_t bytesRead = asio::read(
                 socket, std::array<asio::mutable_buffer, 2>{bufferNumberBuf, bufferSizeBuf});
+
             if (bytesRead == 0)
                 break; // Connection closed
 
             destBuffer.resize(bufferSize);
+
             bytesRead = asio::read(
                 socket, asio::buffer(destBuffer.data(), destBuffer.size() * sizeof(std::uint32_t)));
+
             if (bytesRead == 0)
                 break; // Connection closed
 
-            destBuffer.resize(bytesRead/sizeof(std::uint32_t));
+            destBuffer.resize(bytesRead / sizeof(std::uint32_t));
 
             auto bufferView = std::basic_string_view<std::uint32_t>(
                 reinterpret_cast<const std::uint32_t *>(destBuffer.data()),
                 std::min(destBuffer.size(), static_cast<std::size_t>(10)));
+
             std::cout << "Received buffer " << bufferNumber << " of size " << bufferSize << ": ";
+
             for (const auto &val: bufferView)
-                std::cout << std::hex << val << " ";
+                std::cout << "0x" << std::hex << std::setw(8) << std::setfill('0') << val << " ";
+
             std::cout << std::dec << "\n";
         }
 
