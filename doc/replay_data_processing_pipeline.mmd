@@ -1,0 +1,54 @@
+---
+config:
+  title: mvme replay data processing pipeline
+  theme: default
+  look: default
+  layout: elk
+  flowchart:
+    curve: stepBefore
+---
+
+flowchart LR
+    readout_parser -->|"`ModuleData[N]`"| multi_event_splitter[Multi Event Splitter*]
+    subgraph trigger_event0
+        multi_event_splitter -->|"`ModuleData[N]`"| event_builder[Event Builder*]
+        event_builder -->|"`ModuleData[N]`"| analysis[MVME Analysis]
+        analysis --> unpacked_data["per module unpacked<br>(channel#: value) arrays"]
+    end
+
+    readout_parser -->|"`ModuleData[N]`"| multi_event_splitter1[Multi Event Splitter*]
+    subgraph trigger_event1
+        multi_event_splitter1 -->|"`ModuleData[N]`"| event_builder1[Event Builder*]
+        event_builder1 -->|"`ModuleData[N]`"| analysis1[MVME Analysis]
+        analysis1 --> unpacked_data1["per module unpacked<br>(channel#: value) arrays"]
+    end
+
+    listfile["`**Listfile(ZIP)**
+    • .mvlclst (with readout_config)
+    • analysis.analysis
+    • run_notes.txt`"]@{ shape: lin-cyl}
+    style listfile text-align: left
+
+    listfile -->|mvlclst| readout_parser
+    listfile --> files
+
+    subgraph files[Files]
+        readout_config
+        analysis_config
+        run_notes.txt
+    end
+
+    readout_config --> readout_parser
+    analysis_config
+    run_notes.txt
+
+    readout_config@{ shape:  card }
+    analysis_config@{ shape:  card }
+    run_notes.txt@{ shape:  card }
+
+    %% class based styling
+    classDef files fill:goldenrod,stroke:#333;
+    class readout_config,analysis_config,run_notes.txt files;
+
+    classDef mvlc fill:yellow,stroke:#000;
+    class mvlc mvlc;

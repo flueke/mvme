@@ -1,0 +1,63 @@
+---
+config:
+  title: mvme readout data processing pipeline
+  theme: default
+  look: default
+  layout: elk
+  flowchart:
+    curve: stepAfter
+---
+
+flowchart TD
+    mvlc[MVLC VME] -->|MVLC data stream| readout_worker
+    readout_worker[Readout Worker]
+    readout_worker --> distribute[O]@{ shape: circle}
+
+
+    readout_parser -->|"`ModuleData[N]`"| multi_event_splitter[Multi Event Splitter*]
+    subgraph trigger_event0
+        multi_event_splitter -->|"`ModuleData[N]`"| event_builder[Event Builder*]
+        event_builder -->|"`ModuleData[N]`"| analysis[MVME Analysis]
+        analysis --> unpacked_data["per module unpacked<br>(channel#: value) arrays"]
+    end
+
+    readout_parser -->|"`ModuleData[N]`"| multi_event_splitter1[Multi Event Splitter*]
+    subgraph trigger_event1
+        multi_event_splitter1 -->|"`ModuleData[N]`"| event_builder1[Event Builder*]
+        event_builder1 -->|"`ModuleData[N]`"| analysis1[MVME Analysis]
+        analysis1 --> unpacked_data1["per module unpacked<br>(channel#: value) arrays"]
+    end
+
+    unix_timestamp[unix_timestamps]@{shape: lean-r } --> readout_worker
+    zip[ZIP] --> listfile
+    listfile["`**Listfile**
+    • .mvlclst (with readout_config)
+    • analysis.analysis
+    • run_notes.txt`"]@{ shape: lin-cyl}
+    style listfile text-align: left
+    distribute -->|augmented MVLC data stream| zmq["ZMQ PUB"]
+    distribute -->|augmented MVLC data stream| zip
+    distribute -->|augmented MVLC data stream| readout_parser[MVLC Stream Parser]
+
+    subgraph files[Files]
+        readout_config
+        analysis_config
+        run_notes.txt
+    end
+
+    readout_config --> readout_worker
+    analysis_config --> zip
+    run_notes.txt --> zip
+
+    readout_config@{ shape:  card }
+    analysis_config@{ shape:  card }
+    run_notes.txt@{ shape:  card }
+
+    readout_config2[readout_config]@{ shape:  card } --> readout_parser
+
+    %% class based styling
+    classDef files fill:goldenrod,stroke:#333;
+    class readout_config,analysis_config,run_notes.txt,readout_config2 files;
+
+    classDef mvlc fill:yellow,stroke:#000;
+    class mvlc mvlc;
