@@ -1,0 +1,16 @@
+flowchart TD
+    subgraph eth["UDP packet"]
+        direction TB
+        eth_header
+        subgraph stack_frame["0xF3 StackFrame"]
+            direction TB
+            prefix_data
+            subgraph block_frame
+                block_data
+            end
+            suffix_data
+
+        end
+    end
+    eth_header ~~~ stack_frame
+    prefix_data ~~~ block_frame ~~~ suffix_data
