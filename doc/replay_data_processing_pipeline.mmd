@@ -5,10 +5,10 @@ config:
   look: default
   layout: elk
   flowchart:
-    curve: stepBefore
+    curve: stepAfter
 ---
 
-flowchart LR
+flowchart TD
     readout_parser -->|"`ModuleData[N]`"| multi_event_splitter[Multi Event Splitter*]
     subgraph trigger_event0
         multi_event_splitter -->|"`ModuleData[N]`"| event_builder[Event Builder*]

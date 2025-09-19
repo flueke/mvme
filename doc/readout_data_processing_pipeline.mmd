@@ -9,7 +9,7 @@ config:
 ---
 
 flowchart TD
-    mvlc[MVLC VME] -->|MVLC data stream| readout_worker
+    mvlc["`**MVLC VME**`"] -->|MVLC data stream| readout_worker
     readout_worker[Readout Worker]
     readout_worker --> distribute[O]@{ shape: circle}
 
@@ -56,7 +56,7 @@ flowchart TD
     readout_config2[readout_config]@{ shape:  card } --> readout_parser
 
     %% class based styling
-    classDef files fill:goldenrod,stroke:#333;
+    classDef files fill:darkkhaki,stroke:#333;
     class readout_config,analysis_config,run_notes.txt,readout_config2 files;
 
     classDef mvlc fill:yellow,stroke:#000;
