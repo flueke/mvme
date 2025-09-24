@@ -4,6 +4,20 @@
 Changelog
 ##################################################
 
+Version 1.16.3
+--------------------------------------------------
+
+* Fix non-multievent readouts for the VMUSB and SIS controllers. This has been broken since 1.16.1
+  Note: multievent splitting is currently not supported for these old controller.
+
+Version 1.16.2
+--------------------------------------------------
+
+* vme_templates: lower max sample count for mdpp32_scp from 1k to 500 (buffer limitation)
+
+* add doc/mdpp_sampling_mode.md with a short description of how to use MDPP
+  sampling mode and decode the data
+
 Version 1.16.1
 --------------------------------------------------
 * multi_event_splitter:
