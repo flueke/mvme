@@ -35,9 +35,11 @@ flowchart TD
     • analysis.analysis
     • run_notes.txt`"]@{ shape: lin-cyl}
     style listfile text-align: left
+
     distribute -->|augmented MVLC data stream| zmq["ZMQ PUB"]
     distribute -->|augmented MVLC data stream| zip
     distribute -->|augmented MVLC data stream| readout_parser[MVLC Stream Parser]
+    style distribute font-size:10%;
 
     subgraph files[Files]
         readout_config
