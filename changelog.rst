@@ -4,6 +4,12 @@
 Changelog
 ##################################################
 
+Version 1.16.3
+--------------------------------------------------
+
+* Fix non-multievent readouts for the VMUSB and SIS controllers. This has been broken since 1.16.1
+  Note: multievent splitting is currently not supported for these old controller.
+
 Version 1.16.2
 --------------------------------------------------
 
