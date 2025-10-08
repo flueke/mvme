@@ -4678,8 +4678,11 @@ void MVLCParserDebugHandler::handleDebugInfo(
                 const auto &splitModuleData = multiEventSplitter.splitModuleData;
 
                 size_t maxEventCount = 0;
-                for (unsigned mi = 0; mi < moduleCount; ++mi)
-                    maxEventCount = std::max(maxEventCount, splitModuleData[mi].size());
+                if (!splitModuleData.empty())
+                {
+                    for (unsigned mi = 0; mi < moduleCount; ++mi)
+                        maxEventCount = std::max(maxEventCount, splitModuleData[mi].size());
+                }
 
                 for (size_t outIdx = 0; outIdx < maxEventCount; ++outIdx)
                 {
@@ -4711,6 +4714,11 @@ void MVLCParserDebugHandler::handleDebugInfo(
                                 .arg("Split").arg(ei).arg(mi) << endl;
                         }
                     }
+                }
+
+                if (maxEventCount == 0)
+                {
+                    splitterOut << "multi event splitting did not yield output data" << endl;
                 }
 
                 splitterOut << "========================================" << endl;
