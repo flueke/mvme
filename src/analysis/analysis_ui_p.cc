@@ -4718,7 +4718,7 @@ void MVLCParserDebugHandler::handleDebugInfo(
 
                 if (maxEventCount == 0)
                 {
-                    splitterOut << "multi event splitting yielded no output events" << endl;
+                    splitterOut << "multi event splitting did not yield output data" << endl;
                 }
 
                 splitterOut << "========================================" << endl;
