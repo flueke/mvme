@@ -6,24 +6,18 @@ int main(int argc, char *argv[])
 {
     try
     {
-        std::string host = "localhost";
-        std::string port = "42333";
+        std::string socketPath = "/tmp/mvlc_stream_test_server.ipc";
 
         if (argc > 1)
-            host = argv[1];
+            socketPath = argv[1];
 
-        if (argc > 2)
-            port = argv[2];
-
-        std::cout << "Connecting to " << host << ":" << port << "...\n";
+        std::cout << "Connecting to " << socketPath << "\n";
 
         asio::io_context io_context;
 
-        asio::ip::tcp::resolver resolver(io_context);
-        auto endpoints = resolver.resolve(host, port);
-
-        asio::ip::tcp::socket socket(io_context);
-        asio::connect(socket, endpoints);
+        asio::local::stream_protocol::endpoint endpoint(socketPath);
+        asio::local::stream_protocol::socket socket(io_context);
+        socket.connect(endpoint);
 
         //std::uint32_t bufferNumber = 0u;
         //std::uint32_t bufferSize = 0u;
