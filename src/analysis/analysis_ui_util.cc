@@ -237,6 +237,7 @@ ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op,
     else
     {
         result = new AddEditOperatorDialog(op, userLevel, mode, destDir, eventWidget);
+        result->resize(400, 600);
     }
 
     QObject::connect(result, &ObjectEditorDialog::applied,
