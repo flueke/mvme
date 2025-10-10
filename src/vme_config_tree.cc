@@ -23,6 +23,7 @@
 #include "vme_config_tree_p.h"
 
 #include <QClipboard>
+#include <QComboBox>
 #include <QDebug>
 #include <QDialogButtonBox>
 #include <QFileDialog>
@@ -1121,6 +1122,14 @@ void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
             << "item=" << item
             << "column=" << column
             << "nodeForItem=" << *it;
+
+        if (auto qobj = get_qobject<QObject>(item, DataRole_Pointer))
+        {
+            qDebug() << "Object:" << qobj
+                << ", name:" << qobj->objectName()
+                << ", class:" << qobj->metaObject()->className();
+        }
+
         if (auto moduleConfig = get_qobject<ModuleConfig>(item, DataRole_Pointer))
         {
             auto mmJ = vats::modulemeta_to_json(moduleConfig->getModuleMeta());
@@ -1971,6 +1980,7 @@ void VMEConfigTreeWidget::addModuleFromFile()
     // Now run the module config dialog on the newly loaded module
     ModuleConfigDialog dialog(mod.get(), event, m_config, this);
     dialog.setWindowTitle(QSL("Add Module"));
+    dialog.typeCombo->setEnabled(false);
     int result = dialog.exec();
 
     if (result != QDialog::Accepted)
