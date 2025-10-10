@@ -1942,6 +1942,7 @@ void MVMEMainWindow::updateActions()
     // Workspaces
     m_d->actionNewWorkspace->setEnabled(isDAQIdle);
     m_d->actionOpenWorkspace->setEnabled(isDAQIdle);
+    m_d->actionRecentWorkspaces->setEnabled(isDAQIdle);
 
     // VME Config
     m_d->actionNewVMEConfig->setEnabled(isDAQIdle);
