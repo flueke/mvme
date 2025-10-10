@@ -210,16 +210,18 @@ struct MultiPlotWidget::Private
         if (plotMatrix_)
         {
             // Empty the layout
-            while (plotMatrix_->plotGrid()->count())
+            while (plotMatrix_->plotGrid() && plotMatrix_->plotGrid()->count())
                 delete plotMatrix_->plotGrid()->takeAt(0);
 
-            assert(plotMatrix_->plotGrid()->count() == 0);
+            if (plotMatrix_->plotGrid())
+                assert(plotMatrix_->plotGrid()->count() == 0);
 
             // Orphan the plot instances so ~PlotMatrix() does not delete them.
             for (auto &e: entries_)
                 e->plot()->setParent(nullptr);
 
             delete plotMatrix_;
+            plotMatrix_ = nullptr;
         }
 
         if (!entries_.empty())
