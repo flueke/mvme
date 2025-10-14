@@ -692,12 +692,6 @@ ModuleConfigDialog::~ModuleConfigDialog() {}
 
 void ModuleConfigDialog::accept()
 {
-    const bool isNewModule = !m_module->parent();
-
-    m_module->setObjectName(nameEdit->text());
-    m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
-    m_module->setVariables(m_d->variableEditor->getVariables());
-
     auto typeName = typeCombo->currentData().toString();
     auto it = std::find_if(m_moduleMetas.begin(), m_moduleMetas.end(),
                             [typeName](const auto &mm) { return mm.typeName == typeName; });
@@ -706,13 +700,7 @@ void ModuleConfigDialog::accept()
     // when loading a VMEConfig from file the meta info is updated from the
     // template system (ModuleConfig::read_impl()).
 
-    if (isNewModule && it == m_moduleMetas.end())
-    {
-        // It's a new custom module without any meta info. This means no
-        // init scripts are added so we add one manually.
-        m_module->addInitScript(new VMEScriptConfig("Module Init", QString()));
-    }
-    else if (isNewModule)
+    if (it != m_moduleMetas.end())
     {
         const auto &mm(*it);
         m_module->setModuleMeta(mm);
@@ -738,6 +726,16 @@ void ModuleConfigDialog::accept()
             }
         }
     }
+
+    // Make sure there's at least one init script present.
+    if (m_module->getInitScripts().isEmpty())
+    {
+        m_module->addInitScript(new VMEScriptConfig("Module Init", QString()));
+    }
+
+    m_module->setObjectName(nameEdit->text());
+    m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
+    m_module->setVariables(m_d->variableEditor->getVariables());
 
     QDialog::accept();
 }

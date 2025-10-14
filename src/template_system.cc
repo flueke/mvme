@@ -268,7 +268,7 @@ VMEModuleMeta read_modulemeta_from_mvmemodule_file(
     const QString &filename, TemplateLogger logger)
 {
     auto moduleJson = read_json_file(filename, logger).object();
-    auto mm = modulemeta_from_json(moduleJson["ModuleMeta"].toObject());
+    auto mm = modulemeta_from_json(moduleJson["ModuleConfig"].toObject()["ModuleMeta"].toObject());
     auto moduleDir = QFileInfo(filename).absoluteDir();
     mm.templatePath = moduleDir.path();
     mm.templateFile = moduleDir.filePath(filename);

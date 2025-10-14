@@ -1812,30 +1812,11 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
     // Work on a clone of the input module. We modify some of its internal
     // values before saving it to the output file.
     auto mod = clone_config_object(*mod_);
-
-    // Show a dialog to input custom values for vendorName, typeName, etc.
-    // Then use these values for the meta data.
     auto meta = mod->getModuleMeta();
 
-    // Get the module variables and build a JSON structure as used in the
-    // vmmr_monitor/module_info.json file.
-    auto vars = mod->getVariables();
-
-    // Note(230125): the special variable handling here is only done so that the
-    // variables and their values can be stored in the ModuleMeta data in the
-    // output json file. Check if this is actually needed as this information is
-    // also written out with the module config itself via the default
-    // ConfigObject::write() mechanism.
-    QJsonArray varsArray;
-
-    for (const auto &varName: vars.symbols.keys())
-    {
-        QJsonObject varJ;
-        varJ["name"] = varName;
-        varJ["value"] = vars.symbols[varName].value;
-        varJ["comment"] = vars.symbols[varName].comment;
-        varsArray.append(varJ);
-    }
+    std::set<QString> systemTypeNames;
+    for (const auto &m: read_templates().moduleMetas)
+        systemTypeNames.insert(m.typeName);
 
     {
         auto le_typeName = new QLineEdit;
@@ -1846,7 +1827,23 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         auto headerFiltersEditor = new ModuleEventHeaderFiltersEditor;
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
-        le_typeName->setText(meta.typeName);
+        auto newTypeName = meta.typeName;
+
+        if (systemTypeNames.find(newTypeName) != systemTypeNames.end())
+        {
+            // The module type name is the same as one of the built-in module
+            // types. Suggest a new name.
+            int suffix = 1;
+
+            do
+            {
+                newTypeName = QSL("%1_custom%2").arg(meta.typeName).arg(suffix++);
+            }
+            while (systemTypeNames.find(newTypeName) != systemTypeNames.end());
+        }
+
+        le_typeName->setText(newTypeName);
+
         le_displayName->setText(meta.displayName);
         le_vendorName->setText(meta.vendorName);
         headerFiltersEditor->setData(meta.eventHeaderFilters);
@@ -1912,10 +1909,11 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
     // Store parts of the VMEModuleMeta in a json object
     auto metaJ = vats::modulemeta_to_json(meta);
 
-    // Outer container for both the module and the meta
+    // "ModuleMeta" used to be an extra root key in the mvmemodule file but that
+    // was changed. ModuleMeta json is now only stored under
+    // ["ModuleConfig"]["ModuleMeta"].
     QJsonObject containerJ;
     containerJ["ModuleConfig"] = modJ;
-    containerJ["ModuleMeta"] = metaJ;
 
     QJsonDocument doc(containerJ);
 
