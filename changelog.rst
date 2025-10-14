@@ -4,6 +4,20 @@
 Changelog
 ##################################################
 
+Version 1.16.4
+--------------------------------------------------
+
+* analysis:
+
+  - fix crashes in 'Debug & Stats' and the plot grid widget
+
+  - increase initial size of the 'new operator' dialogs
+
+* ui: disable 'Recent Workspaces' action when DAQ is not idle
+
+* templates: various fixes when saving/loading custom modules (.mvmemodule)
+
+
 Version 1.16.3
 --------------------------------------------------
 
