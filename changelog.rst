@@ -13,9 +13,15 @@ Version 1.16.4
 
   - increase initial size of the 'new operator' dialogs
 
+  - speed up the 'MDPP Sample Decoder Monitor' widget (it was able to lag the whole application)
+
 * ui: disable 'Recent Workspaces' action when DAQ is not idle
 
-* templates: various fixes when saving/loading custom modules (.mvmemodule)
+* templates:
+
+  - various fixes when saving/loading custom modules (.mvmemodule)
+
+  - fixed updating of module meta info when loading a VME config
 
 
 Version 1.16.3
