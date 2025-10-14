@@ -5,9 +5,6 @@ VME / Analysis Template System (VATS)
 Note: To get a listing of which templates are loaded and which modules are defined start mvme and
 use 'Tools -> VME/Analysis Template System Info'.
 
-Note: User defined module typeIds start at 160. Ids < 160 are reserved!
-
-
 Each subdirectory contains the template data for one VME module. Exceptions are
 the special auxiliary_scripts/, event/ and mvlc_trigger_io/ directories. Event
 templates are described below, the auxiliary_scripts and mvlc_trigger_io
@@ -34,13 +31,15 @@ Module Templates
 Version 2 (single .mvmemodule file)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Newer way of storing module and meta information. Uses a single .mvmemodule
-json file with two root keys: 'ModuleConfig' containing the serialized json
-data and 'ModuleMeta' containing module meta information stored in a json
-object. Compatible files can be created via the 'Save Module to File' context
-menu entry in the vme config tree.
+Newer way of storing module and meta information. Uses a single .mvmemodule json
+file with a single 'ModuleConfig' root key. 'ModuleMeta' is stored below the
+'ModuleConfig' object. Compatible files can be created via the 'Save Module to
+File' context menu entry in the vme config tree.
 
 Multiple .mvmemodule files can be put in the same module subdirectory.
+
+All newer templates are stored in this format. Some existing ones have been
+updated, others are left as-is at version 1.
 
 
 Version 1 (script files in subdirectory)

@@ -1,5 +1,15 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "displayName": "MVHV-4",
+            "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+            "typeId": 25,
+            "typeName": "mvhv-4",
+            "variables": [
+            ],
+            "vendorName": "mesytec",
+            "vmeAddress": 0
+        },
         "baseAddress": 0,
         "enabled": true,
         "id": "{0f7983d9-645d-4935-9bd2-4a83f9778e4b}",
@@ -54,15 +64,5 @@
             },
             "vme_script": "print \"Hardware ID:\"\nread a32 d16 0x0108\n\nprint \"Hardware Rev:\"\nread a32 d16 0x0054\n\nprint \"CPLD Firmware:\"\nread a32 d16 0x0058\n\nprint \"CPU Firmware:\"\nread a32 d16 0x0056\n"
         }
-    },
-    "ModuleMeta": {
-        "displayName": "MVHV-4",
-        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
-        "typeId": 25,
-        "typeName": "mvhv-4",
-        "variables": [
-        ],
-        "vendorName": "mesytec",
-        "vmeAddress": 0
     }
 }

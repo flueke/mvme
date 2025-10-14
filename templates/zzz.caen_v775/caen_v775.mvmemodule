@@ -1,5 +1,15 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "typeId": 143,
+            "displayName": "CAEN V775",
+            "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+            "typeName": "caen_v775",
+            "variables": [
+            ],
+            "vendorName": "CAEN",
+            "vmeAddress": 0
+        },
         "baseAddress": 0,
         "enabled": true,
         "id": "{3f9426fc-572e-466e-ba30-974458ce5857}",
@@ -51,15 +61,5 @@
             },
             "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\n\n# 4.9/10 - 'Bit Set 1' and 'Bit Clear 1' registers\n# Bit 7 is the 'soft reset' bit\nwrite a32 d16 0x1006 0x80 # enable soft reset\nwait 100ms\nwrite a32 d16 0x1008 0x80 # disable soft reset\nwait 100ms\n\n# 4.6 - Firmware Revision: read out to appear in the logfile\nread a32 d16 0x1000"
         }
-    },
-    "ModuleMeta": {
-        "typeId": 143,
-        "displayName": "CAEN V775",
-        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
-        "typeName": "caen_v775",
-        "variables": [
-        ],
-        "vendorName": "CAEN",
-        "vmeAddress": 0
     }
 }

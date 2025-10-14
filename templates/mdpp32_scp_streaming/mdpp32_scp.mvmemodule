@@ -1,5 +1,14 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "displayName": "MDPP-32_SCP_streaming",
+            "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
+            "typeName": "mdpp32_scp_streaming",
+            "variables": [
+            ],
+            "vendorName": "mesytec",
+            "vmeAddress": 0
+        },
         "baseAddress": 0,
         "enabled": true,
         "id": "{2fe1f0e4-7e2b-48c9-80c4-e35b6a200137}",
@@ -82,14 +91,5 @@
             },
             "vme_script": "# Reset the module\n0x6008 1\nwait 500ms\n\n## Get Module ids for log file\nprint \"Hardware ID:\"\nread a32 d16 0x6008\t# hardware ID\naccu_mask_rotate 0x0000ffff 0\naccu_test eq 0x5007 \"MDPP-32 hardware id check\"\n\nprint \"Firmware Revision:\"\nread a32 d16 0x600E # firmware revision\naccu_mask_rotate 0x0000f000 20\naccu_test eq 2 \"SCP firmware check\"\n\n0x603a 0   # stop acq\n0x603c 1   # FIFO reset\n0x6034 1   # readout reset\n"
         }
-    },
-    "ModuleMeta": {
-        "displayName": "MDPP-32_SCP_streaming",
-        "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
-        "typeName": "mdpp32_scp_streaming",
-        "variables": [
-        ],
-        "vendorName": "mesytec",
-        "vmeAddress": 0
     }
 }
