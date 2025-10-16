@@ -1719,6 +1719,18 @@ QTreeWidgetItem *EventWidget::findNode(const AnalysisObjectPtr &obj)
     return m_d->findNode(obj);
 }
 
+void EventWidget::selectObject(const AnalysisObjectPtr &obj)
+{
+    selectObjects({obj});
+    if (auto node = findNode(obj))
+    {
+        // Pretend the node was clicked to force updating of the dependency
+        // highlighting in the trees. Not very elegant, the whole highlighting
+        // and selection things needs to be redone.
+        m_d->onNodeClicked(reinterpret_cast<TreeNode *>(node), 0, -1);
+    }
+}
+
 void EventWidget::selectObjects(const AnalysisObjectVector &objects)
 {
     m_d->selectObjects(objects);
@@ -5336,7 +5348,7 @@ static bool select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objec
         case NodeType_Sink:
         case NodeType_Directory:
             {
-                auto obj = get_shared_analysis_object<AnalysisObject>(root);
+                auto obj = get_shared_analysis_object<AnalysisObject>(root, DataRole_AnalysisObject);
 
                 if (objects.contains(obj))
                 {
@@ -5354,7 +5366,9 @@ static bool select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objec
     {
         auto child = root->child(ci);
         if (select_objects(child, objects))
+        {
             root->setExpanded(true);
+        }
     }
 
     return didSelect;
@@ -5363,6 +5377,8 @@ static bool select_objects(QTreeWidgetItem *root, const AnalysisObjectSet &objec
 void EventWidgetPrivate::selectObjects(const AnalysisObjectVector &objects)
 {
     clearSelections();
+
+    //qDebug() << __PRETTY_FUNCTION__ << this << ">>>>> selections cleared, selecting" << objects.size() << "objects:" << objects;
 
     auto objectSet = to_set(objects);
 
@@ -5374,6 +5390,8 @@ void EventWidgetPrivate::selectObjects(const AnalysisObjectVector &objects)
             select_objects(root, objectSet);
         }
     }
+
+    //qDebug() << __PRETTY_FUNCTION__ << this << "<<<<< selections updated";
 }
 
 void EventWidgetPrivate::updateActions()
@@ -5388,7 +5406,9 @@ void EventWidgetPrivate::updateActions()
 
 void EventWidgetPrivate::showDependencyGraphWidget(const AnalysisObjectPtr &obj)
 {
-    analysis::graph::show_dependency_graph(m_serviceProvider, obj);
+    auto dgw = analysis::graph::show_dependency_graph(m_serviceProvider, obj);
+    QObject::connect(dgw, &analysis::graph::DependencyGraphWidget::objectSelected,
+                     m_q, &EventWidget::selectObject, Qt::UniqueConnection);
 }
 
 void EventWidgetPrivate::editSource(const SourcePtr &src)
