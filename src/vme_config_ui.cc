@@ -509,7 +509,13 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 
 struct ModuleConfigDialog::Private
 {
-    VariableEditorWidget *variableEditor;
+    QComboBox *typeCombo_;
+    QLineEdit *nameEdit_;
+    QLineEdit *addressEdit_;
+    ModuleConfig *module_;
+    const VMEConfig *vmeConfig_;
+    QVector<vats::VMEModuleMeta> moduleMetas_;
+    VariableEditorWidget *variableEditor_;
 };
 
 //
@@ -519,9 +525,7 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
                                        [[maybe_unused]] const EventConfig *parentEvent,
                                        const VMEConfig *vmeConfig, QWidget *parent)
     : QDialog(parent)
-    , m_module(mod)
-    , m_vmeConfig(vmeConfig)
-    , m_d(std::make_unique<Private>())
+    , d(std::make_unique<Private>())
 {
     assert(mod);
     assert(parentEvent);
@@ -529,22 +533,24 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
 
     resize(500, 400);
 
-    m_d->variableEditor = new VariableEditorWidget;
+    d->module_ = mod;
+    d->vmeConfig_ = vmeConfig;
+    d->variableEditor_ = new VariableEditorWidget;
 
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
-    m_moduleMetas = templates.moduleMetas;
+    d->moduleMetas_ = templates.moduleMetas;
 
     // Add the meta stored with the module itself to the list of metas. Might be
     // a duplicate entry in case its a builtin-module but the code does not
     // care.
     if (auto thisMeta = mod->getModuleMeta(); !thisMeta.typeName.isEmpty())
-        m_moduleMetas.push_back(thisMeta);
+        d->moduleMetas_.push_back(thisMeta);
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
      * the highest priority. Modules without a vendor name always have to the
      * lowest prio. */
-    std::sort(m_moduleMetas.begin(), m_moduleMetas.end(),
+    std::sort(d->moduleMetas_.begin(), d->moduleMetas_.end(),
               [](const VMEModuleMeta &a, const VMEModuleMeta &b)
               {
                   // Prio if vendorName is present in only one of the metas.
@@ -568,42 +574,42 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
                   return a.vendorName < b.vendorName;
               });
 
-    typeCombo = new QComboBox;
+    d->typeCombo_ = new QComboBox;
     int typeComboIndex = -1;
     QString currentVendor;
 
-    for (const auto &mm: m_moduleMetas)
+    for (const auto &mm: d->moduleMetas_)
     {
         if (currentVendor.isNull())
             currentVendor = mm.vendorName;
 
         if (mm.vendorName != currentVendor)
         {
-            typeCombo->insertSeparator(typeCombo->count());
+            d->typeCombo_->insertSeparator(d->typeCombo_->count());
             currentVendor = mm.vendorName;
         }
 
-        typeCombo->addItem(mm.displayName, mm.typeName);
+        d->typeCombo_->addItem(mm.displayName, mm.typeName);
 
-        if (mm.typeName == m_module->getModuleMeta().typeName)
-            typeComboIndex = typeCombo->count() - 1;
+        if (mm.typeName == d->module_->getModuleMeta().typeName)
+            typeComboIndex = d->typeCombo_->count() - 1;
     }
 
     if (typeComboIndex < 0)
     {
-        if (!m_module->getModuleMeta().displayName.isEmpty())
+        if (!d->module_->getModuleMeta().displayName.isEmpty())
         {
-            typeCombo->insertSeparator(typeCombo->count());
-            typeCombo->addItem(m_module->getModuleMeta().displayName);
-            typeComboIndex = typeCombo->count() - 1;
+            d->typeCombo_->insertSeparator(d->typeCombo_->count());
+            d->typeCombo_->addItem(d->module_->getModuleMeta().displayName);
+            typeComboIndex = d->typeCombo_->count() - 1;
         }
         else
             typeComboIndex = 0;
     }
 
-    nameEdit = new QLineEdit;
+    d->nameEdit_ = new QLineEdit;
 
-    addressEdit = make_vme_address_edit(m_module->getBaseAddress());
+    d->addressEdit_ = make_vme_address_edit(d->module_->getBaseAddress());
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -611,131 +617,141 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
 
     auto layout = new QFormLayout(this);
 
-    const bool isNewModule = !m_module->parent();
+    const bool isNewModule = !d->module_->parent();
 
     if (!isNewModule)
     {
-        typeCombo->setEnabled(false);
+        setAllowTypeChange(false);
     }
 
     auto gb_variables = new QGroupBox("VME Script Variables");
     {
         auto layout = make_vbox<0, 0>(gb_variables);
-        layout->addWidget(m_d->variableEditor);
+        layout->addWidget(d->variableEditor_);
 
-        m_d->variableEditor->setVariables(m_module->getVariables());
+        d->variableEditor_->setVariables(d->module_->getVariables());
 
         auto sizePol = gb_variables->sizePolicy();
         sizePol.setVerticalStretch(1);
         gb_variables->setSizePolicy(sizePol);
     }
 
-    layout->addRow("Type", typeCombo);
-    layout->addRow("Name", nameEdit);
-    layout->addRow("Address", addressEdit);
+    layout->addRow("Type", d->typeCombo_);
+    layout->addRow("Name", d->nameEdit_);
+    layout->addRow("Address", d->addressEdit_);
     layout->addRow(gb_variables);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this, isNewModule](int /*index*/)
     {
-        auto typeName = typeCombo->currentData().toString();
+        auto typeName = d->typeCombo_->currentData().toString();
 
-        auto it = std::find_if(m_moduleMetas.begin(), m_moduleMetas.end(),
+        auto it = std::find_if(d->moduleMetas_.begin(), d->moduleMetas_.end(),
                                [typeName](const auto &mm) { return mm.typeName == typeName; });
 
-        if (it == m_moduleMetas.end())
+        if (it == d->moduleMetas_.end())
         {
-            nameEdit->setText(m_module->objectName());
-            addressEdit->setText(
-                QString("0x%1").arg(m_module->getBaseAddress(), 8, 16, QChar('0')));
+            d->nameEdit_->setText(d->module_->objectName());
+            d->addressEdit_->setText(
+                QString("0x%1").arg(d->module_->getBaseAddress(), 8, 16, QChar('0')));
             return;
         }
 
         const auto &mm(*it);
-        QString name = m_module->objectName();
+        QString name = d->module_->objectName();
 
         if (name.isEmpty())
         {
-            name = make_unique_module_name(mm.typeName, m_vmeConfig);
+            name = make_unique_module_name(mm.typeName, d->vmeConfig_);
         }
 
-        nameEdit->setText(name);
+        d->nameEdit_->setText(name);
 
         if (isNewModule)
         {
-            addressEdit->setText(QString("0x%1").arg(mm.vmeAddress, 8, 16, QChar('0')));
-            m_d->variableEditor->setVariables(
+            d->addressEdit_->setText(QString("0x%1").arg(mm.vmeAddress, 8, 16, QChar('0')));
+            d->variableEditor_->setVariables(
                 mvme::vme_config::variable_symboltable_from_module_meta(mm));
         }
     };
 
-    connect(typeCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this,
+    connect(d->typeCombo_, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this,
             onTypeComboIndexChanged);
 
     if (typeComboIndex >= 0)
     {
-        typeCombo->setCurrentIndex(typeComboIndex);
+        d->typeCombo_->setCurrentIndex(typeComboIndex);
         onTypeComboIndexChanged(typeComboIndex);
     }
 
     auto updateOkButton = [=]()
     {
-        bool isOk = (addressEdit->hasAcceptableInput() && typeCombo->count() > 0);
+        bool isOk = (d->addressEdit_->hasAcceptableInput() && d->typeCombo_->count() > 0);
         bb->button(QDialogButtonBox::Ok)->setEnabled(isOk);
     };
 
-    connect(addressEdit, &QLineEdit::textChanged, updateOkButton);
+    connect(d->addressEdit_, &QLineEdit::textChanged, updateOkButton);
     updateOkButton();
 }
 
 ModuleConfigDialog::~ModuleConfigDialog() {}
 
+ModuleConfig *ModuleConfigDialog::getModule() const
+{
+    return d->module_;
+}
+
+void ModuleConfigDialog::setAllowTypeChange(bool allow)
+{
+    d->typeCombo_->setEnabled(allow);
+}
+
 void ModuleConfigDialog::accept()
 {
-    auto typeName = typeCombo->currentData().toString();
-    auto it = std::find_if(m_moduleMetas.begin(), m_moduleMetas.end(),
+    auto typeName = d->typeCombo_->currentData().toString();
+    auto it = std::find_if(d->moduleMetas_.begin(), d->moduleMetas_.end(),
                             [typeName](const auto &mm) { return mm.typeName == typeName; });
 
     // Note: the meta info of existing modules is _not_ updated in here. Instead
     // when loading a VMEConfig from file the meta info is updated from the
     // template system (ModuleConfig::read_impl()).
 
-    if (it != m_moduleMetas.end())
+    if (it != d->moduleMetas_.end())
     {
         const auto &mm(*it);
-        m_module->setModuleMeta(mm);
+        d->module_->setModuleMeta(mm);
 
         if (!mm.moduleJson.empty())
         {
             // New style template from a single json file.
-            mvme::vme_config::load_moduleconfig_from_modulejson(*m_module, mm.moduleJson);
+            mvme::vme_config::load_moduleconfig_from_modulejson(*d->module_, mm.moduleJson);
         }
         else
         {
             // Old style template from multiple .vme files
-            m_module->getReadoutScript()->setObjectName(mm.templates.readout.name);
-            m_module->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
+            d->module_->getReadoutScript()->setObjectName(mm.templates.readout.name);
+            d->module_->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
 
-            m_module->getResetScript()->setObjectName(mm.templates.reset.name);
-            m_module->getResetScript()->setScriptContents(mm.templates.reset.contents);
+            d->module_->getResetScript()->setObjectName(mm.templates.reset.name);
+            d->module_->getResetScript()->setScriptContents(mm.templates.reset.contents);
 
             for (const auto &vmeTemplate: mm.templates.init)
             {
-                m_module->addInitScript(
+                d->module_->addInitScript(
                     new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
             }
         }
     }
 
     // Make sure there's at least one init script present.
-    if (m_module->getInitScripts().isEmpty())
+    if (d->module_->getInitScripts().isEmpty())
     {
-        m_module->addInitScript(new VMEScriptConfig("Module Init", QString()));
+        d->module_->addInitScript(new VMEScriptConfig("Module Init", QString()));
     }
 
-    m_module->setObjectName(nameEdit->text());
-    m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
-    m_module->setVariables(m_d->variableEditor->getVariables());
+    d->module_->setObjectName(d->nameEdit_->text());
+    d->module_->setBaseAddress(d->addressEdit_->text().toUInt(nullptr, 16));
+    d->module_->setVariables(d->variableEditor_->getVariables());
 
     QDialog::accept();
 }

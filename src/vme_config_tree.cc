@@ -1978,7 +1978,7 @@ void VMEConfigTreeWidget::addModuleFromFile()
     // Now run the module config dialog on the newly loaded module
     ModuleConfigDialog dialog(mod.get(), event, m_config, this);
     dialog.setWindowTitle(QSL("Add Module"));
-    dialog.typeCombo->setEnabled(false);
+    dialog.setAllowTypeChange(false);
     int result = dialog.exec();
 
     if (result != QDialog::Accepted)
