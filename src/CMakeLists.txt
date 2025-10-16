@@ -80,6 +80,7 @@ if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
     string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
     set(BUILD_CXX_FLAGS "${BUILD_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${build_type_upper}}")
 endif()
+string(TIMESTAMP BUILD_YEAR "%Y")
 configure_file("build_info.cc.in" "build_info.cc" @ONLY)
 
 #
