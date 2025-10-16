@@ -18,19 +18,22 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "git_sha1.h"
-#include "mvme.h"
-#include "mvme_options.h"
-#include "mvme_session.h"
-#include <mesytec-mvlc/util/logging.h>
 
+#include <iostream>
 #include <QApplication>
 #include <QMessageBox>
 #include <QSplashScreen>
 #include <QTimer>
-#include <iostream>
 
+#include <mesytec-mvlc/util/logging.h>
 #include <spdlog/sinks/basic_file_sink.h>
+
+#include "build_info.h"
+#include "git_sha1.h"
+#include "mvme.h"
+#include "mvme_options.h"
+#include "mvme_session.h"
+
 
 #ifdef MVME_ENABLE_PROMETHEUS
 #include "mvme_prometheus.h"
@@ -115,15 +118,15 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef QT_NO_DEBUG
+    QString copyright = QSL("© 2015-%1 mesytec GmbH & Co. KG").arg(BUILD_YEAR);
     QSplashScreen splash(QPixmap(":/splash-screen.png"),
                          Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
     auto font = splash.font();
     font.setPixelSize(22);
     splash.setFont(font);
     splash.showMessage(QSL(
-            "mvme - VME Data Acquisition\n"
-            "© 2015-2023 mesytec GmbH & Co. KG"
-            ), Qt::AlignHCenter);
+            "mvme - VME Data Acquisition\n%1")
+            .arg(copyright), Qt::AlignHCenter);
     splash.show();
 
     const int splashMaxTime = 3000;
