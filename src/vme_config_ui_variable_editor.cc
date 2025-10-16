@@ -23,6 +23,7 @@
 #include <boost/range/adaptor/indexed.hpp>
 #include <QHeaderView>
 #include <QLineEdit>
+#include <QMenu>
 #include <QPushButton>
 #include <QStandardItemModel>
 #include <QStyledItemDelegate>
@@ -282,6 +283,7 @@ VariableEditorWidget::VariableEditorWidget(
     d->tableView->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     d->tableView->horizontalHeader()->setStretchLastSection(true);
     d->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+    d->tableView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     auto nameDelegate = new VariableNameEditorDelegate(d->model.get(), this);
     d->tableView->setItemDelegateForColumn(0, nameDelegate);
@@ -311,11 +313,13 @@ VariableEditorWidget::VariableEditorWidget(
         d->model->appendRow(items);
         for (int col = 0; col < 2; col++)
             d->tableView->resizeColumnToContents(col);
+        d->tableView->resizeRowsToContents();
         auto newIndex = d->model->index(d->model->rowCount() - 1, 0);
         d->tableView->setCurrentIndex(newIndex);
         d->tableView->selectionModel()->select(
             newIndex, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Current);
         d->tableView->edit(newIndex);
+        d->tableView->scrollTo(newIndex);
 
         emit variabledAdded(items[0]->text(), {});
 
@@ -346,6 +350,21 @@ VariableEditorWidget::VariableEditorWidget(
 
     connect(d->pb_delVariable, &QPushButton::clicked,
             this, delete_selected_variable);
+
+    auto context_menu_handler = [this, add_new_variable, delete_selected_variable] (const QPoint &pos_)
+    {
+        auto pos = d->tableView->mapToGlobal(pos_);
+        QMenu menu(this);
+        menu.addAction(QIcon(":/list_add.png"), "&Add new variable", add_new_variable);
+
+        if (d->tableView->indexAt(pos_).isValid())
+            menu.addAction(QIcon(":/list_remove.png"), "&Delete selected variable", delete_selected_variable);
+
+        if (!menu.isEmpty())
+            menu.exec(pos);
+    };
+
+    connect(d->tableView, &QTableView::customContextMenuRequested, this, context_menu_handler);
 
     // react to model change notifications (currently only variable value
     // changes are handled)
@@ -381,6 +400,10 @@ VariableEditorWidget::VariableEditorWidget(
 
         // Update the symtab representation of the model to reflect the change.
         d->modelSymtab[varInfo.name] = varInfo.var;
+
+        for (int col = 0; col < 2; col++)
+            d->tableView->resizeColumnToContents(col);
+        d->tableView->resizeRowsToContents();
     };
 
     connect(d->model.get(), &QAbstractItemModel::dataChanged,

@@ -134,10 +134,13 @@ class ModuleEventHeaderFiltersEditor: public QWidget
         void setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs);
         std::vector<vats::VMEModuleEventHeaderFilter> getData() const;
 
-        ModuleEventHeaderFiltersTable *getTable() const { return m_table; }
+        ModuleEventHeaderFiltersTable *getTable() const { return m_table_; }
+        void addEntry();
 
     private:
-        ModuleEventHeaderFiltersTable *m_table;
+        ModuleEventHeaderFiltersTable *m_table_;
+        QPushButton *pb_addEntry_;
+        QPushButton *pb_removeEntry_;
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */

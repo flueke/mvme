@@ -516,6 +516,7 @@ struct ModuleConfigDialog::Private
     const VMEConfig *vmeConfig_;
     QVector<vats::VMEModuleMeta> moduleMetas_;
     VariableEditorWidget *variableEditor_;
+    ModuleEventHeaderFiltersEditor *eventHeaderFiltersEditor_;
 };
 
 //
@@ -531,11 +532,12 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
     assert(parentEvent);
     assert(vmeConfig);
 
-    resize(500, 400);
+    resize(800, 600);
 
     d->module_ = mod;
     d->vmeConfig_ = vmeConfig;
     d->variableEditor_ = new VariableEditorWidget;
+    d->eventHeaderFiltersEditor_ = new ModuleEventHeaderFiltersEditor;
 
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
@@ -636,10 +638,26 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
         gb_variables->setSizePolicy(sizePol);
     }
 
+    auto gb_headerFilters = new QGroupBox("Event Header Filters");
+    {
+        auto layout = make_vbox<0, 0>(gb_headerFilters);
+        layout->addWidget(d->eventHeaderFiltersEditor_);
+
+        // TODO: populate the header filters. see the "save module to file" code
+
+        auto sizePol = gb_headerFilters->sizePolicy();
+        sizePol.setVerticalStretch(1);
+        gb_headerFilters->setSizePolicy(sizePol);
+    }
+
+    auto gbs_layout = new QHBoxLayout;
+    gbs_layout->addWidget(gb_variables, 1);
+    gbs_layout->addWidget(gb_headerFilters, 1);
+
     layout->addRow("Type", d->typeCombo_);
     layout->addRow("Name", d->nameEdit_);
     layout->addRow("Address", d->addressEdit_);
-    layout->addRow(gb_variables);
+    layout->addRow(gbs_layout);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this, isNewModule](int /*index*/)
@@ -672,6 +690,7 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
             d->addressEdit_->setText(QString("0x%1").arg(mm.vmeAddress, 8, 16, QChar('0')));
             d->variableEditor_->setVariables(
                 mvme::vme_config::variable_symboltable_from_module_meta(mm));
+            d->eventHeaderFiltersEditor_->setData(mm.eventHeaderFilters);
         }
     };
 
@@ -910,6 +929,9 @@ QWidget *DataFilterEditItemDelegate::createEditor(QWidget *parent,
     return new DataFilterEdit(parent);
 }
 
+static const QByteArray DefaultHeaderFilter = "0100 XXX0 MMMM MMMM XXXX XXSS SSSS SSSS";
+static const QByteArray DefaultHeaderFilterDesc = "Example: mesytec VME module header (non-sampling mode)";
+
 ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
     : QTableWidget(parent)
 {
@@ -922,20 +944,15 @@ ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
 
     auto add_entry = [this]
     {
-        appendRow({QByteArray(32, 'X'), {}});
-        resizeColumnToContents(0);
-        resizeRowsToContents();
+        appendRow({DefaultHeaderFilter, DefaultHeaderFilterDesc});
     };
 
     auto remove_entry = [this]
     {
-        auto sm = this->selectionModel();
-        auto idx = sm->currentIndex();
-
-        if (!idx.isValid())
-            return;
-
-        removeRow(idx.row());
+        if (auto idx = selectionModel()->currentIndex(); idx.isValid())
+        {
+            removeRow(idx.row());
+        }
     };
 
     auto context_menu_handler = [this, add_entry, remove_entry] (const QPoint &pos)
@@ -945,15 +962,23 @@ ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
 
         if (item)
             menu.addAction(make_copy_to_clipboard_action(this, &menu));
-        menu.addAction(QIcon::fromTheme("list-add"), QSL("Add entry"), this, add_entry);
+        menu.addAction(QIcon(":/list_add.png"), QSL("Add new entry"), this, add_entry);
         if (item)
-            menu.addAction(QIcon::fromTheme("list-remove"), QSL("Remove entry"), this, remove_entry);
+            menu.addAction(QIcon(":/list_remove.png"), QSL("Delete selected entry"), this, remove_entry);
 
         if (!menu.isEmpty())
             menu.exec(this->mapToGlobal(pos));
     };
 
     connect(this, &QTableWidget::customContextMenuRequested, this, context_menu_handler);
+
+    auto on_item_changed = [this](QTableWidgetItem *)
+    {
+        resizeColumnsToContents();
+        resizeRowsToContents();
+    };
+
+    connect(this, &QTableWidget::itemChanged, this, on_item_changed);
 }
 
 void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFilter &filterDef)
@@ -964,7 +989,7 @@ void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFi
     theFont.setPointSize(9);
 
     auto item = new QTableWidgetItem;
-    item->setData(Qt::DisplayRole, generate_pretty_filter_string(filterDef.filterString));
+    item->setData(Qt::DisplayRole, filterDef.filterString);
     item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
     item->setFont(theFont);
     setItem(row, 0, item);
@@ -972,6 +997,9 @@ void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFi
     auto item2 = new QTableWidgetItem;
     item2->setData(Qt::DisplayRole, filterDef.description);
     setItem(row, 1, item2);
+
+    resizeColumnToContents(0);
+    resizeRowsToContents();
 }
 
 void ModuleEventHeaderFiltersTable::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
@@ -1015,30 +1043,66 @@ std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersTable::get
 
 ModuleEventHeaderFiltersEditor::ModuleEventHeaderFiltersEditor(QWidget *parent)
     : QWidget(parent)
-    , m_table(new ModuleEventHeaderFiltersTable(this))
+    , m_table_(new ModuleEventHeaderFiltersTable(this))
+    , pb_addEntry_(new QPushButton(QIcon::fromTheme(":/list_add.png"), QSL("&Add new entry")))
+    , pb_removeEntry_(new QPushButton(QIcon::fromTheme(":/list_remove.png"), QSL("&Delete selected entry")))
 {
     auto label = new QLabel(QSL(
-            "Used to split incoming multi-event module data into individual events.<br/>"
+            "Bit-level filters used to split incoming multi-event module data into individual events.<br/>"
             "The marker 'S' is used to extract the number of data words contained in the event. "
             "If multiple filters are defined, they are tried in order until one matches. "
             "Only has an effect if 'Multi Event Processing' is enabled in the analysis. "
             "Changes become active on the next DAQ/Replay start."
             ));
     label->setWordWrap(true);
+
+
+    pb_removeEntry_->setEnabled(false);
+    connect(pb_addEntry_, &QPushButton::clicked, this, &ModuleEventHeaderFiltersEditor::addEntry);
+
+    auto remove_selected_entry = [this]
+    {
+        if (auto idx = m_table_->selectionModel()->currentIndex(); idx.isValid())
+        {
+            m_table_->removeRow(idx.row());
+        }
+    };
+
+    connect(pb_removeEntry_, &QPushButton::clicked, this, remove_selected_entry);
+
+    connect(m_table_, &QTableWidget::itemSelectionChanged, this, [this]
+    {
+        auto sm = m_table_->selectionModel();
+        auto idx = sm->currentIndex();
+        pb_removeEntry_->setEnabled(idx.isValid());
+    });
+
+    auto actionButtonsLayout = make_hbox();
+    actionButtonsLayout->addWidget(pb_addEntry_);
+    actionButtonsLayout->addWidget(pb_removeEntry_);
+    actionButtonsLayout->addStretch(1);
+
+
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
     layout->addWidget(label);
-    layout->addWidget(m_table);
+    layout->addWidget(m_table_);
+    layout->addLayout(actionButtonsLayout);
     setLayout(layout);
 }
 
 
 void ModuleEventHeaderFiltersEditor::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
 {
-    m_table->setData(filterDefs);
+    m_table_->setData(filterDefs);
 }
 
 std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersEditor::getData() const
 {
-    return m_table->getData();
+    return m_table_->getData();
+}
+
+void ModuleEventHeaderFiltersEditor::addEntry()
+{
+    m_table_->appendRow({DefaultHeaderFilter, DefaultHeaderFilterDesc});
 }
