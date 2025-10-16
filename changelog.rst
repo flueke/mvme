@@ -13,15 +13,28 @@ Version 1.16.4
 
   - increase initial size of the 'new operator' dialogs
 
-  - speed up the 'MDPP Sample Decoder Monitor' widget (it was able to lag the whole application)
+  - speed up and improve the 'MDPP Sample Decoder Monitor' widget (it was able
+    to lag the whole application)
 
-* ui: disable 'Recent Workspaces' action when DAQ is not idle
+* ui:
+
+  - disable 'Recent Workspaces' action when DAQ is not idle
+
+  - improve log output for errors and the 'accu test' command
 
 * templates:
 
   - various fixes when saving/loading custom modules (.mvmemodule)
 
   - fixed updating of module meta info when loading a VME config
+
+  - mdpp32_scp/mdpp32_qdc
+
+    - lower readout_num_events from +2 to +1 (buffer limitation if sampling is enabled)
+
+    - corrected number of max samples (488 for SCP, 1000 for QDC)
+
+    This only affects newly created modules, existing modules need to be updated manually.
 
 
 Version 1.16.3
