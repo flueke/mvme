@@ -813,6 +813,24 @@ PolygonConditionDialog::PolygonConditionDialog(QWidget *parent)
                     d->ui->combo_cond->currentData().toUuid(),
                     text);
             });
+
+        connect(d->ui->tw_coords, &QTableWidget::itemChanged,
+            this, [this] (const QTableWidgetItem *item) {
+                if (item->row() == 0 || item->row() == d->ui->tw_coords->rowCount() - 1)
+                {
+                    // Keep first and last point in sync
+                    double x = d->ui->tw_coords->item(item->row(), 0)->data(Qt::EditRole).toDouble();
+                    double y = d->ui->tw_coords->item(item->row(), 1)->data(Qt::EditRole).toDouble();
+
+                    QSignalBlocker sb(d->ui->tw_coords);
+                    d->ui->tw_coords->item(0, 0)->setData(Qt::EditRole, x);
+                    d->ui->tw_coords->item(0, 1)->setData(Qt::EditRole, y);
+                    d->ui->tw_coords->item(d->ui->tw_coords->rowCount() - 1, 0)->setData(Qt::EditRole, x);
+                    d->ui->tw_coords->item(d->ui->tw_coords->rowCount() - 1, 1)->setData(Qt::EditRole, y);
+                }
+                auto poly = getPolygon();
+                emit polygonEdited(poly);
+            });
 }
 
 PolygonConditionDialog::~PolygonConditionDialog()
@@ -832,6 +850,7 @@ void PolygonConditionDialog::setConditionList(const QVector<ConditionInfo> &cond
 
 void PolygonConditionDialog::setPolygon(const QPolygonF &poly)
 {
+    QSignalBlocker sb(d->ui->tw_coords); // block itemChanged() from the table widget
     d->ui->tw_coords->clearContents();
     d->ui->tw_coords->setRowCount(poly.size());
     int row = 0;
@@ -988,7 +1007,7 @@ struct PolygonConditionEditorController::Private
 
     void setHasUnsavedChanges(bool b)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "old =" << hasUnsavedChanges() << ", new =" << b;
+        //qDebug() << __PRETTY_FUNCTION__ << "old =" << hasUnsavedChanges() << ", new =" << b;
         hasUnsavedChanges_ = b;
     }
 
@@ -1042,7 +1061,8 @@ struct PolygonConditionEditorController::Private
                         "Polygon Editing:\n"
                         "- Drag points, edges or the polygon itself using the left mouse button\n"
                         "- Use the right-click context menu to insert and remove points.\n"
-                        "- Use the 'Apply' button to save your changes."
+                        "- Use the 'Apply' button to save your changes.\n"
+                        "- Editing coordinates directly in the table is also possible."
                         );
                     dialog_->setInfoText(editText);
 
@@ -1439,6 +1459,15 @@ PolygonConditionEditorController::PolygonConditionEditorController(
     // Not a qwt signal -> always use the new style connect()
     connect(d->editPicker_, &PolygonEditorPicker::polygonModified,
             this, [this] (const QPolygonF &poly) { d->onPolygonModified(poly); });
+
+    // React to polygon point coordinates being edited in the dialog table.
+    connect(d->dialog_, &PolygonConditionDialog::polygonEdited,
+            this, [this] (const QPolygonF &poly) {
+                // Wrapped in onBegin/onEnd to work with the undo/redo system.
+                 d->onBeginModifyCondition();
+                 d->onPolygonModified(poly);
+                 d->onEndModifyCondition();
+                 });
 
     d->histoWidget_->installEventFilter(this);
     d->dialog_->installEventFilter(this);
