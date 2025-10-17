@@ -626,38 +626,14 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
         setAllowTypeChange(false);
     }
 
-    auto gb_variables = new QGroupBox("VME Script Variables");
-    {
-        auto layout = make_vbox<0, 0>(gb_variables);
-        layout->addWidget(d->variableEditor_);
-
-        d->variableEditor_->setVariables(d->module_->getVariables());
-
-        auto sizePol = gb_variables->sizePolicy();
-        sizePol.setVerticalStretch(1);
-        gb_variables->setSizePolicy(sizePol);
-    }
-
-    auto gb_headerFilters = new QGroupBox("Event Header Filters");
-    {
-        auto layout = make_vbox<0, 0>(gb_headerFilters);
-        layout->addWidget(d->eventHeaderFiltersEditor_);
-
-        // TODO: populate the header filters. see the "save module to file" code
-
-        auto sizePol = gb_headerFilters->sizePolicy();
-        sizePol.setVerticalStretch(1);
-        gb_headerFilters->setSizePolicy(sizePol);
-    }
-
-    auto gbs_layout = new QHBoxLayout;
-    gbs_layout->addWidget(gb_variables, 1);
-    gbs_layout->addWidget(gb_headerFilters, 1);
+    auto tabs = new QTabWidget;
+    tabs->addTab(d->variableEditor_, "VME Script Variables");
+    tabs->addTab(d->eventHeaderFiltersEditor_, "Event Header Filters");
 
     layout->addRow("Type", d->typeCombo_);
     layout->addRow("Name", d->nameEdit_);
     layout->addRow("Address", d->addressEdit_);
-    layout->addRow(gbs_layout);
+    layout->addRow(tabs);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this, isNewModule](int /*index*/)
@@ -691,6 +667,10 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
             d->variableEditor_->setVariables(
                 mvme::vme_config::variable_symboltable_from_module_meta(mm));
             d->eventHeaderFiltersEditor_->setData(mm.eventHeaderFilters);
+        }
+        else
+        {
+            d->eventHeaderFiltersEditor_->setData(d->module_->getModuleMeta().eventHeaderFilters);
         }
     };
 
@@ -989,7 +969,7 @@ void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFi
     theFont.setPointSize(9);
 
     auto item = new QTableWidgetItem;
-    item->setData(Qt::DisplayRole, filterDef.filterString);
+    item->setData(Qt::DisplayRole, generate_pretty_filter_string(filterDef.filterString));
     item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
     item->setFont(theFont);
     setItem(row, 0, item);
@@ -1005,6 +985,7 @@ void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFi
 void ModuleEventHeaderFiltersTable::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
 {
     clearContents();
+    setRowCount(0);
 
     for (const auto &filterDef: filterDefs)
         appendRow(filterDef);
