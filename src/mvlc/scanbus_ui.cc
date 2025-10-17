@@ -6,6 +6,7 @@
 #include <QHeaderView>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMessageBox>
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QTableWidget>
@@ -13,6 +14,7 @@
 
 #include "mvlc_vme_controller.h"
 #include "qt_util.h"
+#include "util/qt_threading.h"
 
 namespace mesytec::mvme
 {
@@ -30,6 +32,8 @@ struct MvlcScanbusWidget::Private
     QLineEdit *mvlcAddress_ = nullptr;
     QPushButton *scanButton_ = nullptr;
     QTableWidget *resultsTable_ = nullptr;
+    QFutureWatcher<std::vector<mvlc::scanbus::VMEModuleInfo>> watcher_;
+    QProgressDialog pd;
 
     void onControllerStateChanged(ControllerState state)
     {
@@ -51,80 +55,85 @@ struct MvlcScanbusWidget::Private
 
     void startScanbus()
     {
-        QFutureWatcher<std::vector<mvlc::scanbus::VMEModuleInfo>> watcher;
-        QProgressDialog pd;
-
-        connect(&watcher, &QFutureWatcher<std::vector<mvlc::scanbus::VMEModuleInfo>>::finished, &pd,
-                [&pd] { pd.close(); });
-
-        pd.setLabelText("Scanning VME bus...");
-        pd.setRange(0, 0);
-        pd.setCancelButton(nullptr);
-        pd.setWindowTitle("Scan VME Bus");
-
         auto f = QtConcurrent::run(this, &MvlcScanbusWidget::Private::doScanbus);
-        watcher.setFuture(f); // race possible?
-        pd.exec();
-
-        onScanbusDone(watcher.result());
+        watcher_.setFuture(f);
+        pd.show();
     }
 
     std::vector<mvlc::scanbus::VMEModuleInfo> doScanbus()
     {
-        auto mvlc = mvlc_->getMVLC();
-        auto candidates = mvlc::scanbus::scan_vme_bus_for_candidates(mvlc);
-        std::vector<mvlc::scanbus::VMEModuleInfo> result;
-
-        for (auto &addr: candidates)
+        try
         {
-            mvlc::scanbus::VMEModuleInfo moduleInfo{};
+            auto mvlc = mvlc_->getMVLC();
+            auto candidates = mvlc::scanbus::scan_vme_bus_for_candidates(mvlc);
+            std::vector<mvlc::scanbus::VMEModuleInfo> result;
 
-            if (mvlc::scanbus::read_module_info(mvlc, addr, moduleInfo))
-                continue; // ignore errors
-
-            result.emplace_back(std::move(moduleInfo));
-        }
-
-        return result;
-    }
-
-    void onScanbusDone(const std::vector<mvlc::scanbus::VMEModuleInfo> &result)
-    {
-        resultsTable_->clearContents();
-
-        resultsTable_->setRowCount(result.size());
-        resultsTable_->setColumnCount(5);
-        resultsTable_->setHorizontalHeaderLabels(
-            {"Address", "Hardware ID", "Firmware Version", "Module Type", "Firmware Type"});
-
-        unsigned currentRow = 0;
-
-        for (const auto &moduleInfo: result)
-        {
-            mvlc::u32 vmeAddress = moduleInfo.address;
-            auto item0 = new QTableWidgetItem(tr("0x%1").arg(vmeAddress, 8, 16, QLatin1Char('0')));
-            auto item1 =
-                new QTableWidgetItem(tr("0x%1").arg(moduleInfo.hwId, 4, 16, QLatin1Char('0')));
-            auto item2 =
-                new QTableWidgetItem(tr("0x%1").arg(moduleInfo.fwId, 4, 16, QLatin1Char('0')));
-            auto item3 = new QTableWidgetItem(moduleInfo.moduleTypeName().c_str());
-            auto item4 = new QTableWidgetItem(moduleInfo.mdppFirmwareTypeName().c_str());
-
-            auto items = {item0, item1, item2, item3, item4};
-            unsigned col = 0;
-
-            for (auto item: items)
+            for (auto &addr: candidates)
             {
-                item->setData(Qt::UserRole, vmeAddress);
-                item->setFlags(item->flags() & ~Qt::ItemIsEditable);
-                resultsTable_->setItem(currentRow, col++, item);
+                mvlc::scanbus::VMEModuleInfo moduleInfo{};
+
+                if (mvlc::scanbus::read_module_info(mvlc, addr, moduleInfo))
+                    continue; // ignore errors
+
+                result.emplace_back(std::move(moduleInfo));
             }
 
-            ++currentRow;
+            return result;
         }
+        catch (...)
+        {
+            throw QtExceptionPtr(std::current_exception());
+        }
+    }
 
-        resultsTable_->resizeColumnsToContents();
-        resultsTable_->resizeRowsToContents();
+    void onScanbusDone()
+    {
+        resultsTable_->clearContents();
+        resultsTable_->setRowCount(0);
+
+        try
+        {
+            auto result = watcher_.result();
+
+            resultsTable_->setRowCount(result.size());
+            resultsTable_->setColumnCount(5);
+            resultsTable_->setHorizontalHeaderLabels(
+                {"Address", "Hardware ID", "Firmware Version", "Module Type", "Firmware Type"});
+
+            unsigned currentRow = 0;
+
+            for (const auto &moduleInfo: result)
+            {
+                mvlc::u32 vmeAddress = moduleInfo.address;
+                auto item0 = new QTableWidgetItem(tr("0x%1").arg(vmeAddress, 8, 16, QLatin1Char('0')));
+                auto item1 =
+                    new QTableWidgetItem(tr("0x%1").arg(moduleInfo.hwId, 4, 16, QLatin1Char('0')));
+                auto item2 =
+                    new QTableWidgetItem(tr("0x%1").arg(moduleInfo.fwId, 4, 16, QLatin1Char('0')));
+                auto item3 = new QTableWidgetItem(moduleInfo.moduleTypeName().c_str());
+                auto item4 = new QTableWidgetItem(moduleInfo.mdppFirmwareTypeName().c_str());
+
+                auto items = {item0, item1, item2, item3, item4};
+                unsigned col = 0;
+
+                for (auto item: items)
+                {
+                    item->setData(Qt::UserRole, vmeAddress);
+                    item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+                    resultsTable_->setItem(currentRow, col++, item);
+                }
+
+                ++currentRow;
+            }
+
+            resultsTable_->resizeColumnsToContents();
+            resultsTable_->resizeRowsToContents();
+        }
+        catch (const std::exception &e)
+        {
+            QMessageBox::critical(q, "VME Bus Scan Error",
+                                  QString("An error occurred during VME bus scan:\n%1").arg(e.what()));
+        }
     }
 
     void resultsTableContextMenu(const QPoint &pos)
@@ -159,6 +168,18 @@ MvlcScanbusWidget::MvlcScanbusWidget(QWidget *parent)
     d->resultsTable_->setSelectionBehavior(QAbstractItemView::SelectItems);
     d->resultsTable_->setContextMenuPolicy(Qt::CustomContextMenu);
 
+    d->pd.setLabelText("Scanning VME bus...");
+    d->pd.setRange(0, 0);
+    d->pd.setCancelButton(nullptr);
+    d->pd.setWindowTitle("Scan VME Bus");
+
+    connect(&d->watcher_, &QFutureWatcher<std::vector<mvlc::scanbus::VMEModuleInfo>>::finished,
+            this, [this]
+            {
+                d->pd.close();
+                d->onScanbusDone();
+            });
+
     auto gb = new QGroupBox("Bus scan results");
     auto gbLayout = make_vbox(gb);
     gbLayout->addWidget(d->resultsTable_);
@@ -174,7 +195,11 @@ MvlcScanbusWidget::MvlcScanbusWidget(QWidget *parent)
             [this](const QPoint &pos) { d->resultsTableContextMenu(pos); });
 }
 
-MvlcScanbusWidget::~MvlcScanbusWidget() {}
+MvlcScanbusWidget::~MvlcScanbusWidget()
+{
+    if (d->watcher_.isRunning())
+        d->watcher_.waitForFinished();
+}
 
 void MvlcScanbusWidget::setMvlc(mvme_mvlc::MVLC_VMEController *mvlc)
 {
