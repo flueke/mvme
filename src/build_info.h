@@ -23,5 +23,6 @@
 
 extern const char BUILD_TYPE[];
 extern const char BUILD_CXX_FLAGS[];
+extern const char BUILD_YEAR[];
 
 #endif /* __BUILD_INFO_H__ */

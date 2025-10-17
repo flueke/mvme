@@ -509,7 +509,14 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 
 struct ModuleConfigDialog::Private
 {
-    VariableEditorWidget *variableEditor;
+    QComboBox *typeCombo_;
+    QLineEdit *nameEdit_;
+    QLineEdit *addressEdit_;
+    ModuleConfig *module_;
+    const VMEConfig *vmeConfig_;
+    QVector<vats::VMEModuleMeta> moduleMetas_;
+    VariableEditorWidget *variableEditor_;
+    ModuleEventHeaderFiltersEditor *eventHeaderFiltersEditor_;
 };
 
 //
@@ -519,32 +526,33 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
                                        [[maybe_unused]] const EventConfig *parentEvent,
                                        const VMEConfig *vmeConfig, QWidget *parent)
     : QDialog(parent)
-    , m_module(mod)
-    , m_vmeConfig(vmeConfig)
-    , m_d(std::make_unique<Private>())
+    , d(std::make_unique<Private>())
 {
     assert(mod);
     assert(parentEvent);
     assert(vmeConfig);
 
-    resize(500, 400);
+    resize(800, 600);
 
-    m_d->variableEditor = new VariableEditorWidget;
+    d->module_ = mod;
+    d->vmeConfig_ = vmeConfig;
+    d->variableEditor_ = new VariableEditorWidget;
+    d->eventHeaderFiltersEditor_ = new ModuleEventHeaderFiltersEditor;
 
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
-    m_moduleMetas = templates.moduleMetas;
+    d->moduleMetas_ = templates.moduleMetas;
 
     // Add the meta stored with the module itself to the list of metas. Might be
     // a duplicate entry in case its a builtin-module but the code does not
     // care.
     if (auto thisMeta = mod->getModuleMeta(); !thisMeta.typeName.isEmpty())
-        m_moduleMetas.push_back(thisMeta);
+        d->moduleMetas_.push_back(thisMeta);
 
     /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
      * the highest priority. Modules without a vendor name always have to the
      * lowest prio. */
-    std::sort(m_moduleMetas.begin(), m_moduleMetas.end(),
+    std::sort(d->moduleMetas_.begin(), d->moduleMetas_.end(),
               [](const VMEModuleMeta &a, const VMEModuleMeta &b)
               {
                   // Prio if vendorName is present in only one of the metas.
@@ -568,42 +576,42 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
                   return a.vendorName < b.vendorName;
               });
 
-    typeCombo = new QComboBox;
+    d->typeCombo_ = new QComboBox;
     int typeComboIndex = -1;
     QString currentVendor;
 
-    for (const auto &mm: m_moduleMetas)
+    for (const auto &mm: d->moduleMetas_)
     {
         if (currentVendor.isNull())
             currentVendor = mm.vendorName;
 
         if (mm.vendorName != currentVendor)
         {
-            typeCombo->insertSeparator(typeCombo->count());
+            d->typeCombo_->insertSeparator(d->typeCombo_->count());
             currentVendor = mm.vendorName;
         }
 
-        typeCombo->addItem(mm.displayName, mm.typeName);
+        d->typeCombo_->addItem(mm.displayName, mm.typeName);
 
-        if (mm.typeName == m_module->getModuleMeta().typeName)
-            typeComboIndex = typeCombo->count() - 1;
+        if (mm.typeName == d->module_->getModuleMeta().typeName)
+            typeComboIndex = d->typeCombo_->count() - 1;
     }
 
     if (typeComboIndex < 0)
     {
-        if (!m_module->getModuleMeta().displayName.isEmpty())
+        if (!d->module_->getModuleMeta().displayName.isEmpty())
         {
-            typeCombo->insertSeparator(typeCombo->count());
-            typeCombo->addItem(m_module->getModuleMeta().displayName);
-            typeComboIndex = typeCombo->count() - 1;
+            d->typeCombo_->insertSeparator(d->typeCombo_->count());
+            d->typeCombo_->addItem(d->module_->getModuleMeta().displayName);
+            typeComboIndex = d->typeCombo_->count() - 1;
         }
         else
             typeComboIndex = 0;
     }
 
-    nameEdit = new QLineEdit;
+    d->nameEdit_ = new QLineEdit;
 
-    addressEdit = make_vme_address_edit(m_module->getBaseAddress());
+    d->addressEdit_ = make_vme_address_edit(d->module_->getBaseAddress());
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -611,133 +619,138 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
 
     auto layout = new QFormLayout(this);
 
-    const bool isNewModule = !m_module->parent();
+    const bool isNewModule = !d->module_->parent();
 
     if (!isNewModule)
     {
-        typeCombo->setEnabled(false);
+        setAllowTypeChange(false);
     }
 
-    auto gb_variables = new QGroupBox("VME Script Variables");
-    {
-        auto layout = make_vbox<0, 0>(gb_variables);
-        layout->addWidget(m_d->variableEditor);
+    auto tabs = new QTabWidget;
+    tabs->addTab(d->variableEditor_, "VME Script Variables");
+    tabs->addTab(d->eventHeaderFiltersEditor_, "Event Header Filters");
 
-        m_d->variableEditor->setVariables(m_module->getVariables());
-
-        auto sizePol = gb_variables->sizePolicy();
-        sizePol.setVerticalStretch(1);
-        gb_variables->setSizePolicy(sizePol);
-    }
-
-    layout->addRow("Type", typeCombo);
-    layout->addRow("Name", nameEdit);
-    layout->addRow("Address", addressEdit);
-    layout->addRow(gb_variables);
+    layout->addRow("Type", d->typeCombo_);
+    layout->addRow("Name", d->nameEdit_);
+    layout->addRow("Address", d->addressEdit_);
+    layout->addRow(tabs);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this, isNewModule](int /*index*/)
     {
-        auto typeName = typeCombo->currentData().toString();
+        auto typeName = d->typeCombo_->currentData().toString();
 
-        auto it = std::find_if(m_moduleMetas.begin(), m_moduleMetas.end(),
+        auto it = std::find_if(d->moduleMetas_.begin(), d->moduleMetas_.end(),
                                [typeName](const auto &mm) { return mm.typeName == typeName; });
 
-        if (it == m_moduleMetas.end())
+        if (it == d->moduleMetas_.end())
         {
-            nameEdit->setText(m_module->objectName());
-            addressEdit->setText(
-                QString("0x%1").arg(m_module->getBaseAddress(), 8, 16, QChar('0')));
+            d->nameEdit_->setText(d->module_->objectName());
+            d->addressEdit_->setText(
+                QString("0x%1").arg(d->module_->getBaseAddress(), 8, 16, QChar('0')));
             return;
         }
 
         const auto &mm(*it);
-        QString name = m_module->objectName();
+        QString name = d->module_->objectName();
 
         if (name.isEmpty())
         {
-            name = make_unique_module_name(mm.typeName, m_vmeConfig);
+            name = make_unique_module_name(mm.typeName, d->vmeConfig_);
         }
 
-        nameEdit->setText(name);
+        d->nameEdit_->setText(name);
 
         if (isNewModule)
         {
-            addressEdit->setText(QString("0x%1").arg(mm.vmeAddress, 8, 16, QChar('0')));
-            m_d->variableEditor->setVariables(
+            d->addressEdit_->setText(QString("0x%1").arg(mm.vmeAddress, 8, 16, QChar('0')));
+            d->variableEditor_->setVariables(
                 mvme::vme_config::variable_symboltable_from_module_meta(mm));
+            d->eventHeaderFiltersEditor_->setData(mm.eventHeaderFilters);
+        }
+        else
+        {
+            d->eventHeaderFiltersEditor_->setData(d->module_->getModuleMeta().eventHeaderFilters);
         }
     };
 
-    connect(typeCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this,
+    connect(d->typeCombo_, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this,
             onTypeComboIndexChanged);
 
     if (typeComboIndex >= 0)
     {
-        typeCombo->setCurrentIndex(typeComboIndex);
+        d->typeCombo_->setCurrentIndex(typeComboIndex);
         onTypeComboIndexChanged(typeComboIndex);
     }
 
     auto updateOkButton = [=]()
     {
-        bool isOk = (addressEdit->hasAcceptableInput() && typeCombo->count() > 0);
+        bool isOk = (d->addressEdit_->hasAcceptableInput() && d->typeCombo_->count() > 0);
         bb->button(QDialogButtonBox::Ok)->setEnabled(isOk);
     };
 
-    connect(addressEdit, &QLineEdit::textChanged, updateOkButton);
+    connect(d->addressEdit_, &QLineEdit::textChanged, updateOkButton);
     updateOkButton();
 }
 
 ModuleConfigDialog::~ModuleConfigDialog() {}
 
+ModuleConfig *ModuleConfigDialog::getModule() const
+{
+    return d->module_;
+}
+
+void ModuleConfigDialog::setAllowTypeChange(bool allow)
+{
+    d->typeCombo_->setEnabled(allow);
+}
+
 void ModuleConfigDialog::accept()
 {
-    const bool isNewModule = !m_module->parent();
-
-    m_module->setObjectName(nameEdit->text());
-    m_module->setBaseAddress(addressEdit->text().toUInt(nullptr, 16));
-    m_module->setVariables(m_d->variableEditor->getVariables());
-
-    auto typeName = typeCombo->currentData().toString();
-    auto it = std::find_if(m_moduleMetas.begin(), m_moduleMetas.end(),
+    auto typeName = d->typeCombo_->currentData().toString();
+    auto it = std::find_if(d->moduleMetas_.begin(), d->moduleMetas_.end(),
                             [typeName](const auto &mm) { return mm.typeName == typeName; });
 
     // Note: the meta info of existing modules is _not_ updated in here. Instead
     // when loading a VMEConfig from file the meta info is updated from the
     // template system (ModuleConfig::read_impl()).
 
-    if (isNewModule && it == m_moduleMetas.end())
-    {
-        // It's a new custom module without any meta info. This means no
-        // init scripts are added so we add one manually.
-        m_module->addInitScript(new VMEScriptConfig("Module Init", QString()));
-    }
-    else if (isNewModule)
+    if (it != d->moduleMetas_.end())
     {
         const auto &mm(*it);
-        m_module->setModuleMeta(mm);
+        d->module_->setModuleMeta(mm);
 
         if (!mm.moduleJson.empty())
         {
             // New style template from a single json file.
-            mvme::vme_config::load_moduleconfig_from_modulejson(*m_module, mm.moduleJson);
+            mvme::vme_config::load_moduleconfig_from_modulejson(*d->module_, mm.moduleJson);
         }
         else
         {
             // Old style template from multiple .vme files
-            m_module->getReadoutScript()->setObjectName(mm.templates.readout.name);
-            m_module->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
+            d->module_->getReadoutScript()->setObjectName(mm.templates.readout.name);
+            d->module_->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
 
-            m_module->getResetScript()->setObjectName(mm.templates.reset.name);
-            m_module->getResetScript()->setScriptContents(mm.templates.reset.contents);
+            d->module_->getResetScript()->setObjectName(mm.templates.reset.name);
+            d->module_->getResetScript()->setScriptContents(mm.templates.reset.contents);
 
             for (const auto &vmeTemplate: mm.templates.init)
             {
-                m_module->addInitScript(
+                d->module_->addInitScript(
                     new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
             }
         }
     }
+
+    // Make sure there's at least one init script present.
+    if (d->module_->getInitScripts().isEmpty())
+    {
+        d->module_->addInitScript(new VMEScriptConfig("Module Init", QString()));
+    }
+
+    d->module_->setObjectName(d->nameEdit_->text());
+    d->module_->setBaseAddress(d->addressEdit_->text().toUInt(nullptr, 16));
+    d->module_->setVariables(d->variableEditor_->getVariables());
 
     QDialog::accept();
 }
@@ -896,6 +909,9 @@ QWidget *DataFilterEditItemDelegate::createEditor(QWidget *parent,
     return new DataFilterEdit(parent);
 }
 
+static const QByteArray DefaultHeaderFilter = "0100 XXX0 MMMM MMMM XXXX XXSS SSSS SSSS";
+static const QByteArray DefaultHeaderFilterDesc = "Example: mesytec VME module header (non-sampling mode)";
+
 ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
     : QTableWidget(parent)
 {
@@ -908,20 +924,15 @@ ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
 
     auto add_entry = [this]
     {
-        appendRow({QByteArray(32, 'X'), {}});
-        resizeColumnToContents(0);
-        resizeRowsToContents();
+        appendRow({DefaultHeaderFilter, DefaultHeaderFilterDesc});
     };
 
     auto remove_entry = [this]
     {
-        auto sm = this->selectionModel();
-        auto idx = sm->currentIndex();
-
-        if (!idx.isValid())
-            return;
-
-        removeRow(idx.row());
+        if (auto idx = selectionModel()->currentIndex(); idx.isValid())
+        {
+            removeRow(idx.row());
+        }
     };
 
     auto context_menu_handler = [this, add_entry, remove_entry] (const QPoint &pos)
@@ -931,15 +942,23 @@ ModuleEventHeaderFiltersTable::ModuleEventHeaderFiltersTable(QWidget *parent)
 
         if (item)
             menu.addAction(make_copy_to_clipboard_action(this, &menu));
-        menu.addAction(QIcon::fromTheme("list-add"), QSL("Add entry"), this, add_entry);
+        menu.addAction(QIcon(":/list_add.png"), QSL("Add new entry"), this, add_entry);
         if (item)
-            menu.addAction(QIcon::fromTheme("list-remove"), QSL("Remove entry"), this, remove_entry);
+            menu.addAction(QIcon(":/list_remove.png"), QSL("Delete selected entry"), this, remove_entry);
 
         if (!menu.isEmpty())
             menu.exec(this->mapToGlobal(pos));
     };
 
     connect(this, &QTableWidget::customContextMenuRequested, this, context_menu_handler);
+
+    auto on_item_changed = [this](QTableWidgetItem *)
+    {
+        resizeColumnsToContents();
+        resizeRowsToContents();
+    };
+
+    connect(this, &QTableWidget::itemChanged, this, on_item_changed);
 }
 
 void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFilter &filterDef)
@@ -958,11 +977,15 @@ void ModuleEventHeaderFiltersTable::appendRow(const vats::VMEModuleEventHeaderFi
     auto item2 = new QTableWidgetItem;
     item2->setData(Qt::DisplayRole, filterDef.description);
     setItem(row, 1, item2);
+
+    resizeColumnToContents(0);
+    resizeRowsToContents();
 }
 
 void ModuleEventHeaderFiltersTable::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
 {
     clearContents();
+    setRowCount(0);
 
     for (const auto &filterDef: filterDefs)
         appendRow(filterDef);
@@ -1001,30 +1024,66 @@ std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersTable::get
 
 ModuleEventHeaderFiltersEditor::ModuleEventHeaderFiltersEditor(QWidget *parent)
     : QWidget(parent)
-    , m_table(new ModuleEventHeaderFiltersTable(this))
+    , m_table_(new ModuleEventHeaderFiltersTable(this))
+    , pb_addEntry_(new QPushButton(QIcon::fromTheme(":/list_add.png"), QSL("&Add new entry")))
+    , pb_removeEntry_(new QPushButton(QIcon::fromTheme(":/list_remove.png"), QSL("&Delete selected entry")))
 {
     auto label = new QLabel(QSL(
-            "Used to split incoming multi-event module data into individual events.<br/>"
+            "Bit-level filters used to split incoming multi-event module data into individual events.<br/>"
             "The marker 'S' is used to extract the number of data words contained in the event. "
             "If multiple filters are defined, they are tried in order until one matches. "
             "Only has an effect if 'Multi Event Processing' is enabled in the analysis. "
             "Changes become active on the next DAQ/Replay start."
             ));
     label->setWordWrap(true);
+
+
+    pb_removeEntry_->setEnabled(false);
+    connect(pb_addEntry_, &QPushButton::clicked, this, &ModuleEventHeaderFiltersEditor::addEntry);
+
+    auto remove_selected_entry = [this]
+    {
+        if (auto idx = m_table_->selectionModel()->currentIndex(); idx.isValid())
+        {
+            m_table_->removeRow(idx.row());
+        }
+    };
+
+    connect(pb_removeEntry_, &QPushButton::clicked, this, remove_selected_entry);
+
+    connect(m_table_, &QTableWidget::itemSelectionChanged, this, [this]
+    {
+        auto sm = m_table_->selectionModel();
+        auto idx = sm->currentIndex();
+        pb_removeEntry_->setEnabled(idx.isValid());
+    });
+
+    auto actionButtonsLayout = make_hbox();
+    actionButtonsLayout->addWidget(pb_addEntry_);
+    actionButtonsLayout->addWidget(pb_removeEntry_);
+    actionButtonsLayout->addStretch(1);
+
+
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
     layout->addWidget(label);
-    layout->addWidget(m_table);
+    layout->addWidget(m_table_);
+    layout->addLayout(actionButtonsLayout);
     setLayout(layout);
 }
 
 
 void ModuleEventHeaderFiltersEditor::setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs)
 {
-    m_table->setData(filterDefs);
+    m_table_->setData(filterDefs);
 }
 
 std::vector<vats::VMEModuleEventHeaderFilter> ModuleEventHeaderFiltersEditor::getData() const
 {
-    return m_table->getData();
+    return m_table_->getData();
+}
+
+void ModuleEventHeaderFiltersEditor::addEntry()
+{
+    m_table_->appendRow({DefaultHeaderFilter, DefaultHeaderFilterDesc});
 }

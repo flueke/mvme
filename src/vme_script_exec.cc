@@ -484,6 +484,7 @@ QString format_result(const Result &result)
         case CommandType::MVLC_ReadToAccu:
         case CommandType::MVLC_CompareLoopAccu:
         case CommandType::Accu_Set:
+        case CommandType::Accu_Test:
         case CommandType::MvmeRequireVersion:
             break;
 
@@ -571,17 +572,6 @@ QString format_result(const Result &result)
             ret += QSL(" -> accu=0x%1 (%2 dec)")
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
                 .arg(result.state.accu)
-                ;
-            break;
-
-        case CommandType::Accu_Test:
-            // actual non-warning errors are handled at the top
-            QString status = result.error.isError() ? (result.error.isWarning() ? "warning" : "error") : "ok";
-            ret = QSL("accu test %4: %1 (accu=0x%2 (%3 dec))")
-                .arg(result.command.accuTestMessage)
-                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
-                .arg(result.state.accu)
-                .arg(status)
                 ;
             break;
     }

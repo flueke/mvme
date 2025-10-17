@@ -443,6 +443,7 @@ class ShowObjectGraphCommand: public QUndoCommand
             prevObj_ = graphWidgetPrivate_->q->getRootObject();
             graphWidgetPrivate_->setObject(curObj_);
             graphWidgetPrivate_->q->fitInView();
+            graphWidgetPrivate_->q->objectSelected(curObj_);
         }
 
         void undo() override
@@ -450,8 +451,8 @@ class ShowObjectGraphCommand: public QUndoCommand
             if (prevObj_)
             {
                 graphWidgetPrivate_->setObject(prevObj_);
-                prevObj_ = {};
                 graphWidgetPrivate_->q->fitInView();
+                graphWidgetPrivate_->q->objectSelected(prevObj_);
             }
         }
 
@@ -651,6 +652,19 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
                 show_sink_widget(d->asp_, sink);
             else
                 emit editObject(obj);
+        }
+    }
+
+    // Single click emits objectSelected() so the main UI can select and
+    // highlight the object in its tree.
+    if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMousePress && getRootObject())
+    {
+        auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
+
+        if (mev->buttons() & Qt::MouseButton::LeftButton)
+        {
+            if (auto obj = d->objectAtScenePos(mev->scenePos()))
+                emit objectSelected(obj);
         }
     }
 

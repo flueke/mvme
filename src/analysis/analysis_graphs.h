@@ -80,6 +80,7 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
     Q_OBJECT
     signals:
         void editObject(const AnalysisObjectPtr &obj);
+        void objectSelected(const AnalysisObjectPtr &obj);
 
     public:
         explicit DependencyGraphWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);

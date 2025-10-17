@@ -505,24 +505,25 @@ std::error_code ModuleConfig::read_impl(const QJsonObject &json)
     // Handling of module meta info:
     // There are two places for meta info: in the json data under "ModuleMeta"
     // and in the runtime object in m_meta.
+
+    // 1. Lookup the module typeName in the template system and use that
     //
-    // 1. Load info from the "ModuleMeta" key in the json data. This key is only
-    //    written for .mvmemodule exports and for modules whose header filters
-    //    have been manually modified.
-    // 2. If "ModuleMeta" is not present lookup the module typeName in the
-    //    template database. Use that information to fill m_meta.
+    // 2. If the meta info is empty load it from the "ModuleMeta" key in the
+    //    json data. This key is only written for .mvmemodule exports and for
+    //    modules whose header filters have been manually modified.
     //
     // When saving decide if m_meta should be written to 'ModuleMeta'.
     // This should only happen if the user actually modified the stored meta
-    // info.
+    // info and saves the module to a .mvmemodule file.
 
-    if (json.contains("ModuleMeta"))
-    {
-        m_meta = vats::modulemeta_from_json(json["ModuleMeta"].toObject());
-    }
-    else if (auto mm = get_module_meta_by_typename(read_templates(), typeName))
+    if (auto mm = get_module_meta_by_typename(read_templates(), typeName))
     {
         m_meta = mm.value();
+    }
+
+    if (m_meta.typeName.isEmpty() && json.contains("ModuleMeta"))
+    {
+        m_meta = vats::modulemeta_from_json(json["ModuleMeta"].toObject());
     }
 
     return {};

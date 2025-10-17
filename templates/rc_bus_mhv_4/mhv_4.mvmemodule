@@ -1,5 +1,20 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "displayName": "MHV-4 (RC-Bus)",
+            "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+            "typeId": 26,
+            "typeName": "mhv_4",
+            "variables": [
+                {
+                    "comment": "RC-Bus address of the MHV-4.",
+                    "name": "rcbus_address",
+                    "value": "0"
+                }
+            ],
+            "vendorName": "mesytec",
+            "vmeAddress": 0
+        },
         "baseAddress": 34603008,
         "enabled": true,
         "id": "{eb4dd0be-7d40-488a-a80d-fcdac365b2f0}",
@@ -59,20 +74,5 @@
             },
             "vme_script": ""
         }
-    },
-    "ModuleMeta": {
-        "displayName": "MHV-4 (RC-Bus)",
-        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
-        "typeId": 26,
-        "typeName": "mhv_4",
-        "variables": [
-            {
-                "comment": "RC-Bus address of the MHV-4.",
-                "name": "rcbus_address",
-                "value": "0"
-            }
-        ],
-        "vendorName": "mesytec",
-        "vmeAddress": 0
     }
 }

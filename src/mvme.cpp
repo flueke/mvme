@@ -893,10 +893,12 @@ void MVMEMainWindow::displayAbout()
     QString buildInfo = QSL("Build Type: '%1', Build Flags='%2'")
         .arg(BUILD_TYPE).arg(BUILD_CXX_FLAGS);
 
+    QString copyright = QSL("© 2015-%1 mesytec GmbH & Co. KG").arg(BUILD_YEAR);
+
     layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
     layout->addWidget(new QLabel(versionString));
     layout->addWidget(new QLabel(buildInfo));
-    layout->addWidget(new QLabel(QSL("© 2015-2023 mesytec GmbH & Co. KG")));
+    layout->addWidget(new QLabel(copyright));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
 
     {
@@ -1946,6 +1948,7 @@ void MVMEMainWindow::updateActions()
     // Workspaces
     m_d->actionNewWorkspace->setEnabled(isDAQIdle);
     m_d->actionOpenWorkspace->setEnabled(isDAQIdle);
+    m_d->actionRecentWorkspaces->setEnabled(isDAQIdle);
 
     // VME Config
     m_d->actionNewVMEConfig->setEnabled(isDAQIdle);

@@ -1,5 +1,15 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "displayName": "MCPD-8_MPSD",
+            "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
+            "typeId": 24,
+            "typeName": "mcpd8_mpsd",
+            "variables": [
+            ],
+            "vendorName": "mesytec",
+            "vmeAddress": 4294901760
+        },
         "baseAddress": 4294901760,
         "enabled": true,
         "id": "{57bc3405-8884-4664-af7a-bf2de28d23cc}",
@@ -96,15 +106,5 @@
             },
             "vme_script": "# Reset the module\n0x6008 1\nwait 500ms\n## Get Module ids for log file\nprint \"Hardware ID:\"\nread a32 d16 0x6008\t# hardware ID\nprint \"Firmware Revision:\"\nread a32 d16 0x600E # firmware revision\n"
         }
-    },
-    "ModuleMeta": {
-        "displayName": "MCPD-8_MPSD",
-        "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
-        "typeId": 24,
-        "typeName": "mcpd8_mpsd",
-        "variables": [
-        ],
-        "vendorName": "mesytec",
-        "vmeAddress": 4294901760
     }
 }

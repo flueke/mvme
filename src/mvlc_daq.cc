@@ -589,7 +589,8 @@ bool run_daq_start_sequence(
             logger("");
             logger(partTitle + " Errors:");
             auto logger_ = [=] (const QString &msg) { logger("  " + msg); };
-            log_errors(initResults, logger_);
+            auto errorLogger_ = [=] (const QString &msg) { error_logger("  " + msg); };
+            log_errors(initResults, errorLogger_);
             return false;
         }
 
