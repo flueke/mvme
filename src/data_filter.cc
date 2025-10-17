@@ -137,7 +137,9 @@ QString generate_pretty_filter_string(QString filterString)
     size_t i=1;
     for (auto c: filterString)
     {
-        if (!c.isSpace())
+        if (c.isSpace())
+            continue;
+        else
             result.push_back(c);
 
         if (i > 1 && i % 4 == 0)

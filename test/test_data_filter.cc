@@ -483,4 +483,20 @@ void TestDataFilter::test_multiwordfilter()
 #endif
 }
 
+void TestDataFilter::test_generate_pretty_filter_string()
+{
+    {
+        QString input = "0100XXXXMMMMMMMMXXXXSSSSSSSSSSSS";
+        QString pretty = "0100 XXXX MMMM MMMM XXXX SSSS SSSS SSSS";
+        auto output = generate_pretty_filter_string(input);
+        QCOMPARE(pretty, output);
+    }
+
+    {
+        QString input = "0100 XXXX MMMM MMMM XXXX SSSS SSSS SSSS";
+        auto output = generate_pretty_filter_string(input);
+        QCOMPARE(input, output);
+    }
+}
+
 QTEST_MAIN(TestDataFilter)
