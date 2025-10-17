@@ -22,6 +22,10 @@ Version 1.16.4
 
   - improve log output for errors and the 'accu test' command
 
+  - fix broken listfile recovery under windows
+
+  - fix silly listfile recovery progress values
+
 * templates:
 
   - various fixes when saving/loading custom modules (.mvmemodule)
