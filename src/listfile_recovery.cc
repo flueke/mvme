@@ -34,6 +34,38 @@ inline std::system_error make_errno_exception(const char *what)
 	return std::system_error(errno, std::generic_category(), what);
 }
 
+#ifndef MVLC_PLATFORM_WINDOWS
+inline FILE *wrap_fopen(const std::string &filename, const char *mode)
+{
+	return fopen64(filename.c_str(), mode);
+}
+
+inline s64 wrap_fseek(FILE *fh, s64 offset, int whence)
+{
+	return fseeko64(fh, offset, whence);
+}
+
+inline s64 wrap_ftell(FILE *fh)
+{
+	return ftello64(fh);
+}
+#else
+inline FILE *wrap_fopen(const std::string &filename, const char *mode)
+{
+	return fopen(filename.c_str(), mode);
+}
+
+inline s64 wrap_fseek(FILE *fh, s64 offset, int whence)
+{
+	return fseek(fh, offset, whence);
+}
+
+inline s64 wrap_ftell(FILE *fh)
+{
+	return ftell(fh);
+}
+#endif
+
 }
 
 namespace mesytec::mvme::listfile_recovery
@@ -44,7 +76,7 @@ EntryFindResult
 {
 	EntryFindResult result = {};
 
-	FILE *fh = fopen(zipFilename.c_str(), "rb");
+	FILE *fh = wrap_fopen(zipFilename.c_str(), "rb");
 
 	if (!fh)
 		throw make_errno_exception("opening input file");
@@ -61,7 +93,11 @@ EntryFindResult
 
 		if (sig == 0x04034b50)
 		{
-			fseek(fh, -sizeof(sig), SEEK_CUR);
+			if (wrap_fseek(fh, -sizeof(sig), SEEK_CUR) != 0)
+			{
+				fclose(fh);
+				throw make_errno_exception("seeking back to local file header signature");
+			}
 			result.headerOffset = ftell(fh);
 
 			lfh header = {};
@@ -81,7 +117,7 @@ EntryFindResult
 
 			filename[header.filenamelength] = '\0';
 
-			fseek(fh, header.extrafieldlength, SEEK_CUR);
+			wrap_fseek(fh, header.extrafieldlength, SEEK_CUR);
 
 			result.dataStartOffset = ftell(fh);
 			result.compressionType = header.compression;
@@ -118,20 +154,20 @@ RecoveryProgress
 
 	try
 	{
-		inputFile = fopen(inputFilename.c_str(), "rb");
+		inputFile = wrap_fopen(inputFilename.c_str(), "rb");
 
 		if (!inputFile)
 			throw make_errno_exception("opening input file");
 
-		if (fseek(inputFile, 0, SEEK_END) != 0)
+		if (wrap_fseek(inputFile, 0, SEEK_END) != 0)
 			throw make_errno_exception("determining input file size (fseek)");
 
-		if (auto pos = ftell(inputFile); pos < 0)
+		if (auto pos = wrap_ftell(inputFile); pos < 0)
 			throw make_errno_exception("determining input file size (ftell)");
 		else
 			progress.inputFileSize = static_cast<size_t>(pos);
 
-		if (fseek(inputFile, entryInfo.dataStartOffset, SEEK_SET) != 0)
+		if (wrap_fseek(inputFile, entryInfo.dataStartOffset, SEEK_SET) != 0)
 			throw make_errno_exception("seeking to data start offset in the input file");
 
 		progress.inputBytesRead += entryInfo.dataStartOffset;
