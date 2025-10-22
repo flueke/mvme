@@ -425,6 +425,19 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
 
             } break;
 
+        case CommandType::Accu_Write:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        result.error = controller->write16(cmd.address, state.accu, cmd.addressMode);
+                        break;
+                    case DataWidth::D32:
+                        result.error = controller->write32(cmd.address, state.accu, cmd.addressMode);
+                        break;
+                }
+            } break;
+
         case CommandType::MvmeRequireVersion:
             {
                 auto requiredVersion = cmd.stringData.toStdString();
@@ -437,7 +450,7 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                         .arg(currentVersion.c_str())
                         .arg(requiredVersion.c_str()));
                 }
-            }
+            } break;
     }
 
     result.state = state;
@@ -585,6 +598,10 @@ QString format_result(const Result &result)
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
                 .arg(result.state.accu)
                 ;
+            break;
+
+        case CommandType::Accu_Write:
+            ret += QSL(" (%1 dec), write ok").arg(result.state.accu);
             break;
     }
 

@@ -159,6 +159,7 @@ namespace
                 case CommandType::Accu_MaskAndRotate:
                 case CommandType::Accu_Test:
                 case CommandType::Accu_Add:
+                case CommandType::Accu_Write:
                     break;
 
                 // Not implemented for the SIS (added in '23 for the MVLC)
@@ -431,6 +432,11 @@ namespace
                 case CommandType::Accu_MaskAndRotate:
                 case CommandType::Accu_Test:
                 case CommandType::Accu_Add:
+                case CommandType::Accu_Write:
+                case CommandType::MBLTSwappedFifo:
+                case CommandType::Blk2eSST64Fifo:
+                case CommandType::Blk2eSST64SwappedFifo:
+                case CommandType::MvmeRequireVersion:
                     break;
 
                 case  CommandType::Invalid:

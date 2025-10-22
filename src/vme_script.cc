@@ -868,6 +868,22 @@ Command parse_accu_add(const QStringList &args, int lineNumber)
     }
 }
 
+Command parse_accu_write(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("%1 <address_mode> <data_width> <address>").arg(args[0]);
+
+    if (args.size() != 4)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+    result.type = commandType_from_string(args[0]);
+    result.addressMode = parseAddressMode(args[1]);
+    result.dataWidth = parseDataWidth(args[2]);
+    result.address = parseAddress(args[3]);
+    result.lineNumber = lineNumber;
+    return result;
+}
+
 Command parse_mvme_require_version(const QStringList &args, int lineNumber)
 {
     auto usage = QSL("%1 <min_version>").arg(args[0]);
@@ -2015,6 +2031,8 @@ static const QMultiMap<CommandType, QString> commandTypeToString =
     { CommandType::Accu_MaskAndRotate,      QSL("accu_mask_rotate") },
     { CommandType::Accu_Test,               QSL("accu_test") },
     { CommandType::Accu_Add,                QSL("accu_add") },
+    { CommandType::Accu_Write,              QSL("accu_write") },
+
     { CommandType::MvmeRequireVersion,      QSL("mvme_require_version") },
 };
 
@@ -2311,6 +2329,14 @@ QString to_string(const Command &cmd, bool pretty)
                 .arg(cmd.value);
             break;
 
+        case CommandType::Accu_Write:
+            buffer = QString(QSL("%1 %2 %3 %4"))
+                .arg(cmdStr)
+                .arg(amod_to_string(cmd.addressMode, pretty))
+                .arg(to_qstring(cmd.dataWidth))
+                .arg(format_hex(cmd.address));
+            break;
+
         case CommandType::MvmeRequireVersion:
             buffer = QSL("%1 %2").arg(cmdStr).arg(cmd.stringData);
             break;
@@ -2368,6 +2394,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Blk2eSST64Swapped:
         case CommandType::Blk2eSST64SwappedFifo:
         case CommandType::MVLC_ReadToAccu:
+        case CommandType::Accu_Write:
             cmd.address += baseAddress;
             break;
     }
