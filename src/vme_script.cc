@@ -1682,8 +1682,21 @@ QString evaluate_expressions(const QString &qstrPart, s32 lineNumber)
                             a2::a2_exprtk::Expression expr(exprString);
                             expr.compile();
                             double d = expr.eval();
+                            double f = std::remainder(d, 1.0);
+                            QString s;
 
-                            result += QString::number(d);
+                            if (f != 0)
+                                s = QString::number(d);
+                            else
+                                s = QString::number(static_cast<qint64>(d));
+
+
+                            //qDebug() << __PRETTY_FUNCTION__ << "eval expression:"
+                            //         << QString::fromStdString(exprString)
+                            //         << "->"
+                            //         << s;
+
+                            result += s;
 
                             state = OutsideExpr;
                             exprString.clear();
