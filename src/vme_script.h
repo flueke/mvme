@@ -169,6 +169,7 @@ enum class CommandType
     Accu_Set,               // Set the accu to a constant value.
     Accu_MaskAndRotate,     // Mask, then left rotate the accu value.
     Accu_Test,              // Compare against constant value and error out on failure.
+    Accu_Add,               // Add a constant value to the accu.
 
     // Meta command checking the mvme version against a supplied version number.
     // The check succeeds if the running mvme version is >= the supplied version.

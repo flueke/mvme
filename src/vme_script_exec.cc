@@ -362,6 +362,11 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             {
                 state.accu = cmd.value;
             } break;
+
+            case CommandType::Accu_Add:
+            {
+                state.accu += cmd.value;
+            } break;
         case CommandType::Accu_MaskAndRotate:
             {
                 state.accu &= cmd.accuMask;
@@ -569,6 +574,13 @@ QString format_result(const Result &result)
             break;
 
         case CommandType::Accu_MaskAndRotate:
+            ret += QSL(" -> accu=0x%1 (%2 dec)")
+                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                .arg(result.state.accu)
+                ;
+            break;
+
+        case CommandType::Accu_Add:
             ret += QSL(" -> accu=0x%1 (%2 dec)")
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
                 .arg(result.state.accu)

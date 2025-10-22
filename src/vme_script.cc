@@ -848,6 +848,26 @@ Command parse_accu_test(const QStringList &args, int lineNumber)
     }
 }
 
+Command parse_accu_add(const QStringList &args, int lineNumber)
+{
+    auto usage = QSL("%1 <value>").arg(args[0]);
+
+    if (args.size() != 2)
+        throw ParseError(QSL("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    try
+    {
+        Command result;
+        result.type = CommandType::Accu_Add;
+        result.value = parseValue<u32>(args[1]);
+        result.lineNumber = lineNumber;
+        return result;
+    } catch (const std::runtime_error &e)
+    {
+        throw ParseError(e.what(), lineNumber);
+    }
+}
+
 Command parse_mvme_require_version(const QStringList &args, int lineNumber)
 {
     auto usage = QSL("%1 <min_version>").arg(args[0]);
@@ -911,6 +931,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("accu_mask_rotate"),  parse_accu_mask_and_rotate },
     { QSL("accu_test"),         parse_accu_test },
     { QSL("accu_test_warn"),    parse_accu_test },
+    { QSL("accu_add"),          parse_accu_add },
 
     { QSL("mvme_require_version"), parse_mvme_require_version },
 };
@@ -1993,6 +2014,7 @@ static const QMultiMap<CommandType, QString> commandTypeToString =
     { CommandType::Accu_Set,                QSL("accu_set") },
     { CommandType::Accu_MaskAndRotate,      QSL("accu_mask_rotate") },
     { CommandType::Accu_Test,               QSL("accu_test") },
+    { CommandType::Accu_Add,                QSL("accu_add") },
     { CommandType::MvmeRequireVersion,      QSL("mvme_require_version") },
 };
 
@@ -2282,6 +2304,13 @@ QString to_string(const Command &cmd, bool pretty)
                 .arg(cmd.accuTestMessage);
             break;
 
+        case CommandType::Accu_Add:
+            buffer = QSL("%1 accu=0x%2 (%3 dec)")
+                .arg(cmdStr)
+                .arg(cmd.value, 8, 16, QLatin1Char('0'))
+                .arg(cmd.value);
+            break;
+
         case CommandType::MvmeRequireVersion:
             buffer = QSL("%1 %2").arg(cmdStr).arg(cmd.stringData);
             break;
@@ -2322,6 +2351,7 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Accu_Set:
         case CommandType::Accu_MaskAndRotate:
         case CommandType::Accu_Test:
+        case CommandType::Accu_Add:
         case CommandType::MvmeRequireVersion:
             break;
 
