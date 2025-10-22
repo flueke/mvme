@@ -215,6 +215,8 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
         case CommandType::Accu_MaskAndRotate:
         case CommandType::Accu_Test:
         case CommandType::Accu_Add:
+        case CommandType::Accu_Write:
+        case CommandType::MvmeRequireVersion:
             break;
 
         case CommandType::Blk2eSST64:
