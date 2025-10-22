@@ -601,7 +601,10 @@ QString format_result(const Result &result)
             break;
 
         case CommandType::Accu_Write:
-            ret += QSL(" (%1 dec), write ok").arg(result.state.accu);
+            ret += QSL(" -> 0x%1 (%2 dec), write ok")
+                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                .arg(result.state.accu)
+                ;
             break;
     }
 
