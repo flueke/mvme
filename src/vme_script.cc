@@ -948,6 +948,7 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("accu_test"),         parse_accu_test },
     { QSL("accu_test_warn"),    parse_accu_test },
     { QSL("accu_add"),          parse_accu_add },
+    { QSL("accu_write"),        parse_accu_write },
 
     { QSL("mvme_require_version"), parse_mvme_require_version },
 };
