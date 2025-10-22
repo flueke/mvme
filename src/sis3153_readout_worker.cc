@@ -158,6 +158,7 @@ namespace
                 case CommandType::Accu_Set:
                 case CommandType::Accu_MaskAndRotate:
                 case CommandType::Accu_Test:
+                case CommandType::Accu_Add:
                     break;
 
                 // Not implemented for the SIS (added in '23 for the MVLC)
@@ -429,6 +430,7 @@ namespace
                 case CommandType::Accu_Set:
                 case CommandType::Accu_MaskAndRotate:
                 case CommandType::Accu_Test:
+                case CommandType::Accu_Add:
                     break;
 
                 case  CommandType::Invalid:
