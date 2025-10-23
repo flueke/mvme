@@ -102,7 +102,10 @@ int main(int argc, char *argv[])
         {
             ssize_t bytesRead = recv(sock, &bufferNumber, sizeof(bufferNumber), MSG_WAITALL);
             if (bytesRead == 0)
-                break; // Connection closed
+            {
+                std::cerr << "recv() returned 0 bytes (1st recv)\n";
+                continue;
+            }
             if (bytesRead < 0)
             {
                 std::cerr << "Error reading buffer number: " << strerror(errno) << "\n";
@@ -111,7 +114,10 @@ int main(int argc, char *argv[])
 
             bytesRead = recv(sock, &bufferSize, sizeof(bufferSize), MSG_WAITALL);
             if (bytesRead == 0)
-                break; // Connection closed
+            {
+                std::cerr << "recv() returned 0 bytes (2nd recv)\n";
+                continue;
+            }
             if (bytesRead < 0)
             {
                 std::cerr << "Error reading buffer size: " << strerror(errno) << "\n";
@@ -123,7 +129,10 @@ int main(int argc, char *argv[])
             bytesRead = recv(sock, destBuffer.data(), destBuffer.size() * sizeof(std::uint32_t),
                              MSG_WAITALL);
             if (bytesRead == 0)
-                break; // Connection closed
+            {
+                std::cerr << "recv() returned 0 bytes\n";
+                continue;
+            }
             if (bytesRead < 0)
             {
                 std::cerr << "Error reading buffer data: " << strerror(errno) << "\n";
