@@ -33,7 +33,7 @@ std::optional<sockaddr_in> lookup(const std::string &host, std::uint16_t port)
 
     if (rc != 0)
     {
-        std::cerr << "Failed to resolve host " << host << ": " << gai_strerror(rc) << "\n";
+        std::cout << "Failed to resolve host " << host << ": " << gai_strerror(rc) << "\n";
         return {};
     }
 
@@ -52,6 +52,65 @@ std::optional<sockaddr_in> lookup(const std::string &host, std::uint16_t port)
         return {};
 
     return ret;
+}
+
+struct timeval ms_to_timeval(unsigned ms)
+{
+    unsigned seconds = ms / 1000;
+    ms -= seconds * 1000;
+
+    struct timeval tv;
+    tv.tv_sec  = seconds;
+    tv.tv_usec = ms * 1000;
+
+    return tv;
+}
+
+#ifndef MESYTEC_MVLC_PLATFORM_WINDOWS
+std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
+{
+    struct timeval tv = ms_to_timeval(ms);
+
+    int res = setsockopt(sock, SOL_SOCKET, optname, &tv, sizeof(tv));
+
+    if (res != 0)
+        return std::error_code(errno, std::system_category());
+
+    return {};
+}
+#else // WIN32
+std::error_code set_socket_timeout(int optname, int sock, unsigned ms)
+{
+    init_socket_system();
+
+    DWORD optval = ms;
+    int res = setsockopt(sock, SOL_SOCKET, optname,
+                         reinterpret_cast<const char *>(&optval),
+                         sizeof(optval));
+
+    if (res != 0)
+        return std::error_code(errno, std::system_category());
+
+    return {};
+}
+#endif
+
+std::error_code set_socket_write_timeout(int sock, unsigned ms)
+{
+    return set_socket_timeout(SO_SNDTIMEO, sock, ms);
+}
+
+std::error_code set_socket_read_timeout(int sock, unsigned ms)
+{
+    return set_socket_timeout(SO_RCVTIMEO, sock, ms);
+}
+
+std::error_code set_socket_timeouts(int sock, unsigned readTimeout_ms, unsigned writeTimeout_ms)
+{
+    if (auto ec = set_socket_read_timeout(sock, readTimeout_ms))
+        return ec;
+
+    return set_socket_write_timeout(sock, writeTimeout_ms);
 }
 
 int main(int argc, char *argv[])
@@ -78,7 +137,14 @@ int main(int argc, char *argv[])
 
         if (sock < 0)
         {
-            std::cerr << "Failed to create socket: " << strerror(errno) << "\n";
+            std::cout << "Failed to create socket: " << strerror(errno) << "\n";
+            return 1;
+        }
+
+        if (auto ec = set_socket_timeouts(sock, 5000, 5000); ec)
+        {
+            std::cout << "Failed to set socket timeouts: " << ec.message() << "\n";
+            close(sock);
             return 1;
         }
 
@@ -87,7 +153,7 @@ int main(int argc, char *argv[])
         if (connect(sock, reinterpret_cast<const sockaddr *>(&addr.value()), sizeof(addr.value())) <
             0)
         {
-            std::cerr << "Failed to connect: " << strerror(errno) << "\n";
+            std::cout << "Failed to connect: " << strerror(errno) << "\n";
             close(sock);
             return 1;
         }
@@ -103,24 +169,24 @@ int main(int argc, char *argv[])
             ssize_t bytesRead = recv(sock, &bufferNumber, sizeof(bufferNumber), MSG_WAITALL);
             if (bytesRead == 0)
             {
-                std::cerr << "recv() returned 0 bytes (1st recv)\n";
+                std::cout << "recv() returned 0 bytes (1st recv)\n";
                 continue;
             }
             if (bytesRead < 0)
             {
-                std::cerr << "Error reading buffer number: " << strerror(errno) << "\n";
+                std::cout << "Error reading buffer number: " << strerror(errno) << "\n";
                 break;
             }
 
             bytesRead = recv(sock, &bufferSize, sizeof(bufferSize), MSG_WAITALL);
             if (bytesRead == 0)
             {
-                std::cerr << "recv() returned 0 bytes (2nd recv)\n";
+                std::cout << "recv() returned 0 bytes (2nd recv)\n";
                 continue;
             }
             if (bytesRead < 0)
             {
-                std::cerr << "Error reading buffer size: " << strerror(errno) << "\n";
+                std::cout << "Error reading buffer size: " << strerror(errno) << "\n";
                 break;
             }
 
@@ -130,12 +196,12 @@ int main(int argc, char *argv[])
                              MSG_WAITALL);
             if (bytesRead == 0)
             {
-                std::cerr << "recv() returned 0 bytes\n";
+                std::cout << "recv() returned 0 bytes (3rd recv)\n";
                 continue;
             }
             if (bytesRead < 0)
             {
-                std::cerr << "Error reading buffer data: " << strerror(errno) << "\n";
+                std::cout << "Error reading buffer data: " << strerror(errno) << "\n";
                 break;
             }
 
@@ -159,7 +225,7 @@ int main(int argc, char *argv[])
     }
     catch (std::exception &e)
     {
-        std::cerr << "Exception: " << e.what() << "\n";
+        std::cout << "Exception: " << e.what() << "\n";
         return 1;
     }
 }
