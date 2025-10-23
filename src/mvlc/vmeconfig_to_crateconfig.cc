@@ -180,6 +180,7 @@ mvlc::StackCommand vme_script_command_to_mvlc_command(const vme_script::Command 
         case CommandType::Accu_MaskAndRotate:
         case CommandType::Accu_Test:
         case CommandType::Accu_Add:
+        case CommandType::Accu_Write:
         case CommandType::MVLC_InlineStack:
         case CommandType::VMUSB_ReadRegister:
         case CommandType::VMUSB_WriteRegister:
