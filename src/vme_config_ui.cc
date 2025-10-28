@@ -791,11 +791,12 @@ QString info_text(const EventConfig *config)
     case TriggerCondition::Periodic:
     {
         infoText = QSL("Trigger=Periodic");
+        // Note 251028: Periodic triggers via trigger io removed from the UI.
+        // This used to display the periods value and unit.
         if (auto vmeConfig = config->getVMEConfig();
             vmeConfig && is_mvlc_controller(vmeConfig->getControllerType()))
         {
-            auto tp = config->getMVLCTimerPeriod();
-            infoText += QSL(", every %1%2").arg(tp.first).arg(tp.second);
+            infoText = TriggerConditionNames.value(TriggerCondition::TriggerIO);
         }
     }
     break;
