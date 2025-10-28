@@ -2353,6 +2353,7 @@ NIM_IO_Table_UI make_nim_io_settings_table(
             item->column() == NIM_IO_Table_UI::ColHoldoff)
         {
             auto intVal = item->data(Qt::EditRole).toInt();
+            (void) intVal; // TODO: this was intended to be used for input verification, limits checks, spinbox adjustments, etc
         }
 
     });
@@ -4078,8 +4079,12 @@ LUTEditor::LUTEditor(
 
         auto gb_strobe = new QGroupBox("Strobe Gate Generator Settings");
         auto l_strobe = make_hbox<0, 0>(gb_strobe);
+        auto label_expl = new QLabel(
+            "<b>Strobe</b>: LUT outputs may only change when the strobe input rises.<br/>"
+            "<b>Holdoff</b>: Inhibits input pulse processing until the holdoff time expires.");
+        label_expl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         l_strobe->addWidget(table, 1);
-        l_strobe->addStretch(1);
+        l_strobe->addWidget(label_expl, 1);
 
         scrollLayout->addWidget(gb_strobe, 2);
     }
