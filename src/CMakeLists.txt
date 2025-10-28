@@ -343,7 +343,6 @@ target_link_libraries(libmvme
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
-    PRIVATE asio
     PUBLIC liba2_static
     PRIVATE nlohmann-json
     PRIVATE qgvcore
@@ -620,20 +619,6 @@ install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINA
 add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
 add_mvme_exe(statemachine_test statemachine_test.cc)
 add_mvme_dev_exe(dev_some_gui_thing dev_some_gui_thing.cc)
-
-# Standalone asio client for testing.
-add_executable(mvme_tcp_stream_client_asio mvme_tcp_stream_client_asio.cc)
-target_link_libraries(mvme_tcp_stream_client_asio PRIVATE asio)
-
-add_executable(mvme_ipc_stream_client_asio mvme_ipc_stream_client_asio.cc)
-target_link_libraries(mvme_ipc_stream_client_asio PRIVATE asio)
-
-# POSIX/BSD variant of the above.
-add_executable(mvme_tcp_stream_client_posix mvme_tcp_stream_client_posix.cc)
-
-# Standalone tool to test the nng::NngStreamServer implementation
-add_executable(mvme_tcp_stream_nng_test_server mvme_tcp_stream_nng_test_server.cc)
-target_link_libraries(mvme_tcp_stream_nng_test_server PRIVATE asio mesytec-mvlc nng libmvme)
 
 add_custom_target(multicrate2_dev_tools)
 add_dependencies(multicrate2_dev_tools
