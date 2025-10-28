@@ -73,7 +73,6 @@ struct EventConfigDialogPrivate
 
     QSpinBox *spin_irqLevel, *spin_irqVector, *spin_vmusbTimerFrequency;
 
-    QComboBox *combo_mvlcTimerBase;
     QDoubleSpinBox *spin_timerPeriod;
     QSpinBox *spin_stackTimerPeriod;
     QSpinBox *spin_mvlcSlaveTriggerIndex;
@@ -275,8 +274,6 @@ EventConfigDialog::EventConfigDialog(VMEControllerType vmeControllerType, EventC
             m_d->stack_options->addWidget(irqWidget);
         }
 
-#if 1 // FIXME: temporarily disabled until FW0039 with the fix is released
-        // Periodic via StackTimers (FW0037)
         {
             m_d->spin_stackTimerPeriod = new QSpinBox;
             m_d->spin_stackTimerPeriod->setPrefix(QSL("Every "));
@@ -291,51 +288,6 @@ EventConfigDialog::EventConfigDialog(VMEControllerType vmeControllerType, EventC
             timerLayout->addRow(QSL("Period"), m_d->spin_stackTimerPeriod);
             auto label =
                 new QLabel(QSL("MVLC StackTimers require MVLC firmware <b>FW0037</b> or later!"));
-            label->setWordWrap(true);
-            timerLayout->addRow(label);
-            m_d->stack_options->addWidget(timerWidget);
-        }
-#endif
-
-        // Periodic via MVLC Trigger I/O
-        {
-            m_d->combo_mvlcTimerBase = new QComboBox;
-            m_d->combo_mvlcTimerBase->addItem("ns", 0);
-            m_d->combo_mvlcTimerBase->addItem("us", 1);
-            m_d->combo_mvlcTimerBase->addItem("ms", 2);
-            m_d->combo_mvlcTimerBase->addItem("s", 3);
-
-            m_d->spin_timerPeriod = new QDoubleSpinBox;
-            m_d->spin_timerPeriod->setPrefix(QSL("Every "));
-            m_d->spin_timerPeriod->setDecimals(0);
-            m_d->spin_timerPeriod->setSingleStep(1.0);
-            m_d->spin_timerPeriod->setValue(1000);
-
-            auto on_timer_base_changed = [this](const QString &unit)
-            {
-                m_d->spin_timerPeriod->setSuffix(QSL(" ") + unit);
-                m_d->spin_timerPeriod->setMinimum(
-                    unit == "ns" ? mvme_mvlc::trigger_io::Timer::MinPeriod : 1);
-                m_d->spin_timerPeriod->setMaximum(mvme_mvlc::trigger_io::Timer::MaxPeriod);
-            };
-
-            on_timer_base_changed("ns");
-
-            connect(m_d->combo_mvlcTimerBase,
-                    qOverload<const QString &>(&QComboBox::currentIndexChanged), this,
-                    on_timer_base_changed);
-
-            auto timerWidget = new QWidget;
-            auto timerLayout = new QFormLayout(timerWidget);
-            timerLayout->addRow(QSL("Timer Base"), m_d->combo_mvlcTimerBase);
-            timerLayout->addRow(QSL("Period"), m_d->spin_timerPeriod);
-            auto label = new QLabel(QSL("Periodic event realized using the MVLC Trigger I/O. A "
-                                        "<b>StackStart</b> unit is connected to a"
-                                        " <b>Timer</b> unit to periodically execute the event "
-                                        "stack. The Trigger I/O configuration is"
-                                        " automatically modified when starting the DAQ. Prefer "
-                                        "creating periodic events using"
-                                        " <b>StackTimers</b> to save on Trigger I/O resources."));
             label->setWordWrap(true);
             timerLayout->addRow(label);
             m_d->stack_options->addWidget(timerWidget);
@@ -370,8 +322,7 @@ EventConfigDialog::EventConfigDialog(VMEControllerType vmeControllerType, EventC
 
         conditions = {
             TriggerCondition::Interrupt,
-            {TriggerCondition::MvlcStackTimer, QSL("Periodic (via MVLC StackTimer)")},
-            {TriggerCondition::Periodic, QSL("Periodic (via MVLC Trigger I/O)")},
+            {TriggerCondition::MvlcStackTimer, QSL("Periodic")},
             TriggerCondition::TriggerIO,
             TriggerCondition::MvlcOnSlaveTrigger,
         };
@@ -426,16 +377,8 @@ void EventConfigDialog::loadFromConfig()
     case VMEControllerType::MVLC_USB:
     case VMEControllerType::MVLC_ETH:
     {
-        m_d->combo_mvlcTimerBase->setCurrentText(
-            config->triggerOptions.value(QSL("mvlc.timer_base"), "ms").toString());
-
-        m_d->spin_timerPeriod->setValue(
-            config->triggerOptions.value(QSL("mvlc.timer_period"), 1000u).toUInt());
-
-#if 1 // FIXME: temporarily disabled until FW0039 with the fix is released
         m_d->spin_stackTimerPeriod->setValue(
             config->triggerOptions.value(QSL("mvlc.stacktimer_period"), 1000u).toUInt());
-#endif
 
         m_d->spin_mvlcSlaveTriggerIndex->setValue(
             config->triggerOptions.value(QSL("mvlc.slavetrigger_index"), 0u).toULongLong());
@@ -474,12 +417,7 @@ void EventConfigDialog::saveToConfig()
     case VMEControllerType::MVLC_USB:
     case VMEControllerType::MVLC_ETH:
         config->triggerOptions["IRQUseIACK"] = m_d->cb_irqUseIACK->isChecked();
-        if (config->triggerCondition == TriggerCondition::Periodic)
-        {
-            config->triggerOptions["mvlc.timer_base"] = m_d->combo_mvlcTimerBase->currentText();
-            config->triggerOptions["mvlc.timer_period"] = m_d->spin_timerPeriod->value();
-        }
-        else if (config->triggerCondition == TriggerCondition::MvlcStackTimer)
+        if (config->triggerCondition == TriggerCondition::MvlcStackTimer)
         {
             config->triggerOptions["mvlc.stacktimer_period"] = m_d->spin_stackTimerPeriod->value();
         }
