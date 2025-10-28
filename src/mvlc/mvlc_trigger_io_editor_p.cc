@@ -2871,8 +2871,6 @@ QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
     return ret;
 }
 
-static const QBrush ReservedItemBrush(QColor(Qt::lightGray), Qt::BDiagPattern);
-
 //
 // Level0UtilsDialog
 //
@@ -2939,31 +2937,13 @@ Level0UtilsDialog::Level0UtilsDialog(
                         ret.table->item(row, ret.ColDelay)->setText("0");
                         cb_softActivate->setChecked(false);
                     });
-
-
-            // Hack to mark some of the units as potentially reserved by giving
-            // them a special background. Does not work for cell widgets.
-            if (row < ReservedTimerUnits)
-            {
-                for (int col=0; col<ret.table->columnCount(); ++col)
-                {
-                    if (auto item = ret.table->item(row, col))
-                        item->setBackground(ReservedItemBrush);
-                }
-            }
         }
 
         ret.table->resizeColumnsToContents();
         ret.table->resizeRowsToContents();
 
-        auto noticeLabel = new QLabel(QSL(
-                "<b>Note</b>: Timer0+1 are used by the GUI to implement periodic events."
-                ));
-        noticeLabel->setWordWrap(true);
-
         ret.parentWidget = new QWidget;
         auto parentLayout = make_vbox<0, 4>(ret.parentWidget);
-        parentLayout->addWidget(noticeLabel);
         parentLayout->addWidget(ret.table);
 
         return ret;
@@ -3322,18 +3302,6 @@ Level3UtilsDialog::Level3UtilsDialog(
                     QString::number(l3.stackStart[row].delay_ns)));
 
             table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
-
-
-            // Hack to mark some of the units as potentially reserved by giving
-            // them a special background. Does not work for cell widgets.
-            if (row < ReservedStackStartUnits)
-            {
-                for (int col=0; col<ret.table->columnCount(); ++col)
-                {
-                    if (auto item = ret.table->item(row, col))
-                        item->setBackground(ReservedItemBrush);
-                }
-            }
         }
 
         table->resizeColumnsToContents();
