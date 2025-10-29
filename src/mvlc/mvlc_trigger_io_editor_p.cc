@@ -2565,6 +2565,35 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
             });
     }
 
+    auto on_table_item_changed = [&] (QTableWidgetItem *item)
+    {
+        if (item->column() == ui.ColWidth)
+        {
+            auto intVal = item->data(Qt::EditRole).toInt();
+            auto delayItem = ui.table->item(item->row(), ui.ColDelay);
+            auto holdoffItem = ui.table->item(item->row(), ui.ColHoldoff);
+
+            if (intVal == 0)
+            {
+                delayItem->setFlags(delayItem->flags() & ~Qt::ItemIsEnabled);
+                holdoffItem->setFlags(holdoffItem->flags() & ~Qt::ItemIsEnabled);
+            }
+            else
+            {
+                delayItem->setFlags(delayItem->flags() | Qt::ItemIsEnabled);
+                holdoffItem->setFlags(holdoffItem->flags() | Qt::ItemIsEnabled);
+            }
+        }
+    };
+
+    connect(ui.table, &QTableWidget::itemChanged, ui.table, on_table_item_changed);
+
+    // force an initial update
+    for (int row = 0; row < ui.table->rowCount(); row++)
+    {
+        on_table_item_changed(ui.table->item(row, ui.ColWidth));
+    }
+
     auto bb = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
         QDialogButtonBox::Apply | QDialogButtonBox::Help,
@@ -2577,8 +2606,32 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     connect(bb, &QDialogButtonBox::clicked,
             this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_NIM")));
 
+    auto explanation = new QLabel(QSL(
+        "<table>"
+        "  <th colspan=\"2\" align=\"left\">Gate Generator Settings:</th>"
+        "  <tr>"
+        "    <th align=\"left\">Delay</th>"
+        "    <td>Delays the signal by the specified duration.</td>"
+        "  </tr>"
+        "  <tr>"
+        "    <th align=\"left\">Width</th>"
+        "    <td>Minimum width is 8ns. If width is set to 0 the gate generator is disabled."
+        "        In this case delay and holdoff do not apply."
+        "    </td>"
+        "  </tr>"
+        "  <tr>"
+        "    <th align=\"left\">Holdoff</th>"
+        "    <td>Inhibits input pulse processing until the holdoff time expires.</td>"
+        "  </tr>"
+        "</table>"
+    ));
+
+
+    explanation->setWordWrap(true);
+
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
+    widgetLayout->addWidget(explanation);
     widgetLayout->addWidget(bb);
 }
 
@@ -4059,6 +4112,8 @@ LUTEditor::LUTEditor(
 
         auto table = new QTableWidget(1, columnTitles.size());
         table->setHorizontalHeaderLabels(columnTitles);
+        table->setItemDelegateForColumn(ui.ColDelay, new NanoSecondsItemDelegate(table));
+        table->setItemDelegateForColumn(ui.ColHoldoff, new NanoSecondsItemDelegate(table));
         table->verticalHeader()->hide();
 
         auto combo_connection = new QComboBox;
@@ -4080,7 +4135,7 @@ LUTEditor::LUTEditor(
         auto gb_strobe = new QGroupBox("Strobe Gate Generator Settings");
         auto l_strobe = make_hbox<0, 0>(gb_strobe);
         auto label_expl = new QLabel(
-            "<b>Strobe</b>: LUT outputs may only change when the strobe input rises.<br/>"
+            "<b>Strobe</b>: LUT outputs may only change when the strobe input changes.<br/>"
             "<b>Holdoff</b>: Inhibits input pulse processing until the holdoff time expires.");
         label_expl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         l_strobe->addWidget(table, 1);
