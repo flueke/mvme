@@ -4091,7 +4091,7 @@ LUTEditor::LUTEditor(
             m_strobeCheckboxes.push_back(cb_useStrobe);
 
             auto useStrobeLayout = make_hbox();
-            useStrobeLayout->addWidget(new QLabel("Strobe Output:"));
+            useStrobeLayout->addWidget(new QLabel("Use Strobe:"));
             useStrobeLayout->addWidget(cb_useStrobe);
             useStrobeLayout->addStretch(1);
 
@@ -4135,7 +4135,7 @@ LUTEditor::LUTEditor(
         auto gb_strobe = new QGroupBox("Strobe Gate Generator Settings");
         auto l_strobe = make_hbox<0, 0>(gb_strobe);
         auto label_expl = new QLabel(
-            "<b>Strobe</b>: LUT outputs may only change when the strobe input changes.<br/>"
+            "<b>Strobe</b>: Rising edge of strobe samples LUT logic and outputs a pulse if true.<br/>"
             "<b>Holdoff</b>: Inhibits input pulse processing until the holdoff time expires.");
         label_expl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         l_strobe->addWidget(table, 1);
