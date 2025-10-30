@@ -11,16 +11,17 @@
 #include <sstream>
 
 #include "arraysize.h"
+#include "benchmark/benchmark.h"
 
 namespace benchmark {
 namespace {
-
 // kilo, Mega, Giga, Tera, Peta, Exa, Zetta, Yotta.
-const char kBigSIUnits[] = "kMGTPEZY";
+const char* const kBigSIUnits[] = {"k", "M", "G", "T", "P", "E", "Z", "Y"};
 // Kibi, Mebi, Gibi, Tebi, Pebi, Exbi, Zebi, Yobi.
-const char kBigIECUnits[] = "KMGTPEZY";
+const char* const kBigIECUnits[] = {"Ki", "Mi", "Gi", "Ti",
+                                    "Pi", "Ei", "Zi", "Yi"};
 // milli, micro, nano, pico, femto, atto, zepto, yocto.
-const char kSmallSIUnits[] = "munpfazy";
+const char* const kSmallSIUnits[] = {"m", "u", "n", "p", "f", "a", "z", "y"};
 
 // We require that all three arrays have the same size.
 static_assert(arraysize(kBigSIUnits) == arraysize(kBigIECUnits),
@@ -28,11 +29,10 @@ static_assert(arraysize(kBigSIUnits) == arraysize(kBigIECUnits),
 static_assert(arraysize(kSmallSIUnits) == arraysize(kBigSIUnits),
               "Small SI and Big SI unit arrays must be the same size");
 
-static const int64_t kUnitsSize = arraysize(kBigSIUnits);
+const int64_t kUnitsSize = arraysize(kBigSIUnits);
 
-void ToExponentAndMantissa(double val, double thresh, int precision,
-                           double one_k, std::string* mantissa,
-                           int64_t* exponent) {
+void ToExponentAndMantissa(double val, int precision, double one_k,
+                           std::string* mantissa, int64_t* exponent) {
   std::stringstream mantissa_stream;
 
   if (val < 0) {
@@ -43,8 +43,8 @@ void ToExponentAndMantissa(double val, double thresh, int precision,
   // Adjust threshold so that it never excludes things which can't be rendered
   // in 'precision' digits.
   const double adjusted_threshold =
-      std::max(thresh, 1.0 / std::pow(10.0, precision));
-  const double big_threshold = adjusted_threshold * one_k;
+      std::max(1.0, 1.0 / std::pow(10.0, precision));
+  const double big_threshold = (adjusted_threshold * one_k) - 1;
   const double small_threshold = adjusted_threshold;
   // Values in ]simple_threshold,small_threshold[ will be printed as-is
   const double simple_threshold = 0.01;
@@ -56,7 +56,7 @@ void ToExponentAndMantissa(double val, double thresh, int precision,
       scaled /= one_k;
       if (scaled <= big_threshold) {
         mantissa_stream << scaled;
-        *exponent = i + 1;
+        *exponent = static_cast<int64_t>(i + 1);
         *mantissa = mantissa_stream.str();
         return;
       }
@@ -87,42 +87,29 @@ void ToExponentAndMantissa(double val, double thresh, int precision,
 }
 
 std::string ExponentToPrefix(int64_t exponent, bool iec) {
-  if (exponent == 0) return "";
+  if (exponent == 0) {
+    return {};
+  }
 
   const int64_t index = (exponent > 0 ? exponent - 1 : -exponent - 1);
-  if (index >= kUnitsSize) return "";
-
-  const char* array =
-      (exponent > 0 ? (iec ? kBigIECUnits : kBigSIUnits) : kSmallSIUnits);
-  if (iec) {
-    return array[index] + std::string("i");
+  if (index >= kUnitsSize) {
+    return {};
   }
-  return std::string(1, array[index]);
+
+  const char* const* array =
+      (exponent > 0 ? (iec ? kBigIECUnits : kBigSIUnits) : kSmallSIUnits);
+
+  return std::string(array[index]);
 }
 
-std::string ToBinaryStringFullySpecified(double value, double threshold,
-                                         int precision, double one_k = 1024.0) {
+std::string ToBinaryStringFullySpecified(double value, int precision,
+                                         Counter::OneK one_k) {
   std::string mantissa;
-  int64_t exponent;
-  ToExponentAndMantissa(value, threshold, precision, one_k, &mantissa,
+  int64_t exponent = 0;
+  ToExponentAndMantissa(value, precision,
+                        one_k == Counter::kIs1024 ? 1024.0 : 1000.0, &mantissa,
                         &exponent);
-  return mantissa + ExponentToPrefix(exponent, false);
-}
-
-}  // end namespace
-
-void AppendHumanReadable(int n, std::string* str) {
-  std::stringstream ss;
-  // Round down to the nearest SI prefix.
-  ss << ToBinaryStringFullySpecified(n, 1.0, 0);
-  *str += ss.str();
-}
-
-std::string HumanReadableNumber(double n, double one_k) {
-  // 1.1 means that figures up to 1.1k should be shown with the next unit down;
-  // this softens edge effects.
-  // 1 means that we should show one decimal place of precision.
-  return ToBinaryStringFullySpecified(n, 1.1, 1, one_k);
+  return mantissa + ExponentToPrefix(exponent, one_k == Counter::kIs1024);
 }
 
 std::string StrFormatImp(const char* msg, va_list args) {
@@ -132,7 +119,7 @@ std::string StrFormatImp(const char* msg, va_list args) {
 
   // TODO(ericwf): use std::array for first attempt to avoid one memory
   // allocation guess what the size might be
-  std::array<char, 256> local_buff;
+  std::array<char, 256> local_buff = {};
 
   // 2015-10-08: vsnprintf is used instead of snd::vsnprintf due to a limitation
   // in the android-ndk
@@ -141,9 +128,12 @@ std::string StrFormatImp(const char* msg, va_list args) {
   va_end(args_cp);
 
   // handle empty expansion
-  if (ret == 0) return std::string{};
-  if (static_cast<std::size_t>(ret) < local_buff.size())
+  if (ret == 0) {
+    return {};
+  }
+  if (static_cast<std::size_t>(ret) < local_buff.size()) {
     return std::string(local_buff.data());
+  }
 
   // we did not provide a long enough buffer on our first attempt.
   // add 1 to size to account for null-byte in size cast to prevent overflow
@@ -155,6 +145,12 @@ std::string StrFormatImp(const char* msg, va_list args) {
   return std::string(buff_ptr.get());
 }
 
+}  // end namespace
+
+std::string HumanReadableNumber(double n, Counter::OneK one_k) {
+  return ToBinaryStringFullySpecified(n, 1, one_k);
+}
+
 std::string StrFormat(const char* format, ...) {
   va_list args;
   va_start(args, format);
@@ -164,7 +160,9 @@ std::string StrFormat(const char* format, ...) {
 }
 
 std::vector<std::string> StrSplit(const std::string& str, char delim) {
-  if (str.empty()) return {};
+  if (str.empty()) {
+    return {};
+  }
   std::vector<std::string> ret;
   size_t first = 0;
   size_t next = str.find(delim);
