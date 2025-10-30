@@ -97,18 +97,7 @@ option(BENCHMARK_ENABLE_ASSEMBLY_TESTS "Enable building and running the assembly
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-
-# Read the git tags to determine the project version
-include(GetGitVersion)
-get_git_version(GIT_VERSION)
-
-# If no git version can be determined, use the version
-# from the project() command
-if ("${GIT_VERSION}" STREQUAL "v0.0.0")
-  set(VERSION "v${benchmark_VERSION}")
-else()
-  set(VERSION "${GIT_VERSION}")
-endif()
+set(VERSION "v${benchmark_VERSION}")
 
 # Normalize version: drop "v" prefix, replace first "-" with ".",
 # drop everything after second "-" (including said "-").
