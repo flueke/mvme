@@ -463,7 +463,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog->resize(700, 500);
+        dialog->resize(800, 600);
         dialog->setWindowModality(Qt::WindowModal);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog.release()->exec();
@@ -596,7 +596,7 @@ MVLCTriggerIOEditor::MVLCTriggerIOEditor(
 
         connect(dialog.get(), &QDialog::accepted, this, do_apply);
 
-        dialog->resize(800, 500);
+        dialog->resize(800, 600);
         dialog->setWindowModality(Qt::WindowModal);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog.release()->exec();

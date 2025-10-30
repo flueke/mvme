@@ -221,7 +221,7 @@ latex_documents = [
 #latex_logo = 'images/mesytec-logo-yellow.png'
 
 latex_additional_files = [
-        'images/mesytec-logo-yellow.png'
+        'mesytec-logo-yellow.png'
         ]
 
 # -- Options for rst2pdf output -------------------------------------------

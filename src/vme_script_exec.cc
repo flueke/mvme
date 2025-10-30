@@ -362,6 +362,11 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
             {
                 state.accu = cmd.value;
             } break;
+
+            case CommandType::Accu_Add:
+            {
+                state.accu += cmd.value;
+            } break;
         case CommandType::Accu_MaskAndRotate:
             {
                 state.accu &= cmd.accuMask;
@@ -420,6 +425,19 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
 
             } break;
 
+        case CommandType::Accu_Write:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        result.error = controller->write16(cmd.address, state.accu, cmd.addressMode);
+                        break;
+                    case DataWidth::D32:
+                        result.error = controller->write32(cmd.address, state.accu, cmd.addressMode);
+                        break;
+                }
+            } break;
+
         case CommandType::MvmeRequireVersion:
             {
                 auto requiredVersion = cmd.stringData.toStdString();
@@ -432,7 +450,7 @@ Result run_command(VMEController *controller, const Command &cmd, RunState &stat
                         .arg(currentVersion.c_str())
                         .arg(requiredVersion.c_str()));
                 }
-            }
+            } break;
     }
 
     result.state = state;
@@ -570,6 +588,20 @@ QString format_result(const Result &result)
 
         case CommandType::Accu_MaskAndRotate:
             ret += QSL(" -> accu=0x%1 (%2 dec)")
+                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                .arg(result.state.accu)
+                ;
+            break;
+
+        case CommandType::Accu_Add:
+            ret += QSL(" -> accu=0x%1 (%2 dec)")
+                .arg(result.state.accu, 8, 16, QLatin1Char('0'))
+                .arg(result.state.accu)
+                ;
+            break;
+
+        case CommandType::Accu_Write:
+            ret += QSL(" -> 0x%1 (%2 dec), write ok")
                 .arg(result.state.accu, 8, 16, QLatin1Char('0'))
                 .arg(result.state.accu)
                 ;

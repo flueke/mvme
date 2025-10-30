@@ -4,8 +4,21 @@
 Changelog
 ##################################################
 
-Version 1.16.4
+Version 1.17.0
 --------------------------------------------------
+
+* config:
+
+  - Remove special handling for MVLC periodic triggers realized via the trigger
+    io subsystem from the UI.
+
+    These triggers have been superseded by the new StackTimers added in MVLC
+    FW0037. If higher frequency timers are needed they can still be implemented
+    via the trigger io system. This change only removes them as a first class
+    trigger condition from the UI.
+
+    Existing event configs will now show 'MVLC Trigger I/O' as their condition
+    instead of 'Periodic (via MVLC Trigger I/O)'.
 
 * analysis:
 

@@ -4,11 +4,13 @@
 #include <string>
 #include <vector>
 
+#include "libmvme_export.h"
+
 namespace mesytec::mvme::util
 {
 
-std::vector<unsigned> parse_version(const std::string &s);
-bool version_less_than(const std::string &a, const std::string &b);
+LIBMVME_EXPORT std::vector<unsigned> parse_version(const std::string &s);
+LIBMVME_EXPORT bool version_less_than(const std::string &a, const std::string &b);
 
 }
 

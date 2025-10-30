@@ -2179,9 +2179,6 @@ void MVMEMainWindow::runAddVMEEventDialog()
         }
 
         vmeConfig->addEventConfig(eventConfig.release());
-
-        if (is_mvlc_controller(vmeConfig->getControllerType()))
-            mesytec::mvme_mvlc::update_trigger_io_inplace(*vmeConfig);
     }
 }
 

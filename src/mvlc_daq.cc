@@ -319,9 +319,6 @@ std::pair<std::vector<u32>, std::error_code> get_trigger_values(const VMEConfig 
     return std::make_pair(triggerValues, std::error_code{});
 }
 
-// FIXME: create code to upate the vmeconfig and separate code to run the
-// script, assuming it is updated already. The update of the vmeconfig should
-// run in the UI, there is no need to update it in the readout worker.
 std::error_code setup_trigger_io(
     MVLC_VMEController *mvlc, VMEConfig &vmeConfig, Logger logger)
 {
@@ -333,34 +330,8 @@ std::error_code setup_trigger_io(
     if (!scriptConfig)
         return make_error_code(mvlc::MVLCErrorCode::ReadoutSetupError);
 
-    mesytec::mvme_mvlc::trigger_io::TriggerIO ioCfg;
-
-    try
-    {
-        ioCfg = update_trigger_io(vmeConfig);
-    }
-    catch(const std::system_error& e)
-    {
-        logger(QSL("Error in setup_trigger_io: %1").arg(e.what()));
-        return e.code();
-    }
-    catch (const std::exception &e)
-    {
-        logger(QSL("Error in setup_trigger_io: %1").arg(e.what()));
-        return mvlc::MVLCErrorCode::ReadoutSetupError;
-    }
-
-    auto ioCfgText = trigger_io::generate_trigger_io_script_text(ioCfg);
-
-    // Update the trigger io script stored in the VMEConfig in case we modified
-    // it.
-    if (ioCfgText != scriptConfig->getScriptContents())
-    {
-        scriptConfig->setScriptContents(ioCfgText);
-    }
-
     // Parse the trigger io script and run the commands contained within.
-    auto commands = vme_script::parse(ioCfgText);
+    auto commands = vme_script::parse(scriptConfig->getScriptContents());
     auto results = vme_script::run_script(mvlc, commands, logger,
         vme_script::run_script_options::AbortOnError);
 
@@ -406,84 +377,6 @@ inline std::error_code write_vme_reg(MVLCObject &mvlc, u16 reg, u16 value)
 {
     return mvlc.vmeWrite(mvlc::SelfVMEAddress + reg, value,
                          vme_address_modes::a32UserData, mvlc::VMEDataWidth::D16);
-}
-
-mesytec::mvme_mvlc::trigger_io::TriggerIO
-    update_trigger_io(const VMEConfig &vmeConfig)
-{
-    auto scriptConfig = qobject_cast<VMEScriptConfig *>(
-        vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
-
-    assert(scriptConfig);
-
-    if (!scriptConfig) return {}; // should not happen
-
-    auto ioCfg = trigger_io::parse_trigger_io_script_text(
-        scriptConfig->getScriptContents());
-
-    u8 stackId = mvlc::stacks::FirstReadoutStackID;
-    u16 timersInUse = 0u;
-
-    for (const auto &event: vmeConfig.getEventConfigs())
-    {
-        if (event->triggerCondition == TriggerCondition::Periodic)
-        {
-            if (timersInUse >= mvlc::stacks::StackTimersCount)
-            {
-                throw std::system_error(make_error_code(mvlc::MVLCErrorCode::TimerCountExceeded));
-            }
-
-            // Setup the l0 timer unit
-            auto &timer = ioCfg.l0.timers[timersInUse];
-            timer.period = event->triggerOptions["mvlc.timer_period"].toUInt();
-
-            timer.range = mvme_mvlc::trigger_io::timer_range_from_string(
-                    event->triggerOptions["mvlc.timer_base"].toString().toStdString());
-
-            timer.softActivate = true;
-
-            ioCfg.l0.unitNames[timersInUse] = QString("t_%1").arg(event->objectName());
-
-            // Setup the l3 StackStart unit
-            auto &ss = ioCfg.l3.stackStart[timersInUse];
-
-            ss.activate = true;
-            ss.stackIndex = stackId;
-
-            ioCfg.l3.unitNames[timersInUse] = QString("ss_%1").arg(event->objectName());
-
-            // Connect StackStart to the Timer
-            auto choices = ioCfg.l3.DynamicInputChoiceLists[timersInUse][0];
-            auto it = std::find(
-                choices.begin(), choices.end(),
-                trigger_io::UnitAddress{0, timersInUse});
-
-            ioCfg.l3.connections[timersInUse][0] = it - choices.begin();
-
-            ++timersInUse;
-        }
-
-        ++stackId;
-    }
-
-    return ioCfg;
-}
-
-void update_trigger_io_inplace(const VMEConfig &vmeConfig)
-{
-    auto scriptConfig = qobject_cast<VMEScriptConfig *>(
-        vmeConfig.getGlobalObjectRoot().findChildByName("mvlc_trigger_io"));
-
-    if (!scriptConfig) return; // TODO: error_code
-
-    auto ioCfg = mesytec::mvme_mvlc::update_trigger_io(vmeConfig);
-    auto ioCfgText = mesytec::mvme_mvlc::trigger_io::generate_trigger_io_script_text(ioCfg);
-
-    // Update the trigger io script stored in the VMEConfig in case it changed.
-    if (ioCfgText != scriptConfig->getScriptContents())
-    {
-        scriptConfig->setScriptContents(ioCfgText);
-    }
 }
 
 mvlc::StackCommandBuilder make_module_init_stack(const VMEConfig &config)

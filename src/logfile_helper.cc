@@ -1,12 +1,11 @@
 #include "logfile_helper.h"
 #include <cassert>
+#include <QCoreApplication>
 #include <QDebug>
 
 #include "util/qt_str.h"
 
-namespace mesytec
-{
-namespace mvme
+namespace mesytec::mvme
 {
 
 struct LogfileCountLimiter::Private
@@ -155,33 +154,50 @@ LastlogHelper::LastlogHelper(QDir logDir, const QString &logfileName,
     if (logDir.exists(logfileName) && logDir.exists(lastLogfileName))
     {
         if (!logDir.remove(lastLogfileName))
-            throw std::runtime_error(
-                ("LastlogHelper: unable to remove old logfile "
-                 + logDir.absoluteFilePath(lastLogfileName)).toStdString());
+            qWarning("LastlogHelper: unable to remove old logfile %s",
+                     logDir.absoluteFilePath(lastLogfileName).toLatin1().constData());
     }
-
-    assert(!logDir.exists(lastLogfileName));
 
     if (logDir.exists(logfileName))
     {
         if (!logDir.rename(logfileName, lastLogfileName))
-            throw std::runtime_error(QSL(
-                    "LastlogHelper: unable to rename last logfile from (%1 to %2)")
-                .arg(logDir.absoluteFilePath(logfileName))
-                .arg(logDir.absoluteFilePath(lastLogfileName)).toStdString());
+            qWarning("LastlogHelper: unable to rename last logfile from (%s to %s)",
+                     logDir.absoluteFilePath(logfileName).toLatin1().constData(),
+                     logDir.absoluteFilePath(lastLogfileName).toLatin1().constData());
     }
-
-    assert(!logDir.exists(logfileName));
 
     d->currentFile.setFileName(logDir.absoluteFilePath(logfileName));
 
     if (!d->currentFile.open(QIODevice::WriteOnly | QIODevice::Text))
-        throw std::runtime_error(QSL(
-                "LastlogHelper: unable to open log file %1 for writing: %2")
-            .arg(d->currentFile.fileName())
-            .arg(d->currentFile.errorString()).toStdString());
+    {
+        qWarning("LastlogHelper: unable to open log file %s for writing: %s",
+                 d->currentFile.fileName().toLatin1().constData(),
+                 d->currentFile.errorString().toLatin1().constData());
 
-    assert(d->currentFile.isOpen());
+        // Attempt to open a different file (name is based on process id) to log into.
+        // If this also fails it's not the end of the world: logging is buffered inside mvme
+        // and this buffer is stored in listfile archives (messages.log).
+        auto base = QFileInfo(logfileName).baseName();
+        auto ext  = QFileInfo(logfileName).completeSuffix();
+        auto altLogFilename = QSL("%1-pid%2.%3").arg(base).arg(QCoreApplication::applicationPid()).arg(ext);
+
+        d->currentFile.setFileName(logDir.absoluteFilePath(altLogFilename));
+
+        if (!d->currentFile.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            qWarning("LastlogHelper: unable to open log file %s for writing: %s, giving up...",
+                    d->currentFile.fileName().toLatin1().constData(),
+                    d->currentFile.errorString().toLatin1().constData());
+        }
+        else
+        {
+            qWarning("LastlogHelper: logging to %s", d->currentFile.fileName().toLatin1().constData());
+        }
+    }
+    else
+    {
+        qWarning("LastlogHelper: logging to %s", d->currentFile.fileName().toLatin1().constData());
+    }
 }
 
 LastlogHelper::~LastlogHelper()
@@ -202,5 +218,9 @@ bool LastlogHelper::flush()
     return false;
 }
 
-} // end namespace mvme
-} // end namespace mesytec
+bool LastlogHelper::hasOpenFile() const
+{
+    return d->currentFile.isOpen();
+}
+
+}

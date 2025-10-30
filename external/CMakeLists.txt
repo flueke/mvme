@@ -37,7 +37,7 @@ INSTALL(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pybind11 DESTINATION include)
 # googletest
 if (MVME_BUILD_TESTS)
     if (NOT TARGET gtest)
-        add_subdirectory(googletest)
+        add_subdirectory(mesytec-mvlc/external/googletest)
     endif()
 endif()
 

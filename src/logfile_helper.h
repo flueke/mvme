@@ -8,9 +8,7 @@
 
 #include "libmvme_export.h"
 
-namespace mesytec
-{
-namespace mvme
+namespace mesytec::mvme
 {
 
 // The LogfileCountLimiter class is used to keep a limited number of logfiles
@@ -74,6 +72,10 @@ class LIBMVME_EXPORT LastlogHelper: public QObject
             QObject *parent = nullptr);
         ~LastlogHelper() override;
 
+        // Use this to check if a logfile could be opened fro writing in the
+        // constructor.
+        bool hasOpenFile() const;
+
     public slots:
         // Writes the result of msg.toUtf8() to the logfile.
         // Returns false if no logfile is open or a write error occured.
@@ -87,7 +89,6 @@ class LIBMVME_EXPORT LastlogHelper: public QObject
         std::unique_ptr<Private> d;
 };
 
-} // end namespace mvme
-} // end namespace mesytec
+}
 
 #endif /* __MVME_LOGFILE_HELPER_H__ */

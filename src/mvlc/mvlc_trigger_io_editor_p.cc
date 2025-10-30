@@ -2353,6 +2353,7 @@ NIM_IO_Table_UI make_nim_io_settings_table(
             item->column() == NIM_IO_Table_UI::ColHoldoff)
         {
             auto intVal = item->data(Qt::EditRole).toInt();
+            (void) intVal; // TODO: this was intended to be used for input verification, limits checks, spinbox adjustments, etc
         }
 
     });
@@ -2564,6 +2565,35 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
             });
     }
 
+    auto on_table_item_changed = [&] (QTableWidgetItem *item)
+    {
+        if (item->column() == ui.ColWidth)
+        {
+            auto intVal = item->data(Qt::EditRole).toInt();
+            auto delayItem = ui.table->item(item->row(), ui.ColDelay);
+            auto holdoffItem = ui.table->item(item->row(), ui.ColHoldoff);
+
+            if (intVal == 0)
+            {
+                delayItem->setFlags(delayItem->flags() & ~Qt::ItemIsEnabled);
+                holdoffItem->setFlags(holdoffItem->flags() & ~Qt::ItemIsEnabled);
+            }
+            else
+            {
+                delayItem->setFlags(delayItem->flags() | Qt::ItemIsEnabled);
+                holdoffItem->setFlags(holdoffItem->flags() | Qt::ItemIsEnabled);
+            }
+        }
+    };
+
+    connect(ui.table, &QTableWidget::itemChanged, ui.table, on_table_item_changed);
+
+    // force an initial update
+    for (int row = 0; row < ui.table->rowCount(); row++)
+    {
+        on_table_item_changed(ui.table->item(row, ui.ColWidth));
+    }
+
     auto bb = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel |
         QDialogButtonBox::Apply | QDialogButtonBox::Help,
@@ -2576,8 +2606,32 @@ NIM_IO_SettingsDialog::NIM_IO_SettingsDialog(
     connect(bb, &QDialogButtonBox::clicked,
             this, mvme::make_help_keyword_handler(bb, QSL("mvlc_trigger_io_NIM")));
 
+    auto explanation = new QLabel(QSL(
+        "<table>"
+        "  <th colspan=\"2\" align=\"left\">Gate Generator Settings:</th>"
+        "  <tr>"
+        "    <th align=\"left\">Delay</th>"
+        "    <td>Delays the signal by the specified duration.</td>"
+        "  </tr>"
+        "  <tr>"
+        "    <th align=\"left\">Width</th>"
+        "    <td>Minimum width is 8ns. If width is set to 0 the gate generator is disabled."
+        "        In this case delay and holdoff do not apply."
+        "    </td>"
+        "  </tr>"
+        "  <tr>"
+        "    <th align=\"left\">Holdoff</th>"
+        "    <td>Inhibits input pulse processing until the holdoff time expires.</td>"
+        "  </tr>"
+        "</table>"
+    ));
+
+
+    explanation->setWordWrap(true);
+
     auto widgetLayout = make_vbox(this);
     widgetLayout->addWidget(ui.table, 1);
+    widgetLayout->addWidget(explanation);
     widgetLayout->addWidget(bb);
 }
 
@@ -2871,8 +2925,6 @@ QGroupBox *make_groupbox(QWidget *mainWidget, const QString &title = {},
     return ret;
 }
 
-static const QBrush ReservedItemBrush(QColor(Qt::lightGray), Qt::BDiagPattern);
-
 //
 // Level0UtilsDialog
 //
@@ -2939,31 +2991,13 @@ Level0UtilsDialog::Level0UtilsDialog(
                         ret.table->item(row, ret.ColDelay)->setText("0");
                         cb_softActivate->setChecked(false);
                     });
-
-
-            // Hack to mark some of the units as potentially reserved by giving
-            // them a special background. Does not work for cell widgets.
-            if (row < ReservedTimerUnits)
-            {
-                for (int col=0; col<ret.table->columnCount(); ++col)
-                {
-                    if (auto item = ret.table->item(row, col))
-                        item->setBackground(ReservedItemBrush);
-                }
-            }
         }
 
         ret.table->resizeColumnsToContents();
         ret.table->resizeRowsToContents();
 
-        auto noticeLabel = new QLabel(QSL(
-                "<b>Note</b>: Timer0+1 are used by the GUI to implement periodic events."
-                ));
-        noticeLabel->setWordWrap(true);
-
         ret.parentWidget = new QWidget;
         auto parentLayout = make_vbox<0, 4>(ret.parentWidget);
-        parentLayout->addWidget(noticeLabel);
         parentLayout->addWidget(ret.table);
 
         return ret;
@@ -3322,18 +3356,6 @@ Level3UtilsDialog::Level3UtilsDialog(
                     QString::number(l3.stackStart[row].delay_ns)));
 
             table->setCellWidget(row, ret.ColActivate, make_centered(check_activate));
-
-
-            // Hack to mark some of the units as potentially reserved by giving
-            // them a special background. Does not work for cell widgets.
-            if (row < ReservedStackStartUnits)
-            {
-                for (int col=0; col<ret.table->columnCount(); ++col)
-                {
-                    if (auto item = ret.table->item(row, col))
-                        item->setBackground(ReservedItemBrush);
-                }
-            }
         }
 
         table->resizeColumnsToContents();
@@ -4069,7 +4091,7 @@ LUTEditor::LUTEditor(
             m_strobeCheckboxes.push_back(cb_useStrobe);
 
             auto useStrobeLayout = make_hbox();
-            useStrobeLayout->addWidget(new QLabel("Strobe Output:"));
+            useStrobeLayout->addWidget(new QLabel("Use Strobe:"));
             useStrobeLayout->addWidget(cb_useStrobe);
             useStrobeLayout->addStretch(1);
 
@@ -4090,6 +4112,8 @@ LUTEditor::LUTEditor(
 
         auto table = new QTableWidget(1, columnTitles.size());
         table->setHorizontalHeaderLabels(columnTitles);
+        table->setItemDelegateForColumn(ui.ColDelay, new NanoSecondsItemDelegate(table));
+        table->setItemDelegateForColumn(ui.ColHoldoff, new NanoSecondsItemDelegate(table));
         table->verticalHeader()->hide();
 
         auto combo_connection = new QComboBox;
@@ -4110,8 +4134,12 @@ LUTEditor::LUTEditor(
 
         auto gb_strobe = new QGroupBox("Strobe Gate Generator Settings");
         auto l_strobe = make_hbox<0, 0>(gb_strobe);
+        auto label_expl = new QLabel(
+            "<b>Strobe</b>: Rising edge of strobe samples LUT logic and outputs a pulse if true.<br/>"
+            "<b>Holdoff</b>: Inhibits input pulse processing until the holdoff time expires.");
+        label_expl->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         l_strobe->addWidget(table, 1);
-        l_strobe->addStretch(1);
+        l_strobe->addWidget(label_expl, 1);
 
         scrollLayout->addWidget(gb_strobe, 2);
     }

@@ -92,7 +92,7 @@ namespace mesytec::mvme::multi_event_splitter
  *   +-----------+
  */
 
-struct Callbacks
+struct LIBMVME_EXPORT Callbacks
 {
     // Required event data callback.
     mvlc::readout_parser::ReadoutParserCallbacks::EventData eventData;
@@ -102,7 +102,7 @@ struct Callbacks
     //    [](void *, const std::string &) {};
 };
 
-struct Counters
+struct LIBMVME_EXPORT Counters
 {
     std::vector<size_t> inputEvents;  // number of input events by zero based event index
     std::vector<size_t> outputEvents; // numer of output events by zero based event index
@@ -123,7 +123,7 @@ struct Counters
     std::vector<std::vector<size_t>> moduleEventSizeExceedsBuffer;
 };
 
-struct ProcessingFlags
+struct LIBMVME_EXPORT ProcessingFlags
 {
     static const u32 Ok = 0;
 
@@ -138,7 +138,7 @@ struct ProcessingFlags
 
 using ModuleData = mvlc::readout_parser::ModuleData;
 
-struct ModuleDataWithDebugInfo
+struct LIBMVME_EXPORT ModuleDataWithDebugInfo
 {
     ModuleData md;
     u32 flags = 0; // ProcessingFlags resulting from this split.
@@ -146,7 +146,7 @@ struct ModuleDataWithDebugInfo
 
 using FiltersVector = std::vector<mvlc::util::FilterWithCaches>;
 
-struct State
+struct LIBMVME_EXPORT State
 {
     // DataFilters used for module header matching and size extraction grouped
     // by event and module indexes. For each module a list of filters is stored.
@@ -186,7 +186,7 @@ struct State
 // of the first event doesn't have the 'S' match character so repeated
 // matching will be performed to find the next header. For the other modules
 // the event size can be directly extracted using the filter.
-std::pair<State, std::error_code>
+std::pair<State, std::error_code> LIBMVME_EXPORT
 make_splitter(const std::vector<std::vector<std::vector<std::string>>> &splitFilterStrings,
               int outputCrateIndex = 0);
 
@@ -215,10 +215,10 @@ std::error_code LIBMVME_EXPORT event_data(State &state, Callbacks &callbacks, vo
 u32 LIBMVME_EXPORT split_module_data(const std::vector<mvlc::util::FilterWithCaches> &filtersList,
                       const ModuleData &input, std::vector<ModuleDataWithDebugInfo> &output);
 
-std::error_code LIBMVME_EXPORT make_error_code(ErrorCode error);
+LIBMVME_EXPORT std::error_code make_error_code(ErrorCode error);
 
-std::ostream &format_counters(std::ostream &out, const Counters &counters);
-std::ostream &format_counters_tabular(std::ostream &out, const Counters &counters);
+LIBMVME_EXPORT std::ostream & format_counters(std::ostream &out, const Counters &counters);
+LIBMVME_EXPORT std::ostream & format_counters_tabular(std::ostream &out, const Counters &counters);
 
 } // end namespace mesytec::mvme::multi_event_splitter
 

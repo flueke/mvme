@@ -56,6 +56,8 @@ mvlc::StackCommandBuilder
             case CommandType::Accu_Set:
             case CommandType::Accu_MaskAndRotate:
             case CommandType::Accu_Test:
+            case CommandType::Accu_Add:
+            case CommandType::Accu_Write:
             case CommandType::MvmeRequireVersion:
                 break;
 

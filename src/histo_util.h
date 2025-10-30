@@ -21,8 +21,6 @@
 #ifndef __HISTO_UTIL_H__
 #define __HISTO_UTIL_H__
 
-#include "typedefs.h"
-
 #include <cmath>
 #include <memory>
 #include <mesytec-mvlc/cpp_compat.h>
@@ -30,6 +28,9 @@
 #include <qwt_scale_engine.h>
 #include <qwt_scale_map.h>
 #include <qwt_text.h>
+
+#include "libmvme_export.h"
+#include "typedefs.h"
 
 class QComboBox;
 class QDoubleSpinBox;
@@ -355,6 +356,7 @@ Histo1DPtr make_x_projection(Histo2D *histo, double startX, double endX, double 
                              double endY);
 
 Histo1DPtr make_y_projection(Histo2D *histo);
+
 Histo1DPtr make_y_projection(Histo2D *histo, double startX, double endX, double startY,
                              double endY);
 
@@ -367,6 +369,5 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis, double star
 
 Histo1DList slice(Histo2D *histo, Qt::Axis axis, double startX, double endX, double startY,
                   double endY, ResolutionReductionFactors rrfs = {});
-
 
 #endif /* __HISTO_UTIL_H__ */

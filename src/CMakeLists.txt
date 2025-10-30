@@ -660,9 +660,10 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_multi_crate_nng multi_crate_nng.test.cc)
     add_mvme_gtest(test_mdpp_sampling mdpp-sampling/mdpp_sampling.test.cc)
     add_mvme_gtest(test_waveform_plotting mdpp-sampling/waveform_plotting.test.cc)
-    add_mvme_gtest(test_waveform_interpolation mdpp-sampling/waveform_interpolation.test.cc)
+    #add_mvme_gtest(test_waveform_interpolation mdpp-sampling/waveform_interpolation.test.cc) # Disabled, does not do anything
     add_mvme_gtest(test_mdpp_decode mdpp-sampling/mdpp_decode.test.cc)
     add_mvme_gtest(test_template_system template_system.test.cc)
+    set_tests_properties(test_template_system PROPERTIES LABELS "not_in_docker")
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 endif(MVME_BUILD_TESTS)
