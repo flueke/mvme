@@ -461,7 +461,7 @@ int main(int argc, char *argv[])
         pbStop->setEnabled(!pbStart->isEnabled());
     };
 
-    auto log_counters = [&]
+    [[maybe_unused]] auto log_counters = [&]
     {
         for (const auto &[crateId, steps]: cratePipelineSteps)
         {
