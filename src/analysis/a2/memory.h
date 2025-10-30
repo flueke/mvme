@@ -302,7 +302,7 @@ class Arena
         void addSegment(size_t size)
         {
             Segment segment = {};
-            segment.mem     = std::unique_ptr<u8[]>{ new u8[size] };
+            segment.mem     = std::unique_ptr<u8[]>{ new u8[size]() }; // note: the parens zero-initialize the memory
             segment.cur     = segment.mem.get();
             segment.size    = size;
 
