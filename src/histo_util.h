@@ -21,14 +21,15 @@
 #ifndef __HISTO_UTIL_H__
 #define __HISTO_UTIL_H__
 
-#include "typedefs.h"
-
 #include <cmath>
 #include <memory>
 #include <qwt_scale_draw.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_map.h>
 #include <qwt_text.h>
+
+#include "typedefs.h"
+#include "libmvme_export.h"
 
 class QComboBox;
 class QDoubleSpinBox;
@@ -390,7 +391,7 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
     double startX, double endX, double startY, double endY,
     ResolutionReductionFactors rrfs = {});
 
-Histo1DPtr add(const Histo1D &a, const Histo1D &b);
-Histo1DPtr add(const Histo1DList &histos);
+LIBMVME_EXPORT Histo1DPtr add(const Histo1D &a, const Histo1D &b);
+LIBMVME_EXPORT Histo1DPtr add(const Histo1DList &histos);
 
 #endif /* __HISTO_UTIL_H__ */
