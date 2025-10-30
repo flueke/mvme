@@ -5,9 +5,7 @@
 
 #include "util/qt_str.h"
 
-namespace mesytec
-{
-namespace mvme
+namespace mesytec::mvme
 {
 
 struct LogfileCountLimiter::Private
@@ -220,5 +218,9 @@ bool LastlogHelper::flush()
     return false;
 }
 
-} // end namespace mvme
-} // end namespace mesytec
+bool LastlogHelper::hasOpenFile() const
+{
+    return d->currentFile.isOpen();
+}
+
+}
