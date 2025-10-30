@@ -8,7 +8,7 @@ namespace a2
 
 inline s64 convert_to_signed(u64 value, unsigned numDataBits)
 {
-    const u64 signMask = 1lu << (numDataBits - 1); // isolate the sign bit
+    const u64 signMask = 1llu << (numDataBits - 1); // isolate the sign bit
 
     s64 result = 0;
 
