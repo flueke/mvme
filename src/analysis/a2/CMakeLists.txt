@@ -135,7 +135,7 @@ if (A2_BUILD_STATIC)
     set(A2_TEST_LIBRARY liba2_static)
 endif (A2_BUILD_STATIC)
 
-if(MVME_BUILD_TESTS)
+if(MVME_BUILD_BENCHMARKS)
     function(add_a2_bench exe_name exe_sources)
         add_executable(${exe_name} ${exe_sources})
         add_dependencies(${exe_name} ${A2_TEST_LIBRARY})
@@ -160,7 +160,9 @@ if(MVME_BUILD_TESTS)
     add_a2_bench(bench_a2 bench_a2.cc)
     add_a2_bench(bench_a2_listfilter bench_listfilter.cc)
     add_a2_bench(bench_poly_within bench_poly_within.cc)
+endif()
 
+if (MVME_BUILD_TESTS)
     add_executable(test_a2_exprtk test_a2_exprtk.cc)
     target_link_libraries(test_a2_exprtk
         PRIVATE gtest gtest_main liba2_static)
@@ -186,7 +188,6 @@ if(MVME_BUILD_TESTS)
     add_a2_gtest(test_a2_filter_datasources test_a2_filter_datasources.cc)
     add_a2_gtest(test_a2 test_a2.cc)
     add_a2_gtest(test_a2_arena test_arena.cc)
-
 endif(MVME_BUILD_TESTS)
 
 file(COPY env DESTINATION ${CMAKE_BINARY_DIR})
