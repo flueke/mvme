@@ -6,6 +6,7 @@
 #include "analysis.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "histo_ops_widget.h"
 #include "multiplot_widget.h"
 #include "rate_monitor_widget.h"
 
@@ -183,6 +184,16 @@ QWidget *open_new_gridview_widget(
     auto widget = std::make_unique<MultiPlotWidget>(asp);
     widget->loadView(gridView);
     asp->getWidgetRegistry()->addObjectWidget(widget.get(), gridView.get(), gridView->getId().toString());
+    return widget.release();
+}
+
+QWidget *open_new_histogram_operations_widget(
+    AnalysisServiceProvider *asp,
+    const std::shared_ptr<analysis::HistogramOperation> &op)
+{
+    auto widget = std::make_unique<HistogramOperationsWidget>(asp);
+    widget->setHistoOp(op);
+    asp->getWidgetRegistry()->addObjectWidget(widget.get(), op.get(), op->getId().toString());
     return widget.release();
 }
 

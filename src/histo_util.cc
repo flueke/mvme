@@ -272,12 +272,29 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     {
         projBinning  = xBinning;
         otherBinning = histos[0]->getAxisBinning(Qt::XAxis);
+
+        for (const auto &histo: histos)
+        {
+            otherBinning.setBins(std::min(otherBinning.getBins(), histo->getAxisBinning(Qt::XAxis).getBins()));
+            otherBinning.setMin(std::min(otherBinning.getMin(), histo->getAxisBinning(Qt::XAxis).getMin()));
+            otherBinning.setMax(std::max(otherBinning.getMax(), histo->getAxisBinning(Qt::XAxis).getMax()));
+        }
     }
     else if (axis == Qt::YAxis)
     {
         projBinning  = histos[0]->getAxisBinning(Qt::XAxis);
         otherBinning = xBinning;
+
+        for (const auto &histo: histos)
+        {
+            projBinning.setBins(std::min(projBinning.getBins(), histo->getAxisBinning(Qt::XAxis).getBins()));
+            projBinning.setMin(std::min(projBinning.getMin(), histo->getAxisBinning(Qt::XAxis).getMin()));
+            projBinning.setMax(std::max(projBinning.getMax(), histo->getAxisBinning(Qt::XAxis).getMax()));
+        }
     }
+
+    qDebug() << "projBinning:" << projBinning.getMin() << projBinning.getMax()
+             << "otherBinning:" << otherBinning.getMin() << otherBinning.getMax();
 
     s64 projStartBin = projBinning.getBinBounded(projStart);
     s64 projEndBin   = projBinning.getBinBounded(projEnd);
@@ -294,10 +311,11 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     // adjust start and end to low edge of corresponding bin
     projStart = projBinning.getBinLowEdge(projStartBin);
     projEnd   = projBinning.getBinLowEdge(projEndBin + 1);
+    const auto projBinWidth = projBinning.getBinWidth();
 
     auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
 
-    // FIXME: TODO
+    // FIXME: TODO: set object names, set window title, etc
     //result->setAxisInfo(Qt::XAxis, histo->getAxisInfo(axis));
     //result->setObjectName(histo->objectName() + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y")) + QSL(" Projection"));
     //
@@ -313,13 +331,18 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
              binJ <= otherEndBin;
              ++binJ)
         {
+            // Note: Cannot sample directly from the source histogram bins as
+            // the scaling of that histogram may be different than the
+            // calculated projection binning.
             if (axis == Qt::XAxis)
             {
-                value += histos[binI]->getBinContent(binJ);
+                auto lowEdge = projBinning.getBinLowEdge(binJ);
+                value += histos[binI]->getCounts(lowEdge, lowEdge + projBinWidth);
             }
             else
             {
-                value += histos[binJ]->getBinContent(binI);
+                auto lowEdge = projBinning.getBinLowEdge(binI);
+                value += histos[binJ]->getCounts(lowEdge, lowEdge + projBinWidth);
             }
         }
 
@@ -394,59 +417,6 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
         }
 
         result.push_back(h1d);
-    }
-
-    return result;
-}
-
-Histo1DPtr add(const Histo1D &a, const Histo1D &b)
-{
-    size_t nBins = std::min(a.getNumberOfBins(), b.getNumberOfBins());
-    size_t xMin = std::min(a.getXMin(), b.getXMin());
-    size_t xMax = std::max(a.getXMax(), b.getXMax());
-
-    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
-
-    for (size_t destbin = 0; destbin < nBins; ++destbin)
-    {
-        double xLow = result->getBinLowEdge(destbin);
-        double xHigh = xLow + result->getBinWidth();
-
-        auto countsA = a.getCounts(xLow, xHigh);
-        auto countsB = b.getCounts(xLow, xHigh);
-
-        result->setBinContent(destbin,
-            countsA + countsB,
-            countsA + countsB);
-    }
-    return result;
-}
-
-Histo1DPtr add(const Histo1DList &histos)
-{
-    size_t nBins = 0;
-    double xMin = 0;
-    double xMax = 0;
-
-    for (const auto &histo: histos)
-    {
-        nBins = std::min(nBins, static_cast<size_t>(histo->getNumberOfBins()));
-        xMin = std::min(xMin, histo->getXMin());
-        xMax = std::max(xMax, histo->getXMax());
-    }
-
-    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
-
-    for (const auto &histo: histos)
-    {
-        for (size_t destbin = 0; destbin < nBins; ++destbin)
-        {
-            double xLow = result->getBinLowEdge(destbin);
-            double xHigh = xLow + result->getBinWidth();
-            auto counts = histo->getCounts(xLow, xHigh);
-            auto newCounts = result->getBinContent(destbin) + counts;
-            result->setBinContent(destbin, newCounts, newCounts);
-        }
     }
 
     return result;

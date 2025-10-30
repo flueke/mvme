@@ -110,14 +110,11 @@ static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &s
         }
     }
 
-    auto firstHisto   = sink->m_histos.at(firstHistoIndex);
-    auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
-
     result.intervals[Qt::XAxis] = {
         static_cast<double>(firstHistoIndex),
         static_cast<double>(lastHistoIndex + 1)
     };
-    result.intervals[Qt::YAxis] = { firstBinning.getMin(), firstBinning.getMax() };
+    result.intervals[Qt::YAxis] = { yInterval.minValue, yInterval.maxValue };
     result.intervals[Qt::ZAxis] = { 0.0, result.maxZ };
 
     return result;
@@ -239,7 +236,7 @@ struct Histo2DWidgetPrivate
     QString makeInfoText(const Histo2DStatistics &stats);
 };
 
-/* The private constructor doing most of the object creation and initialization. To be
+/* Constructor doing most of the object creation and initialization. To be
  * invoked by all other, more specific constructors. */
 Histo2DWidget::Histo2DWidget(QWidget *parent)
     : IPlotWidget(parent)
@@ -634,7 +631,6 @@ Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceP
     displayChanged();
 }
 
-
 Histo2DWidget::~Histo2DWidget()
 {
     if (m_d->m_xProjWidget)
@@ -720,6 +716,9 @@ void Histo2DWidget::replot()
      * - update projections
      */
 
+    if (!(m_d->m_histo || m_d->m_histo1DSink))
+        return;
+
     const auto rrf = m_d->m_rrf;
 
     //qDebug() << __PRETTY_FUNCTION__ << "rrf =" << rrf;
@@ -769,8 +768,8 @@ void Histo2DWidget::replot()
                 //    << ", max=" << visibleYInterval.maxValue();
             }
 
-            //qDebug() << __PRETTY_FUNCTION__ << "final visYInterval: min" << visibleYInterval.minValue()
-            //        << ", max=" << visibleYInterval.maxValue();
+            qDebug() << __PRETTY_FUNCTION__ << "final visYInterval: min" << visibleYInterval.minValue()
+                    << ", max=" << visibleYInterval.maxValue();
         }
 
         m_d->m_plot->setAxisScale(QwtPlot::xBottom,
@@ -1135,9 +1134,10 @@ void Histo2DWidget::zoomerZoomed(const QRectF &)
     replot();
 }
 
-// TODO: RR
 void Histo2DWidget::updateCursorInfoLabel()
 {
+    if (!m_d->m_labelCursorInfo->isVisible())
+        return;
     double plotX = m_d->m_cursorPosition.x();
     double plotY = m_d->m_cursorPosition.y();
     s64 binX = -1;
@@ -1154,13 +1154,16 @@ void Histo2DWidget::updateCursorInfoLabel()
     else if (m_d->m_histo1DSink && m_d->m_histo1DSink->getNumberOfHistos() > 0)
     {
         /* x goes from 0 to #histos.
-         * For y the x binning of the first histo is used. */
+           y goes from [xmin, xmax) of all histos.
+        */
 
         auto xBinning = AxisBinning(m_d->m_histo1DSink->getNumberOfHistos(),
                                     0.0, m_d->m_histo1DSink->getNumberOfHistos());
         binX = xBinning.getBin(plotX);
-        binY = m_d->m_histo1DSink->getHisto(0)->getAxisBinning(Qt::XAxis)
-            .getBin(plotY, m_d->m_rrf.y);
+        if (auto histoX = m_d->m_histo1DSink->getHisto(binX))
+        {
+            binY = histoX->getAxisBinning(Qt::XAxis).getBin(plotY, m_d->m_rrf.y);
+        }
 
         auto histData = reinterpret_cast<Histo1DListRasterData *>(m_d->m_plotItem->data());
         value = histData->value(plotX, plotY);
@@ -1323,6 +1326,17 @@ Histo2DWidget::SinkPtr Histo2DWidget::getSink() const
     return m_d->m_sink;
 }
 
+void Histo2DWidget::setHistogram(const Histo2DPtr &histo)
+{
+    m_d->m_histoPtr = histo;
+    replot();
+}
+
+Histo2DPtr Histo2DWidget::getHistogram() const
+{
+    return m_d->m_histoPtr;
+}
+
 void Histo2DWidget::on_tb_subRange_clicked()
 {
     Q_ASSERT(m_d->m_sink);
@@ -1341,6 +1355,9 @@ void Histo2DWidget::on_tb_subRange_clicked()
 
 void Histo2DWidget::doXProjection()
 {
+    if (!m_d->m_histo && !m_d->m_histo1DSink)
+        return;
+
     double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     double visibleMinY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
@@ -1405,6 +1422,9 @@ void Histo2DWidget::doXProjection()
 
 void Histo2DWidget::doYProjection()
 {
+    if (!m_d->m_histo && !m_d->m_histo1DSink)
+        return;
+
     double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     double visibleMinY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();

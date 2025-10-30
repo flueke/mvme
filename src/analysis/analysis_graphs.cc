@@ -296,6 +296,11 @@ struct CreateGraphVisitor: public ObjectVisitor
     {
         Q_UNUSED(view_);
     }
+
+    void visit(HistogramOperation *histOp_) override
+    {
+        Q_UNUSED(histOp_);
+    }
 };
 
 LIBMVME_EXPORT GraphContext create_graph_context()

@@ -715,7 +715,7 @@ IntervalConditionEditorController::IntervalConditionEditorController(
     }
 
     d->histoWidget_->installEventFilter(this);
-    d->dialog_->installEventFilter(this);
+    d->dialog_->installEventFilter(this); // XXX: why is this here? does not seem to be used
     d->dialog_->setInfoText("Use the \"Condition Name\" controls to edit an existing or create a new condition.");
 
     d->updateDialogPosition();

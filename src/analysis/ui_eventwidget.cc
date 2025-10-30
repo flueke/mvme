@@ -61,6 +61,7 @@
 #include "graphviz_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "histo_ops_widget.h"
 #include "listfile_filtering.h"
 #include "multiplot_widget.h"
 #include "mvme_context.h"
@@ -92,6 +93,7 @@ const char *node_type_to_string(NodeType type)
         case NodeType::NodeType_Histo1D: return "Histo1D";
         case NodeType::NodeType_Directory: return "Directory";
         case NodeType::NodeType_PlotGridView: return "PlotGridView";
+        case NodeType::NodeType_HistogramOperation: return "HistogramOperation";
         default: break;
     }
 
@@ -120,6 +122,7 @@ AnalysisObjectPtr get_analysis_object(QTreeWidgetItem *node, s32 dataRole = Qt::
         case NodeType_Sink:
         case NodeType_Directory:
         case NodeType_PlotGridView:
+        case NodeType_HistogramOperation:
             {
                 auto qo = get_qobject(node, dataRole);
                 if (qo == nullptr)
@@ -686,6 +689,7 @@ QMimeData *SinkTree::mimeData(const QList<QTreeWidgetItem *> nodes) const
             case NodeType_Histo2DSink:
             case NodeType_Sink:
             case NodeType_PlotGridView:
+            case NodeType_HistogramOperation:
                 {
                     if (auto op = get_pointer<AnalysisObject>(node, DataRole_AnalysisObject))
                     {
@@ -1243,6 +1247,25 @@ QWidget *open_or_raise_multiplot_widget(
     {
         show_and_activate(widget);
         return widget;
+    }
+
+    return {};
+}
+
+QWidget *open_or_raise_histo_ops_widget(
+    AnalysisServiceProvider *asp,
+    std::shared_ptr<HistogramOperation> &histOps)
+{
+    if (!asp->getWidgetRegistry()->hasObjectWidget(histOps.get())
+        || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+    {
+        return open_new_histogram_operations_widget(asp, histOps);
+    }
+    else if (auto w = qobject_cast<HistogramOperationsWidget *>(
+            asp->getWidgetRegistry()->getObjectWidget(histOps.get())))
+    {
+        show_and_activate(w);
+        return w;
     }
 
     return {};
@@ -2381,6 +2404,26 @@ UserLevelTrees EventWidgetPrivate::createTrees(s32 level)
                 else
                     result.sinkTree->addTopLevelItem(node.release());
             }
+
+            if (auto histoOps = std::dynamic_pointer_cast<HistogramOperation>(obj);
+                histoOps && obj->getUserLevel() == level)
+            {
+                std::unique_ptr<TreeNode> node(
+                    make_node(histoOps.get(), NodeType_HistogramOperation, DataRole_AnalysisObject));
+
+                node->setData(0, Qt::DisplayRole, QSL("<b>HistoOp</b> %1").arg(histoOps->objectName()));
+                node->setData(0, Qt::EditRole, histoOps->objectName());
+                node->setFlags(node->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled);
+                node->setIcon(0, QIcon(":/histo_ops.png"));
+
+                if (auto dir = analysis->getParentDirectory(histoOps))
+                {
+                    if (auto dirNode = dirNodes.value(dir))
+                        dirNode->addChild(node.release());
+                }
+                else
+                    result.sinkTree->addTopLevelItem(node.release());
+            }
         }
     }
 
@@ -3416,6 +3459,25 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                 node->treeWidget()->editItem(node);
             }
         });
+
+        menuNew->addAction(QIcon(":/histo_ops.png"), QSL("New Histogram Operation"), parentMenu,
+                           [this, userLevel, destDir]()
+                           {
+                               auto histoOp = std::make_shared<HistogramOperation>();
+                               histoOp->setObjectName("New Histogram Operation");
+                               histoOp->setUserLevel(userLevel);
+                               m_serviceProvider->getAnalysis()->addObject(histoOp);
+                               if (destDir)
+                               {
+                                   destDir->push_back(histoOp);
+                               }
+                               repopulate();
+                               if (auto node = findNode(histoOp))
+                               {
+                                   node->setExpanded(true);
+                                   node->treeWidget()->editItem(node);
+                               }
+                           });
 
         menuNew->addSeparator();
         menuNew->addAction(
@@ -4698,6 +4760,12 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 {
                     open_or_raise_multiplot_widget(m_serviceProvider, gridView);
                 } break;
+
+            case NodeType_HistogramOperation:
+                if (auto histoOp = get_shared_analysis_object<HistogramOperation>(node, DataRole_AnalysisObject))
+                {
+                    open_or_raise_histo_ops_widget(m_serviceProvider, histoOp);
+                } break;
         }
     }
 }
@@ -5834,24 +5902,17 @@ QTreeWidgetItem *EventWidgetPrivate::findNode(const void *rawPtr)
 
 void EventWidgetPrivate::copyToClipboard(const AnalysisObjectVector &objects)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    QVector<AnalysisObjectRef> objectRefs;
+    //qDebug() << __PRETTY_FUNCTION__ << objectRefs;
+    std::for_each(objects.begin(), objects.end(),
+                  [&objectRefs](const AnalysisObjectPtr &obj)
+                  {
+                      objectRefs.push_back(AnalysisObjectRef(obj->getId(), -1));
+                  });
 
-    QVector<QByteArray> idData;
-    idData.reserve(objects.size());
-
-    for (auto obj: objects)
-    {
-        idData.push_back(obj->getId().toByteArray());
-    }
-
-    QByteArray buffer;
-    QDataStream stream(&buffer, QIODevice::WriteOnly);
-    stream << idData;
-
-    auto mimeData = new QMimeData;
-    mimeData->setData(ObjectRefMimeType, buffer);
-
-    QGuiApplication::clipboard()->setMimeData(mimeData);
+    auto result = std::make_unique<QMimeData>();
+    result->setData(ObjectRefMimeType, encode_object_ref_list(objectRefs));
+    QGuiApplication::clipboard()->setMimeData(result.release());
 }
 
 bool EventWidgetPrivate::canPaste()

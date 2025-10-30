@@ -166,6 +166,8 @@ add_library(libmvme SHARED
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
     analysis/event_builder_monitor.cc
+    analysis/histo_ops_widget.cc
+    analysis/histo_ops_widget_p.cc
     analysis/listfilter_extractor_dialog.cc
     analysis/mdpp_sample_decoder_monitor_widget.cc
     analysis/object_editor_dialog.cc
@@ -196,6 +198,7 @@ add_library(libmvme SHARED
     histo2d.cc
     histo2d_widget.cc
     histo2d_widget_p.cc
+    histo_algo.cc
     histo_gui_util.cc
     histo_stats_widget.cc
     histo_ui.cc
@@ -258,7 +261,9 @@ add_library(libmvme SHARED
     mvme_stream_processor.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
+    mvme_tcp_stream_server.cc
     mvmecontext_analysis_service_provider.cc
+    nng_stream_server.cc
     qt_assistant_remote_control.cc
     qt_util.cc
     rate_monitor_base.cc
@@ -281,6 +286,7 @@ add_library(libmvme SHARED
     timed_block.cc
     treewidget_utils.cc
     util.cc
+    util/expand_env_vars.cc
     util/mesy_nng_pipeline.cc
     util/qledindicator.cpp
     util/qt_eventfilters.cc
@@ -337,6 +343,7 @@ target_link_libraries(libmvme
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
+    PRIVATE asio
     PUBLIC liba2_static
     PRIVATE nlohmann-json
     PRIVATE qgvcore
@@ -613,6 +620,20 @@ install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINA
 add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
 add_mvme_exe(statemachine_test statemachine_test.cc)
 add_mvme_dev_exe(dev_some_gui_thing dev_some_gui_thing.cc)
+
+# Standalone asio client for testing.
+add_executable(mvme_tcp_stream_client_asio mvme_tcp_stream_client_asio.cc)
+target_link_libraries(mvme_tcp_stream_client_asio PRIVATE asio)
+
+add_executable(mvme_ipc_stream_client_asio mvme_ipc_stream_client_asio.cc)
+target_link_libraries(mvme_ipc_stream_client_asio PRIVATE asio)
+
+# POSIX/BSD variant of the above.
+add_executable(mvme_tcp_stream_client_posix mvme_tcp_stream_client_posix.cc)
+
+# Standalone tool to test the nng::NngStreamServer implementation
+add_executable(mvme_tcp_stream_nng_test_server mvme_tcp_stream_nng_test_server.cc)
+target_link_libraries(mvme_tcp_stream_nng_test_server PRIVATE asio mesytec-mvlc nng libmvme)
 
 add_custom_target(multicrate2_dev_tools)
 add_dependencies(multicrate2_dev_tools

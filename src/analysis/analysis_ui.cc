@@ -812,8 +812,9 @@ AnalysisWidget::AnalysisWidget(AnalysisServiceProvider *asp, QWidget *parent)
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"),
                                   this, [this]() { m_d->actionOpen(); });
 
-        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"),
-                                  this, [this]() { m_d->actionSave(); });
+        auto action = m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"), this,
+                                                [this]() { m_d->actionSave(); });
+        action->setShortcut(QKeySequence::Save);
 
         m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"),
                                   this, [this]() { m_d->actionSaveAs(); });

@@ -47,7 +47,7 @@ add_subdirectory(qgv)
 # nng - networking library
 find_package(nng QUIET)
 
-if(NOT nng)
+if(NOT nng AND NOT TARGET nng)
     message("-- Using nng from external/nng")
     set(BUILD_SHARED_LIBS ON)
     set(NNG_TESTS OFF)
@@ -83,3 +83,7 @@ if (NOT range-v3)
     set(RANGES_DEBUG_INFO OFF)
     add_subdirectory(range-v3-0.12.0)
 endif()
+
+# asio (non-boost)
+add_library(asio INTERFACE)
+target_include_directories(asio INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/asio-1.30.2/include)

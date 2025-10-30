@@ -1,6 +1,11 @@
 #ifndef B18E3651_CA9A_43BC_AA25_810EA16533CD
 #define B18E3651_CA9A_43BC_AA25_810EA16533CD
 
+#ifndef MESYTEC_MVLC_PLATFORM_WINDOWS
+#include <arpa/inet.h>
+#else
+#include <ws2tcpip.h>
+#endif
 #include <nng/nng.h>
 #include <nng/protocol/pair0/pair.h>
 #include <nng/protocol/pipeline0/pull.h>
@@ -10,6 +15,8 @@
 #include <spdlog/spdlog.h>
 
 #include <optional>
+#include <stdexcept>
+#include <string_view>
 #include "thread_name.h"
 #include "typedefs.h"
 
@@ -415,6 +422,47 @@ inline int marry_listen_dial(nng_socket listen, nng_socket dial, const char *url
 
     return 0;
 }
+
+inline std::string nng_sockaddr_to_string(const nng_sockaddr &addr)
+{
+    char buf[INET_ADDRSTRLEN];
+    switch (addr.s_family)
+    {
+    case NNG_AF_INET:
+        inet_ntop(AF_INET, &addr.s_in.sa_addr, buf, sizeof(buf));
+        return fmt::format("tcp://{}:{}", buf, ntohs(addr.s_in.sa_port));
+    case NNG_AF_INET6:
+        inet_ntop(AF_INET6, &addr.s_in6.sa_addr, buf, sizeof(buf));
+        return fmt::format("tcp://{}:{}", buf, ntohs(addr.s_in.sa_port));
+    case NNG_AF_IPC:
+        return fmt::format("ipc://{}", addr.s_ipc.sa_path);
+    case NNG_AF_INPROC:
+        return fmt::format("inproc://{}", addr.s_inproc.sa_name);
+    #if 0
+    // TODO: have to use NNG_OPT_LOCADDR to get the actual address if auto
+    // binding is used. this is indicated by a zero length name
+    case NNG_AF_ABSTRACT:
+        {
+            std::string_view sv(reinterpret_cast<const char *>(addr.s_abstract.sa_name),
+             addr.s_abstract.sa_len);
+            return fmt::format("abstract://{}", sv);
+        }
+    #endif
+    }
+
+    return {};
+}
+
+struct exception: public std::runtime_error
+{
+    explicit exception(int nng_rv_)
+        : std::runtime_error(fmt::format("NNG error: {}", nng_strerror(nng_rv_)))
+        , nng_rv(nng_rv_)
+    {
+    }
+
+    int nng_rv;
+};
 
 }
 

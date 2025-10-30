@@ -3,8 +3,6 @@
 
 #include <QWidget>
 #include "analysis_service_provider.h"
-#include "histo_ui.h"
-#include "mvme_qwt.h"
 #include "libmvme_export.h"
 
 class LIBMVME_EXPORT MultiPlotWidget: public QWidget

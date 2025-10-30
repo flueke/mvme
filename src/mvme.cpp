@@ -168,6 +168,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
 
 #if 1
     // Setup some of the mesytec-mvlc loggers to also log to the gui.
+    // FIXME: this is bugged in 1.16 and probably all earlier versions:
+    // loggers that are created before this code is run will not get the new
+    // sinks attached to them. It could be done here by modifying the sinks()
+    // vector, but that's not thread-safe.
     {
         auto consolesink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         auto qtsink = std::make_shared<spdlog::sinks::qt_sink_mt>(m_d->m_context, "logMessageRaw");
@@ -178,7 +182,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         auto loggerNames =
         {
              "listfile", "readout_worker", "replay", "readout_parser",
-             "mvlc_listfile_zmq_ganil"
+             "mvlc_listfile_zmq_ganil", "mvme_tcp_stream_server"
         };
 
         for (const auto &loggerName: loggerNames)
@@ -2337,6 +2341,10 @@ void MVMEMainWindow::runDAQRunSettingsDialog()
 void MVMEMainWindow::runWorkspaceSettingsDialog()
 {
     WorkspaceSettingsDialog dialog(m_d->m_context->makeWorkspaceSettings());
+
+    m_d->m_geometrySaver->addAndRestore(
+        &dialog, QSL("WindowGeometries/WorkspaceSettingsDialog"));
+
     dialog.setWindowModality(Qt::ApplicationModal);
     if (dialog.exec() == QDialog::Accepted)
     {

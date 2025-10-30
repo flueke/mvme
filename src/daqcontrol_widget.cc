@@ -20,20 +20,22 @@
  */
 #include "daqcontrol_widget.h"
 
-#include <QHBoxLayout>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QHBoxLayout>
+#include <QHeaderView>
 #include <QRegularExpressionValidator>
 #include <QStorageInfo>
 
 #include "mvme_context.h"
+#include "mvme_tcp_stream_server.h"
 #include "mvme_workspace.h"
 #include "qt_util.h"
 #include "sis3153.h"
+#include "ui_daq_run_settings_dialog.h"
 #include "util.h"
 #include "util/strings.h"
 #include "vme_controller_ui.h"
-#include "ui_daq_run_settings_dialog.h"
 
 enum CompressionPreset
 {
@@ -805,9 +807,11 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     : QDialog(parent)
     , gb_jsonRPC(new QGroupBox(QSL("Enable JSON-RPC Server")))
     , gb_eventServer(new QGroupBox(QSL("Enable Event Server")))
+    , gb_tcpStreamServer(new QGroupBox(QSL("TCP Stream Server")))
     , le_jsonRPCListenAddress(new QLineEdit)
     , le_eventServerListenAddress(new QLineEdit)
     , le_listfileDir(new QLineEdit)
+    , tw_streamServerListenUris(new QTableWidget)
     , pb_listfileDir(new QPushButton(QSL("Select")))
     , spin_jsonRPCListenPort(new QSpinBox)
     , spin_eventServerListenPort(new QSpinBox)
@@ -884,9 +888,12 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     {
         auto label = make_explanation_label(QSL(
                 "Enables the EventServer component which streams "
-                "extracted Event data over a TCP socket.\n"
+                "extracted (aka unpacked) Event data over a TCP socket.\n"
                 "The listen address may be a hostname or an IP address. Leave blank to"
-                " bind to all local interfaces."));
+                " bind to all local interfaces.\n"
+                "Use with mvme_root_client or the mvme_event_server_example_client to"
+                " receive unpacked event data."
+            ));
 
         auto l = new QFormLayout(gb_eventServer);
         l->addRow(label);
@@ -894,8 +901,64 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
         l->addRow(QSL("Listen Port"), spin_eventServerListenPort);
     }
 
+    // TCP Stream Server - duplicates the readout data stream
+    gb_tcpStreamServer->setCheckable(true);
+    tw_streamServerListenUris->setColumnCount(1);
+    tw_streamServerListenUris->verticalHeader()->setVisible(false);
+    tw_streamServerListenUris->setHorizontalHeaderLabels({QSL("Listen URIs")});
+    tw_streamServerListenUris->horizontalHeader()->setStretchLastSection(true);
+
+    connect(tw_streamServerListenUris, &QTableWidget::itemChanged,
+            this, [this](QTableWidgetItem *)
+    {
+        // Make sure there's at least one empty row in the table.
+        for (int row = 0; row < tw_streamServerListenUris->rowCount(); ++row)
+        {
+            auto item = tw_streamServerListenUris->item(row, 0);
+
+            if (!item)
+                continue;
+
+            if (item->text().trimmed().isEmpty())
+                return;
+        }
+        tw_streamServerListenUris->setRowCount(tw_streamServerListenUris->rowCount() + 1);
+    });
+
+    auto pb_streamServerRestoreDefaults = new QPushButton(QSL("Restore Default URIs"));
+
+    connect(pb_streamServerRestoreDefaults, &QPushButton::clicked,
+            this, [this]()
+    {
+        auto &uris = mesytec::mvme::MvmeTcpStreamServer::DefaultListenUris;
+
+        QSignalBlocker sb(tw_streamServerListenUris);
+        tw_streamServerListenUris->clearContents();
+        tw_streamServerListenUris->setRowCount(uris.size()+1);
+        int row = 0;
+        for (const auto &uri: uris)
+        {
+            tw_streamServerListenUris->setItem(row, 0, new QTableWidgetItem(uri.c_str()));
+            ++row;
+        }
+    });
+
+    {
+        auto label = make_explanation_label(QSL(
+            "Enables a TCP Stream Server which duplicates the readout data stream.\n"
+            "The listen URIs must be of the form 'tcp://<address>:<port>' or 'ipc:///<path>/<to>/<socket>'. "
+            "'tcp4://' and 'tcp6://' schemes are also supported.\n"
+            "${env} vars in the uri strings are expanded (e.g. ${USER} or ${HOME}).\n"
+        ));
+        auto l = new QFormLayout(gb_tcpStreamServer);
+        l->addRow(label);
+        l->addRow(QSL("Listen URIs"), tw_streamServerListenUris);
+        l->addRow(pb_streamServerRestoreDefaults);
+    }
+
     widgetLayout->addWidget(gb_jsonRPC);
     widgetLayout->addWidget(gb_eventServer);
+    widgetLayout->addWidget(gb_tcpStreamServer);
     widgetLayout->addStretch(1);
     widgetLayout->addWidget(m_bb);
 
@@ -933,6 +996,29 @@ void WorkspaceSettingsDialog::populate()
     gb_eventServer->setChecked(m_settings->value(QSL("EventServer/Enabled")).toBool());
     le_eventServerListenAddress->setText(m_settings->value(QSL("EventServer/ListenAddress")).toString());
     spin_eventServerListenPort->setValue(m_settings->value(QSL("EventServer/ListenPort")).toInt());
+
+    gb_tcpStreamServer->setChecked(m_settings->value(QSL("TcpStreamServer/Enabled"), false).toBool());
+
+    auto uris = m_settings->value(QSL("TcpStreamServer/ListenUris")).toStringList();
+
+    // Set defaults if no uris were stored in the config file.
+    if (uris.isEmpty())
+    {
+        for (const auto &uri: mesytec::mvme::MvmeTcpStreamServer::DefaultListenUris)
+        {
+            uris.append(QString::fromStdString(uri));
+        }
+    }
+
+    QSignalBlocker sb(tw_streamServerListenUris);
+    tw_streamServerListenUris->clearContents();
+    tw_streamServerListenUris->setRowCount(uris.size()+1);
+    int row = 0;
+    for (const auto &uri: uris)
+    {
+        tw_streamServerListenUris->setItem(row, 0, new QTableWidgetItem(uri));
+        ++row;
+    }
 }
 
 void WorkspaceSettingsDialog::accept()
@@ -952,6 +1038,24 @@ void WorkspaceSettingsDialog::accept()
     m_settings->setValue(QSL("EventServer/ListenAddress"), le_eventServerListenAddress->text());
     m_settings->setValue(QSL("EventServer/ListenPort"), spin_eventServerListenPort->value());
 
+    m_settings->setValue(QSL("TcpStreamServer/Enabled"), gb_tcpStreamServer->isChecked());
+
+    QStringList uris;
+    for (int row = 0; row < tw_streamServerListenUris->rowCount(); ++row)
+
+    {
+        auto item = tw_streamServerListenUris->item(row, 0);
+
+        if (!item)
+            continue;
+
+        if (auto uri = item->text().trimmed(); !uri.isEmpty())
+            uris.append(uri);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "setting TcpStreamServer/ListenUris to" << uris;
+
+    m_settings->setValue(QSL("TcpStreamServer/ListenUris"), uris);
     m_settings->sync();
 
     QDialog::accept();

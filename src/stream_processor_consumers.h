@@ -90,6 +90,7 @@ class LIBMVME_EXPORT IStreamBufferConsumer: public StreamConsumerBase
 
         virtual void endRun(const DAQStats &stats, const std::exception *e = nullptr) = 0;
 
+        // buffer points to the first word of raw readout data. bufferSize is in terms of 32-bit words.
         virtual void processBuffer(s32 bufferType, u32 bufferNumber, const u32 *buffer, size_t bufferSize) = 0;
 };
 

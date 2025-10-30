@@ -41,6 +41,7 @@
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
+#include "histo_algo.h"
 #include "libmvme_export.h"
 #include "mdpp-sampling/mdpp_decode.h"
 #include "object_factory.h"
@@ -723,6 +724,85 @@ class LIBMVME_EXPORT PlotGridView: public AnalysisObject
         bool gaussEnabled_ = {};
 };
 
+// Addition of all histograms in the entries array.
+// Passive object similar to PlotGridView. The calculation of the resulting
+// histogram is performed on deman in getResultHisto1D();
+// Important: Input histogram types have to be uniform, so either all histograms
+// are 1d or 2d. Mixing is not allowed.
+// This is handled in the code, e.g. addEntry() returns false if trying to add a
+// 2d histo when a 1d histo is already present.
+class LIBMVME_EXPORT HistogramOperation: public AnalysisObject
+{
+    Q_OBJECT
+    public:
+        enum Operation {
+            Sum,
+        };
+
+        struct Entry {
+            QUuid sinkId;           // id of the source sink (H1D or H2D)
+            int elementIndex = -1;  // Index of the histogram in the sink
+        };
+
+        enum class EntryType {
+            Histo1D,
+            Histo2D,
+        };
+
+        static const std::string operationTypeToString(const Operation &op);
+        static std::optional<Operation> operationTypeFromString(const std::string &str);
+
+        Q_INVOKABLE explicit HistogramOperation(QObject *parent = nullptr);
+        ~HistogramOperation() override;
+
+        // Calls into the analysis instance to determine sinkIds concrete object
+        // type.
+        std::optional<EntryType> getEntryType(const QUuid &sinkId) const;
+        std::optional<EntryType> getEntryType(const Entry &entry) const
+        {
+            return getEntryType(entry.sinkId);
+        }
+
+        const std::vector<Entry> &getEntries() const;
+
+        // These return false if the histogram types pointed to by the entries
+        // do not match the HistogramOperations histo type or the entries
+        // themselves contain different types of histograms.
+        bool setEntries(const std::vector<Entry> &entries);
+        bool setEntries(std::vector<Entry> &&entries);
+        bool addEntry(const Entry &entry);
+        bool addEntries(const Entry &entry);
+        void clearEntries();
+        bool isEmpty() const;
+
+        Operation getOperationType() const;
+        void setOperationType(Operation type);
+
+        mesytec::mvme::HistoOpsBinningMode getBinningMode() const;
+        void setBinningMode(const mesytec::mvme::HistoOpsBinningMode &mode);
+
+        QString getHistogramTitle() const;
+        void setHistogramTitle(const QString &title);
+
+        // Get this instances entry type. Returns nullopt if no entries are
+        // present, otherwise the type of the first entry is returned.
+        std::optional<EntryType> getEntryType() const;
+        bool isHisto1D() const;
+        bool isHisto2D() const;
+
+        std::shared_ptr<Histo1D> getResultHisto1D();
+        std::shared_ptr<Histo2D> getResultHisto2D();
+
+        // Serialization
+        void read(const QJsonObject &json) override;
+        void write(QJsonObject &json) const override;
+        void accept(ObjectVisitor &visitor) override;
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> d;
+};
+
 } // end namespace analysis
 
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"
@@ -1051,8 +1131,8 @@ struct LIBMVME_EXPORT CalibrationMinMaxParameters
         return !(std::isnan(unitMin) || std::isnan(unitMax));
     }
 
-    double unitMin = make_quiet_nan();
-    double unitMax = make_quiet_nan();
+    double unitMin = ::make_quiet_nan();
+    double unitMax = ::make_quiet_nan();
 };
 
 class LIBMVME_EXPORT CalibrationMinMax: public BasicOperator
@@ -1095,8 +1175,8 @@ class LIBMVME_EXPORT CalibrationMinMax: public BasicOperator
 
         // Obsolete but kept to be able to load old analysis files. Only read
         // from files, never written.
-        double m_oldGlobalUnitMin = make_quiet_nan();
-        double m_oldGlobalUnitMax = make_quiet_nan();
+        double m_oldGlobalUnitMin = ::make_quiet_nan();
+        double m_oldGlobalUnitMax = ::make_quiet_nan();
 };
 
 class LIBMVME_EXPORT IndexSelector: public BasicOperator
@@ -1276,8 +1356,8 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
 
     private:
         Operation m_op = Op_Sum;
-        double m_minThreshold = make_quiet_nan();
-        double m_maxThreshold = make_quiet_nan();
+        double m_minThreshold = ::make_quiet_nan();
+        double m_maxThreshold = ::make_quiet_nan();
         QString m_outputUnitLabel;
 };
 
@@ -1351,8 +1431,8 @@ class LIBMVME_EXPORT RangeFilter1D: public BasicOperator
     public:
         explicit Q_INVOKABLE RangeFilter1D(QObject *parent = 0);
 
-        double m_minValue = make_quiet_nan(); // inclusive
-        double m_maxValue = make_quiet_nan(); // exclusive
+        double m_minValue = ::make_quiet_nan(); // inclusive
+        double m_maxValue = ::make_quiet_nan(); // exclusive
         bool m_keepOutside = false;
 
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
@@ -1831,8 +1911,8 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         QString m_xAxisTitle;
 
         // Subrange limits
-        double m_xLimitMin = make_quiet_nan();
-        double m_xLimitMax = make_quiet_nan();
+        double m_xLimitMin = ::make_quiet_nan();
+        double m_xLimitMax = ::make_quiet_nan();
 
         bool hasActiveLimits() const
         {
@@ -1885,10 +1965,10 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         // view of a rectangular part of the input without having to add a cut
         // operator. This might be temporary or stay in even after cuts are
         // properly implemented.
-        double m_xLimitMin = make_quiet_nan();
-        double m_xLimitMax = make_quiet_nan();
-        double m_yLimitMin = make_quiet_nan();
-        double m_yLimitMax = make_quiet_nan();
+        double m_xLimitMin = ::make_quiet_nan();
+        double m_xLimitMax = ::make_quiet_nan();
+        double m_yLimitMin = ::make_quiet_nan();
+        double m_yLimitMax = ::make_quiet_nan();
 
         bool hasActiveLimits(Qt::Axis axis) const
         {

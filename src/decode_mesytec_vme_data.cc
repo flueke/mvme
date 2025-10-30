@@ -41,7 +41,8 @@ DecodedVMEDataWord decode_mesytec_vme_word(std::uint32_t word)
     DecodedVMEDataWord result = {};
     result.word = word;
 
-    result.header_found = ((word & 0xC0000000) == 0x40000000);
+    // test for both classic and extended (mdpp sampling mode) header formats
+    result.header_found = ((word & 0xC0000000) == 0x40000000) || ((word & 0xC1000000) == 0x41000000);
     result.data_found = (((word & 0xF0000000) == 0x10000000) // MDPP
                          || ((word & 0xFF800000) == 0x04000000)); // MxDC
     result.extended_ts_found = ((word & 0xFF800000)==0x04800000);
@@ -50,9 +51,19 @@ DecodedVMEDataWord decode_mesytec_vme_word(std::uint32_t word)
 
     if (result.header_found)
     {
-        result.data_length = (word & 0x000003FF);
+        // extended header format. 16 bit size field.
+        if (((word & 0xC1000000) == 0x41000000))
+        {
+            result.data_length = (word & 0x0000FFFF);
+            result.module_setting = 0;
+        }
+        // classic header format, 10 bit size field.
+        else
+        {
+            result.data_length = (word & 0x000003FF);
+            result.module_setting = (word & 0x0000FC00) / 0x400;
+        }
         result.module_id = (word & 0x00FF0000) / 0x10000;
-        result.module_setting = (word & 0x0000FC00) / 0x400;
     }
 
     if (result.data_found)
