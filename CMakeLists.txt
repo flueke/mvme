@@ -133,12 +133,6 @@ message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 option(MVME_BUILD_TESTS "Build test binaries" OFF)
 
 if (MVME_BUILD_TESTS)
-    if (NOT TARGET gtest)
-        message(">>> mvme tests enabled. using local copy of google test")
-        option(INSTALL_GTEST "Enable installation of googletest." OFF)
-        add_subdirectory(external/googletest)
-    endif()
-
     if (NOT TARGET benchmark)
         message(">>> mvme tests enabled. using local copy of google benchmark")
         option(BENCHMARK_ENABLE_TESTING "Enable testing of the benchmark library." OFF)
