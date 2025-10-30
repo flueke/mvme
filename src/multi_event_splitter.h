@@ -190,7 +190,7 @@ std::pair<State, std::error_code> LIBMVME_EXPORT
 make_splitter(const std::vector<std::vector<std::vector<std::string>>> &splitFilterStrings,
               int outputCrateIndex = 0);
 
-enum class LIBMVME_EXPORT ErrorCode : u8
+enum class ErrorCode : u8
 {
     Ok,
     // event_data() was called with an event index >= the number of events in the splitFilterString
