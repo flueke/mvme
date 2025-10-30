@@ -165,7 +165,7 @@ TEST(vme_script_commands, MVLC_CompareLoopAccu)
         R"_(mvlc_compare_loop_accu gt 15)_",
     };
 
-    for (const auto input: inputs)
+    for (const auto &input: inputs)
     {
         auto script = vme_script::parse(input);
         ASSERT_EQ(script.size(), 1);
