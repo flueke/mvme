@@ -29,15 +29,13 @@ Version 1.17.0
   - speed up and improve the 'MDPP Sample Decoder Monitor' widget (it was able
     to lag the whole application)
 
-* ui:
+  - fix crashes in the multiplot widget (plot grid)
 
-  - disable 'Recent Workspaces' action when DAQ is not idle
+  - allow editing polygon vertex coordinates directly in the table
 
-  - improve log output for errors and the 'accu test' command
+  - zero init memory segments in the internal arena under windows
 
-  - fix broken listfile recovery under windows
-
-  - fix silly listfile recovery progress values
+  - fix convert_to_signed() yielding wrong results under windows.
 
 * templates:
 
@@ -52,6 +50,42 @@ Version 1.17.0
     - corrected number of max samples (488 for SCP, 1000 for QDC)
 
     This only affects newly created modules, existing modules need to be updated manually.
+
+* trigger_io:
+
+  - remove special hightlight for the previously reserved timer and stackstart units
+
+  -  improve the gate generator editors
+
+  - better LUT strobe input explanation
+
+* ui:
+
+  - disable 'Recent Workspaces' action when DAQ is not idle
+
+  - improve log output for errors and the 'accu test' command
+
+  - fix broken listfile recovery under windows
+
+  - fix silly listfile recovery progress values
+
+  - when importing a .mvmemodule file, disable the module type dropdown
+
+  - fix incorrect module meta info when loading a module from file
+
+  - update the copyright notices
+
+* vme_script:
+
+  - add new commands for the software accu: 'accu_add' and 'accu_write'. These were added for the PTP support
+    in FW0046: read the current ptp seconds value, add a constant to it and write that value back to a special
+    PTP trigger register.
+
+  - fix evaluation of numerical expressions exceeding 32-bit unsigned
+
+- Fix crash when starting a second mvme instance under windows (logfile related).
+
+- add a Dockerfile for debian trixie and fix some issues with trixie
 
 
 Version 1.16.3
