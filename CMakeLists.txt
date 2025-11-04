@@ -22,6 +22,9 @@ git_describe(GIT_VERSION "--always")
 #string(REGEX REPLACE "^v" "" GIT_VERSION ${GIT_VERSION}) # strip leavind 'v' from tags
 
 if(GIT_VERSION MATCHES v[^-]*-)
+    # This tries to extract the git commit number (-NNN) and use it as part of
+    # the normal (dot separated) version string. Trailing suffixes like -rc1 are
+    # ignored here. They do not work with e.g. cmakes project() command.
     string(REGEX REPLACE "v([^-]*)-([0-9]+)-.*" "\\1.\\2"  GIT_VERSION_SHORT ${GIT_VERSION})
 else()
     string(REGEX REPLACE "v(.*)" "\\1" GIT_VERSION_SHORT ${GIT_VERSION})
