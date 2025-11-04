@@ -431,8 +431,7 @@ install(TARGETS libmvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 # mvme - the main GUI binary
 #
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
-    #add_executable(mvme WIN32 main.cpp)
-    add_executable(mvme main.cpp)
+    add_executable(mvme WIN32 main.cpp)
 else()
     #add_definitions(-DMVME_ENABLE_TIMED_BLOCKS)
     add_executable(mvme main.cpp)
