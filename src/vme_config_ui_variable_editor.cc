@@ -277,6 +277,7 @@ VariableEditorWidget::VariableEditorWidget(
     *d = {};
     d->model = std::make_unique<QStandardItemModel>();
     d->model->setColumnCount(3);
+    d->model->setHorizontalHeaderLabels({"Variable Name", "Variable Value", "Comment"});
 
     d->tableView = new QTableView(this);
     d->tableView->verticalHeader()->hide();
@@ -284,6 +285,21 @@ VariableEditorWidget::VariableEditorWidget(
     d->tableView->horizontalHeader()->setStretchLastSection(true);
     d->tableView->setSelectionMode(QAbstractItemView::SingleSelection);
     d->tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    d->tableView->setModel(d->model.get());
+
+    connect(d->tableView->selectionModel(), &QItemSelectionModel::selectionChanged,
+            this, [this] (const QItemSelection &selected, const QItemSelection &/*deselected*/)
+    {
+        qDebug() << __PRETTY_FUNCTION__;
+        if (!selected.isEmpty())
+        {
+            auto index = selected.indexes().first();
+            auto name = d->model->item(index.row(), 0)->text();
+            d->pb_delVariable->setEnabled(!vme_script::is_system_variable_name(name));
+        }
+        else
+            d->pb_delVariable->setEnabled(false);
+    });
 
     auto nameDelegate = new VariableNameEditorDelegate(d->model.get(), this);
     d->tableView->setItemDelegateForColumn(0, nameDelegate);
@@ -311,13 +327,17 @@ VariableEditorWidget::VariableEditorWidget(
         assert(items.size() == 3);
         items[0]->setText("new_var");
         d->model->appendRow(items);
+
         for (int col = 0; col < 2; col++)
             d->tableView->resizeColumnToContents(col);
         d->tableView->resizeRowsToContents();
         auto newIndex = d->model->index(d->model->rowCount() - 1, 0);
         d->tableView->setCurrentIndex(newIndex);
-        d->tableView->selectionModel()->select(
+        if (d->tableView->selectionModel())
+        {
+            d->tableView->selectionModel()->select(
             newIndex, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Current);
+        }
         d->tableView->edit(newIndex);
         d->tableView->scrollTo(newIndex);
 
