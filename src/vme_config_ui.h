@@ -90,7 +90,6 @@ class ModuleConfigDialog: public QDialog
         // If set to false the module type cannot be changed. Used when editing
         // an existing module instance or importing from a .mvmemodule file.
         void setAllowTypeChange(bool allow);
-        void setIsNewModule(bool isNew);
 
         virtual void accept() override;
 

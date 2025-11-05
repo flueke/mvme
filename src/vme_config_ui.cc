@@ -447,7 +447,6 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 
 struct ModuleConfigDialog::Private
 {
-    bool isNewModule_ = false;
     QComboBox *typeCombo_;
     QLineEdit *nameEdit_;
     QLineEdit *addressEdit_;
@@ -609,6 +608,7 @@ ModuleConfigDialog::ModuleConfigDialog(ModuleConfig *mod,
         }
         else
         {
+            d->variableEditor_->setVariables(d->module_->getVariables());
             d->eventHeaderFiltersEditor_->setData(d->module_->getModuleMeta().eventHeaderFilters);
         }
     };
@@ -644,14 +644,11 @@ void ModuleConfigDialog::setAllowTypeChange(bool allow)
     d->typeCombo_->setEnabled(allow);
 }
 
-void ModuleConfigDialog::setIsNewModule(bool isNew)
-{
-    d->isNewModule_ = isNew;
-}
-
 void ModuleConfigDialog::accept()
 {
-    if (d->isNewModule_)
+    const bool isNewModule = !d->module_->parent();
+
+    if (isNewModule)
     {
         auto typeName = d->typeCombo_->currentData().toString();
         auto it = std::find_if(d->moduleMetas_.begin(), d->moduleMetas_.end(),
@@ -711,6 +708,9 @@ void ModuleConfigDialog::accept()
     d->module_->setObjectName(d->nameEdit_->text());
     d->module_->setBaseAddress(d->addressEdit_->text().toUInt(nullptr, 16));
     d->module_->setVariables(d->variableEditor_->getVariables());
+    auto mm = d->module_->getModuleMeta();
+    mm.eventHeaderFilters = d->eventHeaderFiltersEditor_->getData();
+    d->module_->setModuleMeta(mm);
 
     QDialog::accept();
 }
