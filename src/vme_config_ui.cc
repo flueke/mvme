@@ -447,6 +447,7 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 
 struct ModuleConfigDialog::Private
 {
+    bool isNewModule_ = false;
     QComboBox *typeCombo_;
     QLineEdit *nameEdit_;
     QLineEdit *addressEdit_;
@@ -643,39 +644,60 @@ void ModuleConfigDialog::setAllowTypeChange(bool allow)
     d->typeCombo_->setEnabled(allow);
 }
 
+void ModuleConfigDialog::setIsNewModule(bool isNew)
+{
+    d->isNewModule_ = isNew;
+}
+
 void ModuleConfigDialog::accept()
 {
-    auto typeName = d->typeCombo_->currentData().toString();
-    auto it = std::find_if(d->moduleMetas_.begin(), d->moduleMetas_.end(),
-                            [typeName](const auto &mm) { return mm.typeName == typeName; });
-
-    // Note: the meta info of existing modules is _not_ updated in here. Instead
-    // when loading a VMEConfig from file the meta info is updated from the
-    // template system (ModuleConfig::read_impl()).
-
-    if (it != d->moduleMetas_.end())
+    if (d->isNewModule_)
     {
-        const auto &mm(*it);
-        d->module_->setModuleMeta(mm);
+        auto typeName = d->typeCombo_->currentData().toString();
+        auto it = std::find_if(d->moduleMetas_.begin(), d->moduleMetas_.end(),
+                                [typeName](const auto &mm) { return mm.typeName == typeName; });
 
-        if (!mm.templateFile.isEmpty())
+        // Note: the meta info of existing modules is _not_ updated in here. Instead
+        // when loading a VMEConfig from file the meta info is updated from the
+        // template system (ModuleConfig::read_impl()).
+
+        if (it != d->moduleMetas_.end())
         {
-            // New style template from a single json file.
-            mvme::vme_config::load_moduleconfig_from_modulejson(*d->module_, mm.moduleJson);
-        }
-        else if (!mm.templatePath.isEmpty())
-        {
-            // Old style template from multiple .vme files
-            d->module_->getReadoutScript()->setObjectName(mm.templates.readout.name);
-            d->module_->getReadoutScript()->setScriptContents(mm.templates.readout.contents);
+            const auto &mm(*it);
+            d->module_->setModuleMeta(mm);
 
-            d->module_->getResetScript()->setObjectName(mm.templates.reset.name);
-            d->module_->getResetScript()->setScriptContents(mm.templates.reset.contents);
-
-            for (const auto &vmeTemplate: mm.templates.init)
+            if (!mm.templateFile.isEmpty())
             {
-                d->module_->addInitScript(
-                    new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
+                // New style template from a single json file.
+                mvme::vme_config::load_moduleconfig_from_modulejson(*d->module_, mm.moduleJson);
+            }
+            else if (!mm.templatePath.isEmpty())
+            {
+                // Old style template from multiple .vme files
+                if (auto rdoScript = d->module_->getReadoutScript())
+                {
+                    if (rdoScript->objectName().isEmpty())
+                        rdoScript->setObjectName(mm.templates.readout.name);
+                    if (rdoScript->getScriptContents().isEmpty())
+                        rdoScript->setScriptContents(mm.templates.readout.contents);
+                }
+
+                if (auto resetScript = d->module_->getResetScript())
+                {
+                    if (resetScript->objectName().isEmpty())
+                        resetScript->setObjectName(mm.templates.reset.name);
+                    if (resetScript->getScriptContents().isEmpty())
+                        resetScript->setScriptContents(mm.templates.reset.contents);
+                }
+
+                if (d->module_->getInitScripts().isEmpty())
+                {
+                    for (const auto &vmeTemplate: mm.templates.init)
+                    {
+                        d->module_->addInitScript(
+                            new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
+                    }
+                }
             }
         }
     }

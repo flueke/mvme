@@ -1746,6 +1746,7 @@ void VMEConfigTreeWidget::addModule()
         auto mod = std::make_unique<ModuleConfig>();
         ModuleConfigDialog dialog(mod.get(), event, m_config, this);
         dialog.setWindowTitle(QSL("Add Module"));
+        dialog.setIsNewModule(true);
         int result = dialog.exec();
 
         if (result == QDialog::Accepted)
