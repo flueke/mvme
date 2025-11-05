@@ -27,10 +27,9 @@ WORKDIR /build
 
 ENV QT_QPA_PLATFORM=minimal
 
-# Installation is just to try it out, it's not required to run the test cases.
 RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
           -DMVME_BUILD_TESTS=OFF /sources \
-    && ninja && ninja package
+    && ninja && ctest . -LE not_in_docker && ninja package
 
 FROM scratch
 COPY --from=build /build/packages ./build-artifacts
