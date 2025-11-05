@@ -658,12 +658,12 @@ void ModuleConfigDialog::accept()
         const auto &mm(*it);
         d->module_->setModuleMeta(mm);
 
-        if (!mm.moduleJson.empty())
+        if (!mm.templateFile.isEmpty())
         {
             // New style template from a single json file.
             mvme::vme_config::load_moduleconfig_from_modulejson(*d->module_, mm.moduleJson);
         }
-        else
+        else if (!mm.templatePath.isEmpty())
         {
             // Old style template from multiple .vme files
             d->module_->getReadoutScript()->setObjectName(mm.templates.readout.name);
