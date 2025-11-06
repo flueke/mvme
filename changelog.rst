@@ -73,6 +73,8 @@ Version 1.17.0
 
   - fix incorrect module meta info when loading a module from file
 
+  - fix multiple issues with exporting & importing .mvmemodule files
+
   - update the copyright notices
 
 * vme_script:
