@@ -1358,24 +1358,20 @@ void Histo2DWidget::doXProjection()
     if (!m_d->m_histo && !m_d->m_histo1DSink)
         return;
 
-    double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
-    double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
-    double visibleMinY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
-    double visibleMaxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+    double minX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMin();
+    double maxX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMax();
+    double minY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+    double maxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
 
     Histo1DPtr histo;
 
     if (m_d->m_histo)
     {
-        histo = make_x_projection(m_d->m_histo,
-                                  visibleMinX, visibleMaxX,
-                                  visibleMinY, visibleMaxY);
+        histo = make_x_projection(m_d->m_histo, minX, maxX, minY, maxY);
     }
     else if (m_d->m_histo1DSink)
     {
-        histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::XAxis,
-                                visibleMinX, visibleMaxX,
-                                visibleMinY, visibleMaxY);
+        histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::XAxis, minX, maxX, minY, maxY);
     }
 
     QString projHistoObjectName;
@@ -1418,6 +1414,12 @@ void Histo2DWidget::doXProjection()
         m_d->m_xProjWidget->setHistogram(histo);
         m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
     }
+
+    if (m_d->m_xProjWidget)
+    {
+        auto thisZoomRect = m_d->m_zoomer->zoomRect();
+        m_d->m_xProjWidget->zoom(thisZoomRect);
+    }
 }
 
 void Histo2DWidget::doYProjection()
@@ -1425,25 +1427,21 @@ void Histo2DWidget::doYProjection()
     if (!m_d->m_histo && !m_d->m_histo1DSink)
         return;
 
-    double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
-    double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
-    double visibleMinY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
-    double visibleMaxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+    double minX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    double minY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMin();
+    double maxY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMax();
 
     Histo1DPtr histo;
 
     if (m_d->m_histo)
     {
 
-        histo = make_y_projection(m_d->m_histo,
-                                  visibleMinX, visibleMaxX,
-                                  visibleMinY, visibleMaxY);
+        histo = make_y_projection(m_d->m_histo, minX, maxX, minY, maxY);
     }
     else if (m_d->m_histo1DSink)
     {
-        histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::YAxis,
-                                visibleMinX, visibleMaxX,
-                                visibleMinY, visibleMaxY);
+        histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::YAxis, minX, maxX, minY, maxY);
     }
 
     QString projHistoObjectName;
@@ -1485,6 +1483,12 @@ void Histo2DWidget::doYProjection()
     {
         m_d->m_yProjWidget->setHistogram(histo);
         m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
+    }
+
+    if (m_d->m_yProjWidget)
+    {
+        auto thisZoomRect = m_d->m_zoomer->zoomRect();
+        m_d->m_yProjWidget->zoom(thisZoomRect.transposed());
     }
 }
 
