@@ -88,6 +88,7 @@ class LIBMVME_EXPORT Histo1DWidget: public histo_ui::IPlotWidget
 
     public slots:
         void replot() override;
+        void zoom(const QRectF &zoomRect);
 
     private slots:
         /* IMPORTANT: leave slots invoked by qwt here for now. do not use lambdas!

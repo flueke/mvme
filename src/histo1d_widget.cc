@@ -1153,6 +1153,12 @@ void Histo1DWidget::replot()
 #endif
 }
 
+void Histo1DWidget::zoom(const QRectF &zoomRect)
+{
+    qDebug() << __PRETTY_FUNCTION__ << "zoomRect =" << zoomRect;
+    m_d->m_zoomer->zoom(zoomRect);
+}
+
 void Histo1DWidgetPrivate::displayChanged()
 {
     auto scaleType = static_cast<AxisScaleType>(m_yScaleCombo->currentData().toInt());
@@ -1668,6 +1674,10 @@ void Histo1DWidget::setResolutionReductionFactor(u32 rrf)
         idx >= 0)
     {
         m_d->combo_maxRes_->setCurrentIndex(idx);
+    }
+    else
+    {
+        qDebug("Could not find rrf=%u (visBins=%u, physBins=%u) in combo box", rrf, visBins, physBins);
     }
 }
 
