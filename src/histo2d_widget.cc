@@ -1358,19 +1358,25 @@ void Histo2DWidget::doXProjection()
     if (!m_d->m_histo && !m_d->m_histo1DSink)
         return;
 
-    double minX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMin();
-    double maxX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMax();
-    double minY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMin();
-    double maxY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMax();
 
     Histo1DPtr histo;
 
     if (m_d->m_histo)
     {
+        // TODO: fixme projections
+        double minX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMin();
+        double maxX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMax();
+        double minY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMin();
+        double maxY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMax();
         histo = make_x_projection(m_d->m_histo, minX, maxX, minY, maxY);
     }
     else if (m_d->m_histo1DSink)
     {
+        // TODO: fixme projections
+        double minX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+        double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+        double minY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+        double maxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
         histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::XAxis, minX, maxX, minY, maxY);
     }
 
@@ -1429,20 +1435,25 @@ void Histo2DWidget::doYProjection()
     if (!m_d->m_histo && !m_d->m_histo1DSink)
         return;
 
-    double minX = m_d->m_histo->getAxisBinning(Qt::YAxis).getMin();
-    double maxX = m_d->m_histo->getAxisBinning(Qt::YAxis).getMax();
-    double minY = m_d->m_histo->getAxisBinning(Qt::XAxis).getMin();
-    double maxY = m_d->m_histo->getAxisBinning(Qt::XAxis).getMax();
 
     Histo1DPtr histo;
 
     if (m_d->m_histo)
     {
-
+        // TODO: fixme projections
+        double minX = m_d->m_histo->getAxisBinning(Qt::YAxis).getMin();
+        double maxX = m_d->m_histo->getAxisBinning(Qt::YAxis).getMax();
+        double minY = m_d->m_histo->getAxisBinning(Qt::XAxis).getMin();
+        double maxY = m_d->m_histo->getAxisBinning(Qt::XAxis).getMax();
         histo = make_y_projection(m_d->m_histo, minX, maxX, minY, maxY);
     }
     else if (m_d->m_histo1DSink)
     {
+        // TODO: fixme projections
+        double minX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+        double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+        double minY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+        double maxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
         histo = make_projection(m_d->m_histo1DSink->m_histos, Qt::YAxis, minX, maxX, minY, maxY);
     }
 
