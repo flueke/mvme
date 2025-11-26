@@ -3183,7 +3183,7 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
     // rate history capacity
     spin_capacity = new QSpinBox;
     spin_capacity->setMinimum(1);
-    spin_capacity->setMaximum(1u << 20);
+    spin_capacity->setMaximum(1u << 30);
     spin_capacity->setValue(m_rms->getRateHistoryCapacity());
 
     // unit label and calibration
