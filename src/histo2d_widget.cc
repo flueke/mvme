@@ -1363,12 +1363,13 @@ void Histo2DWidget::doXProjection()
 
     if (m_d->m_histo)
     {
-        // TODO: fixme projections
-        double minX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMin();
-        double maxX = m_d->m_histo->getAxisBinning(Qt::XAxis).getMax();
-        double minY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMin();
-        double maxY = m_d->m_histo->getAxisBinning(Qt::YAxis).getMax();
-        histo = make_x_projection(m_d->m_histo, minX, maxX, minY, maxY);
+        // x projection only over the zoomed in area. full physical resolution.
+        // reduction is applied in the view.
+        double minX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+        double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+        double minY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+        double maxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+        histo = make_x_projection(m_d->m_histo, minX, maxX, minY, maxY, m_d->m_rrf);
     }
     else if (m_d->m_histo1DSink)
     {
@@ -1422,12 +1423,12 @@ void Histo2DWidget::doXProjection()
         m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
     }
 
-    if (m_d->m_xProjWidget)
-    {
-        // zoom the projection to the same area as this widget
-        auto thisZoomRect = m_d->m_zoomer->zoomRect();
-        m_d->m_xProjWidget->zoom(thisZoomRect);
-    }
+    //if (m_d->m_xProjWidget)
+    //{
+    //    // zoom the projection to the same area as this widget
+    //    auto thisZoomRect = m_d->m_zoomer->zoomRect();
+    //    m_d->m_xProjWidget->zoom(thisZoomRect);
+    //}
 }
 
 void Histo2DWidget::doYProjection()
@@ -1440,11 +1441,12 @@ void Histo2DWidget::doYProjection()
 
     if (m_d->m_histo)
     {
-        // TODO: fixme projections
-        double minX = m_d->m_histo->getAxisBinning(Qt::YAxis).getMin();
-        double maxX = m_d->m_histo->getAxisBinning(Qt::YAxis).getMax();
-        double minY = m_d->m_histo->getAxisBinning(Qt::XAxis).getMin();
-        double maxY = m_d->m_histo->getAxisBinning(Qt::XAxis).getMax();
+        // y projection only over the zoomed in area. full physical resolution.
+        // reduction is applied in the view.
+        double minX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+        double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+        double minY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+        double maxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
         histo = make_y_projection(m_d->m_histo, minX, maxX, minY, maxY);
     }
     else if (m_d->m_histo1DSink)
@@ -1499,14 +1501,14 @@ void Histo2DWidget::doYProjection()
         m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
     }
 
-    if (m_d->m_yProjWidget)
-    {
-        // zoom the projection to the same area as this widget
-        auto thisZoomRect = m_d->m_zoomer->zoomRect();
-        auto projZoomRect = QRectF(thisZoomRect.top(), thisZoomRect.left(),
-                                   thisZoomRect.height(), thisZoomRect.width());
-        m_d->m_yProjWidget->zoom(projZoomRect);
-    }
+    //if (m_d->m_yProjWidget)
+    //{
+    //    // zoom the projection to the same area as this widget
+    //    auto thisZoomRect = m_d->m_zoomer->zoomRect();
+    //    auto projZoomRect = QRectF(thisZoomRect.top(), thisZoomRect.left(),
+    //                               thisZoomRect.height(), thisZoomRect.width());
+    //    m_d->m_yProjWidget->zoom(projZoomRect);
+    //}
 }
 
 void Histo2DWidget::on_tb_projX_clicked()

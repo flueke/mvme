@@ -351,18 +351,17 @@ class Histo1D;
 using Histo1DPtr = std::shared_ptr<Histo1D>;
 using Histo1DList = QVector<Histo1DPtr>;
 
-Histo1DPtr make_x_projection(Histo2D *histo);
+Histo1DPtr make_x_projection(Histo2D *histo, const ResolutionReductionFactors &rrf = {});
 Histo1DPtr make_x_projection(Histo2D *histo, double startX, double endX, double startY,
-                             double endY);
+                             double endY, const ResolutionReductionFactors &rrf = {});
 
-Histo1DPtr make_y_projection(Histo2D *histo);
-
+Histo1DPtr make_y_projection(Histo2D *histo, const ResolutionReductionFactors &rrf = {});
 Histo1DPtr make_y_projection(Histo2D *histo, double startX, double endX, double startY,
-                             double endY);
+                             double endY, const ResolutionReductionFactors &rrf = {});
 
-Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis);
+Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis, const ResolutionReductionFactors &rrf = {});
 Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis, double startX, double endX, double startY,
-                           double endY);
+                           double endY, const ResolutionReductionFactors &rrf = {});
 
 Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis, double startX, double endX,
                            double startY, double endY);
