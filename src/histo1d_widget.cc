@@ -1302,6 +1302,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
     double thingsBelowGauss = a * s * Sqrt2Pi;
     // Scale with the max y value. This is the value of the maxBin
     thingsBelowGauss *= scaleFactor;
+    double relWidth = m_stats.fwhm / m_stats.fwhmCenter;
 
     static const QString gaussStatsTemplate = QSL(
         "<table>"
@@ -1309,6 +1310,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         "<tr><td align=\"left\">FWHM  </td><td>%L1</td></tr>"
         "<tr><td align=\"left\">Center</td><td>%L2</td></tr>"
         "<tr><td align=\"left\">Counts</td><td>%L3</td></tr>"
+        "<tr><td align=\"left\">Rel.Width</td><td>%L4</td></tr>"
         "</table>"
         );
 
@@ -1316,6 +1318,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         .arg(m_stats.fwhm)
         .arg(m_stats.fwhmCenter)
         .arg(thingsBelowGauss)
+        .arg(relWidth)
         ;
 
     if (!m_gaussStatsText)
