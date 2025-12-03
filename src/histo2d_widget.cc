@@ -473,10 +473,14 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     }
 
     auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");
-    connect(actionShowDependencyGraph, &QAction::triggered,
-            this, [this] ()
+    connect(actionShowDependencyGraph, &QAction::triggered, this,
+            [this]()
             {
-                analysis::graph::show_dependency_graph(getServiceProvider(), getSink());
+                if (auto sink = getSink())
+                {
+                    if (auto asp = getServiceProvider())
+                        analysis::graph::show_dependency_graph(asp, sink);
+                }
             });
 
     tb->addWidget(make_spacer_widget());
