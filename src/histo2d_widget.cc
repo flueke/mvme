@@ -1511,7 +1511,9 @@ void Histo2DWidget::doYProjection()
         // resolution.
         m_d->m_yProjWidget->setResolutionReductionFactor(AxisBinning::NoResolutionReduction);
 
-    //    // zoom the projection to the same area as this widget
+        // zoom the projection to the same area as this widget swapped
+        // coordinates for the y projection. y in the projection does not matter
+        // as the h1d_widget auto scales that to max range.
         auto thisZoomRect = m_d->m_zoomer->zoomRect();
         auto projZoomRect = QRectF(thisZoomRect.top(), thisZoomRect.left(),
                                    thisZoomRect.height(), thisZoomRect.width());
