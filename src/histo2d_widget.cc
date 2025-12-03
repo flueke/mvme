@@ -1398,7 +1398,6 @@ void Histo2DWidget::doXProjection()
     {
         m_d->m_xProjWidget = new Histo1DWidget(histo);
         m_d->m_xProjWidget->setServiceProvider(m_d->m_serviceProvider);
-        m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
         m_d->m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_d->m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         m_d->m_xProjWidget->setWindowTitle(projHistoObjectName);
@@ -1421,18 +1420,21 @@ void Histo2DWidget::doXProjection()
         stateKey = stateKey + QSL("_xProj");
         m_d->m_geometrySaver->addAndRestore(m_d->m_xProjWidget, QSL("WindowGeometries/") + stateKey);
     }
-    else
+
+    if (m_d->m_xProjWidget)
     {
         m_d->m_xProjWidget->setHistogram(histo);
-        m_d->m_xProjWidget->setResolutionReductionFactor(m_d->m_rrf.x);
-    }
 
-    //if (m_d->m_xProjWidget)
-    //{
-    //    // zoom the projection to the same area as this widget
-    //    auto thisZoomRect = m_d->m_zoomer->zoomRect();
-    //    m_d->m_xProjWidget->zoom(thisZoomRect);
-    //}
+        // The projection is created with a physical resolution equal to the
+        // visible resolution (after resolution reduction) of the source
+        // histogram. This means the projection should always be shown at full
+        // resolution.
+        m_d->m_xProjWidget->setResolutionReductionFactor(AxisBinning::NoResolutionReduction);
+
+        // zoom the projection to the same area as this widget
+        auto thisZoomRect = m_d->m_zoomer->zoomRect();
+        m_d->m_xProjWidget->zoom(thisZoomRect);
+    }
 }
 
 void Histo2DWidget::doYProjection()
@@ -1451,7 +1453,7 @@ void Histo2DWidget::doYProjection()
         double maxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
         double minY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
         double maxY = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
-        histo = make_y_projection(m_d->m_histo, minX, maxX, minY, maxY);
+        histo = make_y_projection(m_d->m_histo, minX, maxX, minY, maxY, m_d->m_rrf);
     }
     else if (m_d->m_histo1DSink)
     {
@@ -1475,7 +1477,6 @@ void Histo2DWidget::doYProjection()
     if (!m_d->m_yProjWidget)
     {
         m_d->m_yProjWidget = new Histo1DWidget(histo);
-        m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
         m_d->m_yProjWidget->setServiceProvider(m_d->m_serviceProvider);
         m_d->m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_d->m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1499,20 +1500,23 @@ void Histo2DWidget::doYProjection()
         stateKey = stateKey + QSL("_yProj");
         m_d->m_geometrySaver->addAndRestore(m_d->m_yProjWidget, QSL("WindowGeometries/") + stateKey);
     }
-    else
+
+    if (m_d->m_yProjWidget)
     {
         m_d->m_yProjWidget->setHistogram(histo);
-        m_d->m_yProjWidget->setResolutionReductionFactor(m_d->m_rrf.y);
-    }
 
-    //if (m_d->m_yProjWidget)
-    //{
+        // The projection is created with a physical resolution equal to the
+        // visible resolution (after resolution reduction) of the source
+        // histogram. This means the projection should always be shown at full
+        // resolution.
+        m_d->m_yProjWidget->setResolutionReductionFactor(AxisBinning::NoResolutionReduction);
+
     //    // zoom the projection to the same area as this widget
-    //    auto thisZoomRect = m_d->m_zoomer->zoomRect();
-    //    auto projZoomRect = QRectF(thisZoomRect.top(), thisZoomRect.left(),
-    //                               thisZoomRect.height(), thisZoomRect.width());
-    //    m_d->m_yProjWidget->zoom(projZoomRect);
-    //}
+        auto thisZoomRect = m_d->m_zoomer->zoomRect();
+        auto projZoomRect = QRectF(thisZoomRect.top(), thisZoomRect.left(),
+                                   thisZoomRect.height(), thisZoomRect.width());
+        m_d->m_yProjWidget->zoom(projZoomRect);
+    }
 }
 
 void Histo2DWidget::on_tb_projX_clicked()
