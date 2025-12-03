@@ -65,10 +65,10 @@ WaveformPlotCurveHelper::Handle WaveformPlotCurveHelper::addWaveform(WaveformCur
     }
 
     if (auto symbol = dest.rawCurve->symbol())
-        dest.rawSymbolCache = mvme_qwt::make_cache_from_symbol(dest.rawCurve->symbol());
+        dest.rawSymbolCache = mvme_qwt::make_cache_from_symbol(symbol);
 
     if (auto symbol = dest.interpolatedCurve->symbol())
-        dest.interpolatedSymbolCache = mvme_qwt::make_cache_from_symbol(dest.interpolatedCurve->symbol());
+        dest.interpolatedSymbolCache = mvme_qwt::make_cache_from_symbol(symbol);
 
     waveforms_.emplace_back(std::move(dest));
     return waveforms_.size() - 1;
