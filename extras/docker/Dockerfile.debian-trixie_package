@@ -10,7 +10,7 @@
 # Note: submodules have to be initialized and updated in order for the build to
 # succeed.
 
-FROM debian:trixie as build
+FROM debian:trixie AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash build-essential git cmake ninja-build ca-certificates \

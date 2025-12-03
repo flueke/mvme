@@ -4,12 +4,12 @@
 # Dockerfile containing instructions to build mvme and run the unit tests.
 
 # Example docker build invocation from the root of the source tree:
-#   DOCKER_BUILDKIT=1 docker build -f ./extras/docker/Dockerfile.debian-trixie_ctest .
+#   DOCKER_BUILDKIT=1 docker build -f ./extras/docker/Dockerfile.ubuntu25.10_ctest .
 
 # Note: submodules have to be initialized and updated in order for the build to
 # succeed.
 
-FROM debian:trixie AS build
+FROM ubuntu:25.10 AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash build-essential git cmake ninja-build ca-certificates \
