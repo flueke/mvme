@@ -12,7 +12,7 @@
 
 # Bullseye does not have prometheus-cpp, so building without prometheus support.
 
-FROM debian:bullseye as build
+FROM debian:bullseye AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash build-essential git cmake ninja-build ca-certificates \
@@ -29,7 +29,7 @@ ENV QT_QPA_PLATFORM=minimal
 
 RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
           -DMVME_BUILD_TESTS=OFF /sources \
-    && ninja && ctest . -LE not_in_docker && ninja package
+    && ninja && ctest . -LE not_in_docker --output-on-failure && ninja package
 
 FROM scratch
 COPY --from=build /build/packages ./build-artifacts

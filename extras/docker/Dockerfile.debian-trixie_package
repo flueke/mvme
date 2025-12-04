@@ -27,7 +27,7 @@ ENV QT_QPA_PLATFORM=minimal
 
 RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
           -DMVME_BUILD_TESTS=ON /sources \
-    && ninja && ctest . -LE not_in_docker && ninja package
+    && ninja && ctest . -LE not_in_docker --output-on-failure && ninja package
 
 FROM scratch
 COPY --from=build /build/packages ./build-artifacts

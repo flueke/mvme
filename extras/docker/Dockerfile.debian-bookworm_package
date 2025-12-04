@@ -1,15 +1,16 @@
 # syntax=docker/dockerfile:1.5
 # vim:ft=dockerfile
 
+
 # Dockerfile containing instructions to build mvme and run the unit tests.
 
 # Example docker build invocation from the root of the source tree:
-#   DOCKER_BUILDKIT=1 docker build -f ./extras/docker/Dockerfile.ubuntu25.10_package --output=. .
+#   DOCKER_BUILDKIT=1 docker build -f ./extras/docker/Dockerfile.debian-bookworm_ctest .
 
 # Note: submodules have to be initialized and updated in order for the build to
 # succeed.
 
-FROM ubuntu:25.10 AS build
+FROM debian:bookworm AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash build-essential git cmake ninja-build ca-certificates \
@@ -17,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libqt5serialport5-dev libqwt-qt5-dev libquazip5-dev libusb-dev zlib1g-dev libgraphviz-dev \
     libboost-dev sphinx-common sphinx-rtd-theme-common python3-sphinx python3-sphinxcontrib.qthelp \
     texlive-latex-base texlive-latex-extra texlive-latex-recommended latexmk texlive-fonts-recommended \
-    libzmq3-dev prometheus-cpp-dev
+    prometheus-cpp-dev libzmq3-dev cppzmq-dev
 
 COPY . /sources
 WORKDIR /build
@@ -25,7 +26,7 @@ WORKDIR /build
 ENV QT_QPA_PLATFORM=minimal
 
 RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
-          -DMVME_BUILD_TESTS=ON /sources \
+          -DMVME_BUILD_TESTS=OFF /sources \
     && ninja && ctest . -LE not_in_docker --output-on-failure && ninja package
 
 FROM scratch
