@@ -4,6 +4,22 @@
 Changelog
 ##################################################
 
+Version 1.17.1
+--------------------------------------------------
+
+* analysis:
+
+  - Fixes and updates to histogram projections. Zooming and on-the-fly
+    resolution reduction have been improved.
+
+  - Fix various UI related crashes
+
+- Add/update Dockerfiles for debian:testing, ubuntu:latest and ubuntu:rolling.
+  Remove the Dockerfiles running only tests but not doing packaging (less files,
+  less maintenance).
+
+- Compile fixes for gcc-15 and clang-19 (removed pre-ansi-c style MBS code, will revive if needed)
+
 Version 1.17.0
 --------------------------------------------------
 
