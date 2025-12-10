@@ -938,7 +938,7 @@ VMEError VMUSB::setIrqMask(int val)
     if (error.isError())
         return error;
 
-    error = vmusb->writeActionRegister(1);
+    error = vmusb->writeActionRegister(2);
     if (error.isError())
         return error;
 
