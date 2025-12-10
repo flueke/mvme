@@ -930,20 +930,20 @@ VMEError VMUSB::setIrqMask(int val)
     uint16_t globalReg;
     uint16_t irqMask = 0x8000 | (val&0x7f);
 
-    error = vmusb->readRegister(GMODERegister, &globalReg);
+    VMEError error = readRegister(GMODERegister, &globalReg);
     if (error.isError())
         return error;
 
-    error = vmusb->writeRegister(GMODERegister, irqMask);
+    error = writeRegister(GMODERegister, irqMask);
     if (error.isError())
         return error;
 
-    error = vmusb->writeActionRegister(2);
+    error = writeActionRegister(2);
     if (error.isError())
         return error;
 
     uint32_t maskSet;
-    error = vmusb->readRegister(FIDRegister, &maskSet);
+    error = readRegister(FIDRegister, &maskSet);
     if (error.isError())
         return error;
 
@@ -951,11 +951,11 @@ VMEError VMUSB::setIrqMask(int val)
     if (irqMask != val)
         return VMEError(VMEError::BusError, QSL("Read IRQ mask is different from the written!"));
 
-    error = vmusb->writeActionRegister(0);
+    error = writeActionRegister(0);
     if (error.isError())
         return error;
 
-    error = vmusb->setMode(globalReg);
+    error = setMode(globalReg);
     if (error.isError())
         return error;
 
