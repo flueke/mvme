@@ -927,7 +927,7 @@ VMEError VMUSB::readIrq(int vec, u16 *value)
  */
 VMEError VMUSB::setIrqMask(int val)
 {
-    uint16_t globalReg;
+    u32 globalReg;
     uint16_t irqMask = 0x8000 | (val&0x7f);
 
     VMEError error = readRegister(GMODERegister, &globalReg);
@@ -967,7 +967,7 @@ VMEError VMUSB::setIrqMask(int val)
  */
 VMEError VMUSB::resetIrqMask()
 {
-    error = setIrqMask(0x7f);
+    VMEError error = setIrqMask(0x7f);
 
     return error;
 }
@@ -980,7 +980,7 @@ VMEError VMUSB::removeIrqMask(int val)
     uint16_t thismask = (~(0x1 << (val - 1)) & 0x7f);
     irqMask &= thismask;
 
-    error = setIrqMask(irqMask);
+    VMEError error = setIrqMask(irqMask);
 
     return error;
 }
