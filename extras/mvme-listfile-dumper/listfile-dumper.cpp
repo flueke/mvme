@@ -386,7 +386,10 @@ void process_listfile(std::ifstream &infile)
     const size_t bytesToRead = 4;
     char fourCC[bytesToRead] = {};
 
+    infile.seekg(0, std::ifstream::beg);
     infile.read(fourCC, bytesToRead);
+
+    cerr << "read fourCC:" << std::string(fourCC, bytesToRead) << endl;
 
     // Check if we have one of the MVLC files (8 magic bytes, either MVLC_ETH
     // or MVLC_USB. Those are not supported by this tool. Parsing the formats
@@ -428,7 +431,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    std::ifstream infile(argv[1], std::ios::binary);
+    auto inputFilename = std::string(argv[1]);
+
+    if (inputFilename.size() < 4
+        || inputFilename.substr(inputFilename.size() - 4) == ".zip")
+    {
+        cerr << "Error: ZIP archives are not supported by this tool." << endl;
+        return 1;
+    }
+
+    std::ifstream infile(inputFilename, std::ios::binary);
 
     if (!infile.is_open())
     {
