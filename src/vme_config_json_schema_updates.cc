@@ -670,7 +670,21 @@ QJsonObject convert_vmeconfig_to_current_version(
     if (!logger)
         logger = [] (const QString &) {};
 
-    int version;
+    int version = get_vmeconfig_version(json);
+
+    // Edge case: old configs from a time (~2017)  where only the VMUSB
+    // controller was supported did not have a separate key for storing VME
+    // controller type and settings. When reading these configs now they default
+    // to MVLC_ETH as the controller which in turns means the format must be
+    // interpreted as an mvlclst file. This breaks because the format is
+    // actually the initial mvmelst format.
+    // Fix: set vme_controller.type = VMUSB in the json data.
+    if (!json.contains("vme_controller"))
+    {
+        QJsonObject vmeControllerJson;
+        vmeControllerJson["type"] = "VMUSB";
+        json["vme_controller"] = vmeControllerJson;
+    }
 
     while ((version = get_vmeconfig_version(json)) < GetCurrentVMEConfigVersion())
     {
