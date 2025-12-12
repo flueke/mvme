@@ -148,7 +148,7 @@ bool ListFile::open()
     const auto &lfc = listfile_constants();
     const char *toCompare = lfc.FourCC;
     const size_t bytesToRead = 4;
-    char fourCC[bytesToRead + 1] = {};
+    char fourCC[bytesToRead] = {};
 
     if (!m_input->isOpen())
     {
@@ -162,6 +162,8 @@ bool ListFile::open()
 
     qint64 bytesRead = m_input->read(reinterpret_cast<char *>(fourCC), bytesToRead);
 
+    //qDebug() << "read fourCC:" << QString::fromLatin1(fourCC, bytesToRead);
+
     if (bytesRead == bytesToRead
         && std::strncmp(reinterpret_cast<char *>(fourCC), toCompare, bytesToRead) == 0)
     {
@@ -172,6 +174,8 @@ bool ListFile::open()
         {
             m_fileVersion = version;
         }
+
+        qDebug() << "read listfile version" << m_fileVersion;
 
         u8 *firstByte = reinterpret_cast<u8 *>(fourCC);
         u8 *lastByte = reinterpret_cast<u8 *>(fourCC) + bytesToRead;
@@ -657,10 +661,14 @@ read_config_from_listfile(
 {
     auto json = listfile->getVMEConfigJSON();
 
+    //qDebug().noquote() << "read VMEConfig JSON from listfile:" << QJsonDocument(json).toJson(QJsonDocument::Indented);
+
     mesytec::mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
     updateOptions.skip_v4_VMEScriptVariableUpdate = true;
 
     json = mesytec::mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
+
+    //qDebug().noquote() << "VMEConfig JSON after schema updates:" << QJsonDocument(json).toJson(QJsonDocument::Indented);
 
     auto vmeConfig = std::make_unique<VMEConfig>();
     auto ec = vmeConfig->read(json);
