@@ -120,6 +120,9 @@ class LIBMVME_EXPORT VMUSB: public VMEController
         int setScalerBdata(int val);
         VMEError setEventsPerBuffer(u32 val);
         VMEError setIrq(int vec, uint16_t val);
+        VMEError resetIrqMask();
+        VMEError setIrqMask(int val);
+        VMEError removeIrqMask(int val);
         int setDggSettings(int val);
         VMEError setUsbSettings(int val);
 #if 0
@@ -200,6 +203,7 @@ class LIBMVME_EXPORT VMUSB: public VMEController
         u32 scalerBdata;
         u32 eventsPerBuffer;
         u32 irqV[4];
+        uint16_t irqMask;
         u32 extDggSettings;
         u32 usbBulkSetup;
         bool m_daqMode = false;

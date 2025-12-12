@@ -97,6 +97,10 @@ VMEError VMUSBStack::enableStack(VMUSB *controller)
                     << ", vectorNumber(register)=" << vectorNumber;
 
                 result = controller->setIrq(vectorNumber, isvValue);
+                if (result.isError())
+                    return result;
+
+                result = controller->removeIrqMask(irqLevel);
 
 #if 0
                 uint32_t daqSettings = controller->getDaqSettings();

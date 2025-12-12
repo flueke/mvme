@@ -923,6 +923,70 @@ VMEError VMUSB::readIrq(int vec, u16 *value)
 }
 
 /*!
+  \fn vmUsb::setIrqMask(int val)
+ */
+VMEError VMUSB::setIrqMask(int val)
+{
+    u32 globalReg;
+    val = val&0x7f;
+    uint16_t thismask = 0x8000 | val;
+
+    VMEError error = readRegister(GMODERegister, &globalReg);
+    if (error.isError())
+        return error;
+
+    error = writeRegister(GMODERegister, thismask);
+    if (error.isError())
+        return error;
+
+    error = writeActionRegister(2);
+    if (error.isError())
+        return error;
+
+    uint32_t maskSet;
+    error = readRegister(FIDRegister, &maskSet);
+    if (error.isError())
+        return error;
+
+    maskSet = (maskSet & 0x7f000000) >> 24;
+    if (maskSet != val)
+        return VMEError(VMEError::BusError, QSL("Read IRQ mask is different from the written!"));
+
+    error = setMode(0);
+    if (error.isError())
+        return error;
+
+    error = setMode(globalReg);
+    if (error.isError())
+        return error;
+
+    return error;
+}
+
+/*!
+  \fn vmUsb::resetIrqMask()
+ */
+VMEError VMUSB::resetIrqMask()
+{
+    VMEError error = setIrqMask(0x7f);
+
+    return error;
+}
+
+/*!
+  \fn vmUsb::removeIrqMask(int val)
+ */
+VMEError VMUSB::removeIrqMask(int val)
+{
+    uint16_t thismask = (~(0x1 << (val - 1)) & 0x7f);
+    irqMask &= thismask;
+
+    VMEError error = setIrqMask(irqMask);
+
+    return error;
+}
+
+/*!
   \fn vmUsb::setDggSettings(int val)
  */
 int VMUSB::setDggSettings(int val)
