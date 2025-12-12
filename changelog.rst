@@ -4,6 +4,17 @@
 Changelog
 ##################################################
 
+Version 1.17.2
+--------------------------------------------------
+
+* Merge in VMUSB fixes from Chang, Jin-Hee <ChangJ@frib.msu.edu> & Ron Fox. This fixes IRQ
+  mask register handling in certain cases.
+
+* Compatibility with old (2017) VMUSB listfiles restored. These were
+  recorded before the SIS and MVLC controller existed.
+
+* Crash fixes in some of the listfile handling code.
+
 Version 1.17.1
 --------------------------------------------------
 
