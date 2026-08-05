@@ -252,6 +252,15 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     d->actionHold_->setChecked(false);
     tb->addSeparator();
 
+    tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
+        if (d->sink_)
+        {
+            d->sink_->clearState();
+        }
+    });
+    tb->addSeparator();
+
+
     d->traceSelect_ = add_trace_selector(tb);
     d->traceSelect_->setEnabled(false);
     tb->addSeparator();
