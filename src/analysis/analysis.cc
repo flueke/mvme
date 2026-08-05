@@ -4272,7 +4272,12 @@ void WaveformSink::clearState()
     qDebug() << __PRETTY_FUNCTION__ << objectName();
 #endif
 
-    d->traceHistories_.access()->clear();
+    // Clear the individual traces, not the outer vector as that must stay
+    // constant during a run.
+    for (auto &history: d->traceHistories_.access().ref())
+    {
+        history.clear();
+    }
 }
 
 void WaveformSink::beginRun(const RunInfo &runInfo, Logger)
