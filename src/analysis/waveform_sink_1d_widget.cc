@@ -425,14 +425,23 @@ bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
 {
     auto newAnalysisTraceData = sink_->getTraceHistories();
 
-    // Note: this makes the method return true even if no single trace was
-    // decoded. The reason is that the trace meta (module_header, timestamp)
-    // changes, so the != comparsion is true if the module produced new data.
+    //qDebug() << __PRETTY_FUNCTION__ << "newTraceCount=" << newTraceCount << "prevTraceCount=" << waveforms::get_trace_count(analysisTraceSnapshot_);
+
+    // Comparing the snapshots also compares trace meta data. Returning just the
+    // comparison result would make the method return true even if no new trace
+    // was decoded, but the meta data changed. So we also check if there is at
+    // least one new trace in the new snapshot.
+    auto newTraceCount = waveforms::get_trace_count(newAnalysisTraceData);
+
     if (newAnalysisTraceData != analysisTraceSnapshot_)
     {
         std::swap(analysisTraceSnapshot_, newAnalysisTraceData);
-        traceDataUpdateTime_ = QTime::currentTime();
-        return true;
+
+        if (newTraceCount > 0)
+        {
+            traceDataUpdateTime_ = QTime::currentTime();
+            return true;
+        }
     }
 
     return false;
@@ -578,15 +587,6 @@ inline void set_curve_color(QwtPlotCurve *curve, const QColor &color)
 {
     auto pen = curve->pen();
     pen.setColor(color);
-    curve->setPen(pen);
-}
-
-inline void set_curve_alpha(QwtPlotCurve *curve, double alpha)
-{
-    auto pen = curve->pen();
-    auto penColor = pen.color();
-    penColor.setAlphaF(std::min(alpha, 1.0));
-    pen.setColor(penColor);
     curve->setPen(pen);
 }
 
