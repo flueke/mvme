@@ -3598,7 +3598,7 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
         if (sinks.empty())
             return nullptr;
 
-        auto result = new QAction("Open selected sinks in Plot Grid");
+        auto result = new QAction("Open selection in Plot Grid");
 
         QObject::connect(result, &QAction::triggered, m_q, [this, sinks] () {
             auto widget = new MultiPlotWidget(m_serviceProvider);
@@ -3656,20 +3656,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
                     m_serviceProvider->getWidgetRegistry()->addWidget(
                         widget,
                         widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
-                }
-            });
-
-            menu.addAction(QSL("Open in Plot Grid"), m_q, [this, activeNode]() {
-                auto widgetInfo = getHisto1DWidgetInfoFromNode(activeNode);
-
-                if (widgetInfo.histos.size())
-                {
-                    auto widget = new MultiPlotWidget(m_serviceProvider);
-                    widget->addSink(widgetInfo.sink);
-                    widget->setWindowTitle("PlotGrid " + widgetInfo.sink->objectName());
-                    m_serviceProvider->getWidgetRegistry()->addWidget(
-                        widget,
-                        widgetInfo.sink->getId().toString() + QSL("_plotgrid"));
                 }
             });
 
@@ -3753,18 +3739,6 @@ void EventWidgetPrivate::doSinkTreeContextMenu(QTreeWidget *tree, QPoint pos, s3
 
                             m_serviceProvider->getWidgetRegistry()->addObjectWidget(widget, sinkPtr.get(),
                                                        sinkPtr->getId().toString());
-                        });
-
-                    menu.addAction(
-                        QSL("Open in Plot Grid"), m_q,
-                        [this, histo, sinkPtr]
-                        {
-                            auto widget = new MultiPlotWidget(m_serviceProvider);
-                            widget->addSink(sinkPtr);
-                            widget->setWindowTitle("PlotGrid " + sinkPtr->objectName());
-                            m_serviceProvider->getWidgetRegistry()->addWidget(
-                                widget,
-                                sinkPtr->getId().toString() + QSL("_plotgrid"));
                         });
                 }
 
