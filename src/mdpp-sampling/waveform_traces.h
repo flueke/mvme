@@ -129,6 +129,8 @@ double get_trace_dx(const Trace &trace);
 
 std::string trace_meta_to_string(const Trace::MetaMap &meta);
 
+size_t get_trace_count(const TraceHistories &traceHistories);
+
 }
 
 #endif /* D5F48B2C_D902_44A9_8EBD_36C71D14399D */

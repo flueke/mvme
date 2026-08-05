@@ -144,4 +144,14 @@ std::string trace_meta_to_string(const Trace::MetaMap &meta)
     return fmt::format("{}", fmt::join(strParts, ", "));
 }
 
+size_t get_trace_count(const TraceHistories &traceHistories)
+{
+    size_t result = 0;
+
+    for (const auto &history: traceHistories)
+        result += history.size();
+
+    return result;
+}
+
 }
