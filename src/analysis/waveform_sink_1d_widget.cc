@@ -253,10 +253,7 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     tb->addSeparator();
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
-        if (d->sink_)
-        {
-            d->sink_->clearState();
-        }
+        clear();
     });
     tb->addSeparator();
 
@@ -623,6 +620,8 @@ void WaveformSink1DWidget::replot()
 
     const bool gotNewData = !d->actionHold_->isChecked() ?  d->updateDataFromAnalysis() : false;
 
+    spdlog::trace("WaveformSink1DWidget::replot(): gotNewData={}", gotNewData);
+
     d->updateUi(); // update, selection boxes, buttons, etc.
 
     const auto channelCount = d->analysisTraceSnapshot_.size();
@@ -662,8 +661,8 @@ void WaveformSink1DWidget::replot()
 
     for (auto &[chanIndex, handles]: d->channelToWaveformHandles_)
     {
-        //spdlog::warn("WaveformSink1DWidget::replot(): channelIndex={}, #handles={}", chanIndex, handles.size());
         const auto traceCount = handles.size();
+        spdlog::trace("WaveformSink1DWidget::replot(): channelIndex={}, traceCount={}", chanIndex, traceCount);
         const double slope = (1.0 - 0.1) / traceCount; // want alpha from 1.0 to 0.1
         const auto traceColor = colors.value(chanIndex % colors.size());
 
@@ -748,6 +747,16 @@ void WaveformSink1DWidget::replot()
         getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
     spdlog::trace("end WaveformSink1DWidget::replot()");
+}
+
+void WaveformSink1DWidget::clear()
+{
+    if (d->sink_)
+        d->sink_->clearState();
+    d->analysisTraceSnapshot_.clear();
+    d->displayTraceData_.clear();
+    d->tracesToPlot_.clear();
+    replot();
 }
 
 void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)
