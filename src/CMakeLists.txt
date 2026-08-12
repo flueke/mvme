@@ -272,6 +272,7 @@ add_library(libmvme SHARED
     remote_control.cc
     replay_ui.cc
     replay_ui_p.cc
+    run_notes_widget.cc
     scrollbar.cpp
     scrollzoomer.cpp
     sis3153.cc
@@ -286,6 +287,8 @@ add_library(libmvme SHARED
     util.cc
     util/expand_env_vars.cc
     util/mesy_nng_pipeline.cc
+    util/markdownhighlighter.cpp
+    util/qownlanguagedata.cpp
     util/qledindicator.cpp
     util/qt_eventfilters.cc
     util/qt_gui_io.cc
