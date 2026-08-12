@@ -51,6 +51,7 @@
 #include "qt_assistant_remote_control.h"
 #include "qt_util.h"
 #include "rate_monitor_gui.h"
+#include "run_notes_widget.hpp"
 #include "sis3153_util.h"
 #include "util/qt_logview.h"
 #include "util/qt_monospace_textedit.h"
@@ -120,7 +121,7 @@ struct MVMEWindowPrivate
 
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
-    QPlainTextEdit *runNotesWidget = nullptr;
+    mvme::RunNotesWidget *runNotesWidget = nullptr;
 
     DAQControl *daqControl = nullptr;
 
@@ -247,7 +248,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
                     closeAllHistogramWidgets();
                     m_d->m_context->openWorkspace(dirName);
                     if (m_d->runNotesWidget)
-                        m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+                        m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
 
                     QSettings settings;
                     auto recents = settings.value("RecentWorkspaces").toStringList();
@@ -837,7 +838,7 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
         closeAllHistogramWidgets();
         m_d->m_context->openWorkspace(dirName);
         if (m_d->runNotesWidget)
-            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+            m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
 
         QSettings settings;
         auto recents = settings.value("RecentWorkspaces").toStringList();
@@ -2486,10 +2487,9 @@ void MVMEMainWindow::showRunNotes()
 {
     if (!m_d->runNotesWidget)
     {
-        m_d->runNotesWidget = new QPlainTextEdit;
-        m_d->runNotesWidget = mesytec::mvme::util::make_monospace_plain_textedit().release();
+        m_d->runNotesWidget = new mvme::RunNotesWidget;
         m_d->runNotesWidget->setWindowTitle(QSL("DAQ Run Notes"));
-        m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+        m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
         m_d->runNotesWidget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(m_d->runNotesWidget);
 
@@ -2507,7 +2507,7 @@ void MVMEMainWindow::showRunNotes()
             m_d->runNotesWidget->setReadOnly(ro);
 
             QSignalBlocker b(m_d->runNotesWidget);
-            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+            m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
         };
 
         on_global_mode_changed(getContext()->getMode());
@@ -2516,10 +2516,10 @@ void MVMEMainWindow::showRunNotes()
             this->m_d->runNotesWidget = nullptr;
         });
 
-        connect(m_d->runNotesWidget, &QPlainTextEdit::textChanged,
+        connect(m_d->runNotesWidget, &mvme::RunNotesWidget::textChanged,
                 this, [this] ()
                 {
-                    getContext()->setRunNotes(m_d->runNotesWidget->toPlainText());
+                    getContext()->setRunNotes(m_d->runNotesWidget->toMarkdown());
                 });
 
         connect(getContext(), &MVMEContext::modeChanged,

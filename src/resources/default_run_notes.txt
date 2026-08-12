@@ -1,6 +1,41 @@
 A place to write down notes about the current DAQ setup and run.
 
-At the end of a DAQ run the current contents of the editor window will be stored inside
-the listfile archive in a file called 'run_notes.txt'.
+At the end of a DAQ run the contents of the editor window will be stored inside
+the listfile ZIP archive in a file called 'run_notes.txt'.
 
-When replaying from file the archived contents will be shown in this editor window.
+When replaying from file the archived contents will be shown in this editor
+window.
+
+Since mvme-1.22 [markdown syntax](https://www.markdownguide.org/cheat-sheet/)
+can be used to format this text. Examples:
+
+# Heading 1
+
+**bold** and  *italic*
+
+## Lists
+
+1. First item
+2. Second item
+3. Third item
+    1. Indented item
+    2. Indented item
+4. Fourth item
+
+- First item
+- Second item
+- Third item
+    - Indented item
+    - Indented item
+- Fourth item
+
+## Links
+
+My favorite search engine is [Duck Duck Go](https://duckduckgo.com).
+
+## Tables
+
+| Syntax      | Description |
+| ----------- | ----------- |
+| Header      | Title       |
+| Paragraph   | Text        |
