@@ -309,6 +309,7 @@ class IInterpolator
         virtual void operator()(const waveforms::Trace &input, waveforms::Trace &output) = 0;
 };
 
+// Source is analysisTraceData, dest is displayTraceData.
 // For each channel in analysisTraceData:
 // - find the first non-empty trace in the input data
 // - prepend it to the channels trace history in displayTraceData
