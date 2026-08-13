@@ -4,6 +4,13 @@
 Changelog
 ##################################################
 
+Version 1.22.0-rc
+--------------------------------------------------
+
+- Support markdown formatting in DAQ run_notes.
+
+- Waveforms: add 'clear' button, implement age based CRT-like fading of traces
+
 Version 1.21.0
 --------------------------------------------------
 
