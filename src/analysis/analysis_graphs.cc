@@ -525,6 +525,11 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
     connect(d->gctx_.view, &QWidget::customContextMenuRequested,
             this, [this] (const QPoint &pos) { d->runContextMenu(pos); });
 
+    if (auto analysis = asp->getAnalysis())
+    {
+        connect(analysis, &Analysis::modified, this, [this] (bool) { refresh(); });
+    }
+
     d->onSceneSelectionChanged();
 }
 
@@ -615,6 +620,13 @@ void DependencyGraphWidget::setGraphObjectAttributes(const GraphObjectAttributes
 void DependencyGraphWidget::fitInView()
 {
     d->gctx_.view->fitInView(d->gctx_.view->scene()->sceneRect(), Qt::KeepAspectRatio);
+}
+
+void DependencyGraphWidget::refresh()
+{
+    d->setObject(getRootObject());
+    fitInView();
+    objectSelected(getRootObject());
 }
 
 bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)

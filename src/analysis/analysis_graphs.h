@@ -93,6 +93,7 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
         void setRootObject(const AnalysisObjectPtr &rootObj);
         void setGraphObjectAttributes(const GraphObjectAttributes &goa);
         void fitInView();
+        void refresh();
 
     protected:
         bool eventFilter(QObject *obj, QEvent *ev) override;
