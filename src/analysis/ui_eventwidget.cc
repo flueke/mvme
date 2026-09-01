@@ -4047,8 +4047,16 @@ static bool forward_path_exists(PipeSourceInterface *from, PipeSourceInterface *
 static bool is_valid_input_node(QTreeWidgetItem *node, Slot *slot,
                                 QSet<PipeSourceInterface *> additionalInvalidSources)
 {
+    Q_ASSERT(slot);
+    Q_ASSERT(slot->parentOperator);
+
+    if (!slot || !slot->parentOperator)
+        return false;
+
     PipeSourceInterface *dstObject = slot->parentOperator;
-    Q_ASSERT(dstObject);
+
+    if (!dstObject)
+        return false;
 
     PipeSourceInterface *srcObject = nullptr;
 
