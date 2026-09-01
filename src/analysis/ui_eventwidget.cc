@@ -2876,7 +2876,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(ObjectTree *tree, QPoint pos,
             OperatorPtr op(objectFactory.makeOperator(operatorName));
 
             // Do not want conditions in here except for the expression
-            // condition. The other are generated graphically directly in histo
+            // condition. The others are generated graphically directly in histo
             // widgets.
             if (!std::dynamic_pointer_cast<ConditionInterface>(op)
                 || std::dynamic_pointer_cast<ExpressionCondition>(op))
