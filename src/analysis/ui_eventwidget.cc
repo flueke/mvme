@@ -4006,6 +4006,10 @@ void EventWidgetPrivate::modeChanged(Mode oldMode, Mode mode)
                             }
                         }
                     }
+                    else
+                    {
+                        qDebug() << "Condition" << cond->objectName() << "cannot be used for operator" << op->objectName();
+                    }
                 }
             } break;
     }
@@ -4577,13 +4581,21 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                         /* Click on a specific output of an object. */
                         case NodeType_OutputPipe:
                             {
-                                Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
-                                Q_ASSERT(slot->parentOperator);
-
-                                selectedPipe       = get_pointer<Pipe>(node, DataRole_RawPointer);
-                                selectedParamIndex = Slot::NoParamIndex;
-
-                                //slot->connectPipe(pipe, Slot::NoParamIndex);
+                                // Detect the case of an output array with a
+                                // single element. If the slot accepts a single
+                                // value, we will connect to that value instead
+                                // of the array.
+                                if (!(slot->acceptedInputTypes & InputType::Array))
+                                {
+                                    selectedPipe = get_pointer<Pipe>(node, DataRole_RawPointer);
+                                    if (selectedPipe->getSize() == 1)
+                                        selectedParamIndex = 0;
+                                }
+                                else
+                                {
+                                    selectedPipe       = get_pointer<Pipe>(node, DataRole_RawPointer);
+                                    selectedParamIndex = Slot::NoParamIndex;
+                                }
                             } break;
 
                         /* Click on a specific parameter index. */
