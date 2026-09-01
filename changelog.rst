@@ -7,9 +7,15 @@ Changelog
 Version 1.22.0-rc
 --------------------------------------------------
 
-- Support markdown formatting in DAQ run_notes.
+* Support markdown formatting in DAQ run_notes.
 
-- Waveforms: add 'clear' button, implement age based CRT-like fading of traces
+* Waveforms: add 'clear' button, implement age based CRT-like fading of traces
+
+* analysis:
+
+  - Store Expression Conditions under the special 'Conditions' directory.
+
+  - Improve Expression Condition connection handling. Allow connections to arrays of size 1.
 
 Version 1.21.0
 --------------------------------------------------
