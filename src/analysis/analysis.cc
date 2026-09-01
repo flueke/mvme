@@ -5361,6 +5361,7 @@ bool Analysis::addConditionLink(const OperatorPtr &op, const ConditionPtr &cond)
     // after the condition was set or changed.
     op->setObjectFlags(ObjectFlags::NeedsRebuild);
     updateRanks();
+    setModified();
     emit conditionLinkAdded(op, cond);
     return true;
 }
@@ -5373,6 +5374,7 @@ bool Analysis::removeConditionLink(const OperatorPtr &op, const ConditionPtr &co
     m_conditionLinks[op].remove(cond);
     op->setObjectFlags(ObjectFlags::NeedsRebuild);
     updateRanks();
+    setModified();
     emit conditionLinkRemoved(op, cond);
     return true;
 }
