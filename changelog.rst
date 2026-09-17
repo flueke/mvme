@@ -15,7 +15,9 @@ Version 1.22.0-rc
 
   - Store Expression Conditions under the special 'Conditions' directory.
 
-  - Improve Expression Condition connection handling. Allow connections to arrays of size 1.
+  - Improve Expression Condition connection handling: Allow connections to arrays of size 1.
+
+  - Crash fixes.
 
 Version 1.21.0
 --------------------------------------------------
