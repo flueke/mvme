@@ -593,6 +593,11 @@ install(TARGETS mvme_histo_viewer RUNTIME DESTINATION bin LIBRARY DESTINATION li
 add_mvme_exe(mvme_listfile_recovery_gui mvme_listfile_recovery_gui.cc)
 install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
+# export module data arrays from mvlc listfiles to csv/text
+add_mvme_exe(mvme_listfile_export
+    "listfile_export/mvme_listfile_export.cc;listfile_export/listfile_export.cc;listfile_export/filter_db_from_templates.cc")
+install(TARGETS mvme_listfile_export RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
 # mvlc vmeconfig -> crateconfig debug tool
 add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
 install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
@@ -657,6 +662,7 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_mesy_nng_pipeline2 util/mesy_nng_pipeline2.test.cc)
     add_mvme_gtest(test_multi_crate_nng multi_crate_nng.test.cc)
     add_mvme_gtest(test_mdpp_sampling mdpp-sampling/mdpp_sampling.test.cc)
+    add_mvme_gtest(test_listfile_export "listfile_export/listfile_export.test.cc;listfile_export/listfile_export.cc")
     add_mvme_gtest(test_waveform_plotting mdpp-sampling/waveform_plotting.test.cc)
     #add_mvme_gtest(test_waveform_interpolation mdpp-sampling/waveform_interpolation.test.cc) # Disabled, does not do anything
     add_mvme_gtest(test_mdpp_decode mdpp-sampling/mdpp_decode.test.cc)
