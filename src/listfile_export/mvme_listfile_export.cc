@@ -1,4 +1,5 @@
 #include <argh.h>
+#include <cstring>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <fstream>
@@ -28,7 +29,8 @@ Commands:
             contains exactly one module with data, its first array is exported.
 
 Export options:
-  -o, --output <file>     Output file. Default: listfile name with .csv or .txt extension.
+  -o, --output <file>     Output file, '-' for stdout. Default: listfile name with .csv or
+                          .txt extension.
   --format <csv|text>     csv: comma separated, missing values are empty.
                           text: space separated, missing values are 'nan'.
                           Default: from the output file extension, otherwise csv.
@@ -334,13 +336,22 @@ static int cmd_export(ListfileContext &ctx, const ListfileModel &model, const ar
     if (outFile.empty())
         outFile = replace_extension(ctx.filename, format == "csv" ? ".csv" : ".txt");
 
-    std::ofstream out(outFile);
+    const bool toStdout = outFile == "-";
+    std::ofstream outFileStream;
 
-    if (!out)
+    if (!toStdout)
     {
-        std::cerr << "Error: could not open output file '" << outFile << "'\n";
-        return 1;
+        outFileStream.open(outFile);
+
+        if (!outFileStream)
+        {
+            std::cerr << "Error: could not open output file '" << outFile << "'\n";
+            return 1;
+        }
     }
+
+    std::ostream &out = toStdout ? std::cout : outFileStream;
+    const std::string outName = toStdout ? "stdout" : outFile;
 
     ExportOptions exportOpts;
     exportOpts.skipEmptyRows = parser["--skip-empty-rows"];
@@ -348,18 +359,18 @@ static int cmd_export(ListfileContext &ctx, const ListfileModel &model, const ar
     TextRowWriter writer(out, writerOpts);
     Exporter exporter(model, *selResult.selection, writer, exportOpts);
 
-    spdlog::info("writing {} columns to {}", selResult.selection->columnNames.size(), outFile);
+    spdlog::info("writing {} columns to {}", selResult.selection->columnNames.size(), outName);
 
     exporter.begin();
     replay(ctx, exporter);
     exporter.end();
 
     const auto &c = exporter.counters();
-    fmt::print("Wrote {} rows to {}. Events: {}, events without data: {}{}\n", c.rowsWritten, outFile, c.eventsSeen,
-               c.emptyRows, exportOpts.skipEmptyRows && c.emptyRows ? " (skipped)" : "");
+    fmt::print(stderr, "Wrote {} rows to {}. Events: {}, events without data: {}{}\n", c.rowsWritten, outName,
+               c.eventsSeen, c.emptyRows, exportOpts.skipEmptyRows && c.emptyRows ? " (skipped)" : "");
 
     if (c.emptyRows > 0)
-        fmt::print("Note: events without data usually indicate trigger problems.\n");
+        fmt::print(stderr, "Note: events without data usually indicate trigger problems.\n");
 
     if (c.overwrittenHits > 0)
         spdlog::warn("{} values were overwritten by a second hit on the same channel within one event. "
@@ -392,11 +403,28 @@ int main(int argc, char *argv[])
     qInstallMessageHandler(qt_message_handler);
     QCoreApplication app(argc, argv);
     mvme_init("mvme_listfile_export", false);
+    // mvlc loggers use stderr. Do the same for the spdlog default logger to keep stdout free for
+    // exported data.
+    auto defaultSinks = mvlc::get_default_sinks();
+    spdlog::set_default_logger(std::make_shared<spdlog::logger>("", std::begin(defaultSinks), std::end(defaultSinks)));
     mvlc::set_global_log_level(spdlog::level::warn);
     spdlog::set_level(spdlog::level::info);
 
+    // argh treats a lone '-' as an option. Turn '-o -' into '--output=-' so stdout can be selected.
+    std::vector<const char *> args(argv, argv + argc);
+
+    for (size_t i = 1; i + 1 < args.size(); ++i)
+    {
+        if ((std::strcmp(args[i], "-o") == 0 || std::strcmp(args[i], "--output") == 0) &&
+            std::strcmp(args[i + 1], "-") == 0)
+        {
+            args[i] = "--output=-";
+            args.erase(args.begin() + i + 1);
+        }
+    }
+
     argh::parser parser({"-o", "--output", "--format", "--missing", "--log-level"});
-    parser.parse(argc, argv);
+    parser.parse(static_cast<int>(args.size()), args.data());
 
     if (parser[{"-h", "--help"}] || parser.size() < 3)
     {
