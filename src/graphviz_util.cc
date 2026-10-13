@@ -61,7 +61,7 @@ std::string layout_and_render_dot(
             if (gvLayout(gvc, g, layoutEngine) >= 0)
             {
                 char *renderDest = nullptr;
-                unsigned int renderSize = 0;
+                size_t renderSize = 0;
                 gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
 
                 result = { renderDest ? renderDest : std::string{""} };
