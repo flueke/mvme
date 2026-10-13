@@ -50,6 +50,10 @@ class LIBMVME_EXPORT WidgetRegistry: public QObject
         QWidget *getWidget(const QString &stateKey) const;
         QList<QWidget *> getWidgets(const QString &stateKey) const;
 
+        // Immediately deletes all registered widgets, object-bound and
+        // non-object bound.
+        void deleteAllWidgets();
+
         // Checks both the object-bound and non-object bound widgets.
         template<typename T>
         T *getFirstWidgetOfType()
