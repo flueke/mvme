@@ -118,6 +118,9 @@ target_link_libraries(libmvme_mdpp_decode
     )
 
 set_target_properties(libmvme_mdpp_decode PROPERTIES OUTPUT_NAME mvme_mdpp_decode)
+if (MSVC)
+    set_target_properties(libmvme_mdpp_decode PROPERTIES PREFIX "lib")
+endif()
 generate_export_header(libmvme_mdpp_decode)
 
 install(TARGETS libmvme_mdpp_decode RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
@@ -363,6 +366,12 @@ add_library(libmvme SHARED
     )
 
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
+# MSVC does not add a "lib" prefix to DLLs. Add it manually so the dll is
+# called libmvme.dll as under MinGW and its pdb does not clash with mvme.pdb
+# from the mvme executable.
+if (MSVC)
+    set_target_properties(libmvme PROPERTIES PREFIX "lib")
+endif()
 generate_export_header(libmvme)
 
 target_link_libraries(libmvme
