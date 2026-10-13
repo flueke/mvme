@@ -22,8 +22,8 @@
 #include "vmusb_skipHeader.h"
 #include "vmusb.h"
 #include "mvme_context.h"
-#include "mvme.h"
 
+#include <QApplication>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -155,7 +155,7 @@ void vmusb_gui_load_firmware(MVMEContext *context)
     }
 
     // Select and read firmware file
-    auto parentWidget = context->getMainWindow();
+    auto parentWidget = QApplication::activeWindow();
     auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
     QString fileName = QFileDialog::getOpenFileName(parentWidget, "Open VMUSB firmware file",
