@@ -149,6 +149,11 @@ struct MVMEWindowPrivate
 
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
 
+    // Forwards mvlc log messages to the context. Removed from its parent sinks
+    // before the context is destroyed as the loggers are global.
+    std::shared_ptr<spdlog::sinks::qt_sink_mt> qtLogSink;
+    std::vector<std::shared_ptr<spdlog::sinks::dup_filter_sink_mt>> qtLogSinkParents;
+
     vme_script::VMEScript loopScript;
     QFutureWatcher<vme_script::ResultList> loopScriptWatcher;
     QString currentReplayFilename;
@@ -195,6 +200,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
         mvlcLogFilter->set_level(spdlog::level::err);
         mvlcLogFilter->add_sink(qtsink);
         mesytec::mvlc::create_logger("mvlc", { mvlcLogFilter, consolesink });
+
+        m_d->qtLogSink = qtsink;
+        m_d->qtLogSinkParents = { dupfilter, mvlcLogFilter };
     }
 #endif
 
@@ -738,6 +746,41 @@ MVMEMainWindow::~MVMEMainWindow()
 
     qDebug() << __PRETTY_FUNCTION__ << "MVMEMainWindow instance being destroyed";
 
+    // Explicit teardown order: everything using the context is destroyed
+    // before the context itself. Do not rely on QObject child order here.
+
+    // The mvlc loggers are global and may still be used by other threads.
+    if (m_d->qtLogSink)
+    {
+        for (auto &parentSink: m_d->qtLogSinkParents)
+            parentSink->remove_sink(m_d->qtLogSink);
+        m_d->qtLogSinkParents.clear();
+        m_d->qtLogSink.reset();
+    }
+
+    // Top level windows holding pointers to the context.
+    m_d->widgetRegistry.deleteAllWidgets();
+    delete m_d->m_vmeDebugWidget;
+    delete m_d->m_listfileBrowser;
+    delete m_d->m_rateMonitorGui;
+    delete m_d->m_logView;
+    delete m_d->runNotesWidget;
+
+    // Central widget: DAQControlWidget, VMEConfigTreeWidget, DAQStatsWidget.
+    delete takeCentralWidget();
+    m_d->centralWidget = nullptr;
+    m_d->m_daqControlWidget = nullptr;
+    m_d->m_vmeConfigTreeWidget = nullptr;
+    m_d->m_daqStatsWidget = nullptr;
+
+    delete m_d->daqControl;
+    m_d->daqControl = nullptr;
+
+    // No-op if closeEvent() already did it.
+    m_d->m_context->shutdown();
+    delete m_d->m_context;
+    m_d->m_context = nullptr;
+
     delete m_d;
 }
 
@@ -1043,6 +1086,10 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
     settings.setValue("mainWindowState", saveState());
 
     m_quitting = true;
+
+    // Stop replay/analysis and the worker threads now, while all widgets are
+    // still alive: shutdown() runs the event loop while waiting.
+    m_d->m_context->shutdown();
 
     QMainWindow::closeEvent(event);
     auto app = qobject_cast<QApplication *>(qApp);

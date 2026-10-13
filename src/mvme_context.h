@@ -128,6 +128,12 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         ~MVMEContext();
 
+        // Stops DAQ/replay and analysis processing, shuts down the worker
+        // threads and waits for pending controller operations. Runs the Qt
+        // event loop while waiting, so call it while all objects using the
+        // context are still alive. Idempotent; also called by the destructor.
+        void shutdown();
+
         bool setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
         bool setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
         VMEController *getVMEController() const { return m_controller; }
@@ -404,6 +410,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         MVMEMainWindow *m_mainwin;
         GlobalMode m_mode;
+        bool m_isShutdown = false;
         DAQState m_daqState;
         QElapsedTimer m_replayTime;
 

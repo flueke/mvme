@@ -612,6 +612,39 @@ MVMEContext::~MVMEContext()
 {
     qDebug() << "Entering" << __PRETTY_FUNCTION__;
 
+    // Normally shutdown() has already been called by the owner while all other
+    // objects were still alive. This is the fallback for users that do not
+    // call it explicitly.
+    shutdown();
+
+    // Null the pointers: code running from nested event loops during the rest
+    // of the destruction (e.g. widget update timers) may still query them.
+    delete m_controller;
+    m_controller = nullptr;
+    delete m_readoutWorker;
+    m_readoutWorker = nullptr;
+
+    Q_ASSERT(m_freeBuffers.size() + m_fullBuffers.size() == ReadoutBufferCount);
+
+    while (auto buffer = m_freeBuffers.dequeue()) delete buffer;
+    while (auto buffer = m_fullBuffers.dequeue()) delete buffer;
+
+    m_d->workspaceClosingCleanup();
+
+    delete m_d;
+
+    qDebug() << __PRETTY_FUNCTION__ << "Leaving" << __PRETTY_FUNCTION__;
+}
+
+void MVMEContext::shutdown()
+{
+    if (m_isShutdown)
+        return;
+
+    m_isShutdown = true;
+
+    qDebug() << "Entering" << __PRETTY_FUNCTION__;
+
     if (getDAQState() != DAQState::Idle)
     {
         qDebug() << __PRETTY_FUNCTION__ << "waiting for DAQ/Replay to stop";
@@ -665,8 +698,9 @@ MVMEContext::~MVMEContext()
     m_analysisThread->quit();
     m_analysisThread->wait();
 
-    // Wait for possibly active VMEController::open() to return before deleting
-    // the controller object.
+    // Do not start new controller open attempts. Wait for a possibly active
+    // VMEController::open() to return before the controller gets deleted.
+    m_ctrlOpenTimer->stop();
     m_ctrlOpenFuture.waitForFinished();
 
     // Disconnect controller signals so that we're not emitting our own
@@ -683,22 +717,6 @@ MVMEContext::~MVMEContext()
 
     disconnect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
                this, &MVMEContext::onAnalysisWorkerStateChanged);
-
-    // Null the pointers: code running from nested event loops during the rest
-    // of the destruction (e.g. widget update timers) may still query them.
-    delete m_controller;
-    m_controller = nullptr;
-    delete m_readoutWorker;
-    m_readoutWorker = nullptr;
-
-    Q_ASSERT(m_freeBuffers.size() + m_fullBuffers.size() == ReadoutBufferCount);
-
-    while (auto buffer = m_freeBuffers.dequeue()) delete buffer;
-    while (auto buffer = m_fullBuffers.dequeue()) delete buffer;
-
-    m_d->workspaceClosingCleanup();
-
-    delete m_d;
 
     qDebug() << __PRETTY_FUNCTION__ << "Leaving" << __PRETTY_FUNCTION__;
 }

@@ -97,4 +97,19 @@ QList<QWidget *> WidgetRegistry::getWidgets(const QString &stateKey) const
     return nonObjectWidgets_.value(stateKey);
 }
 
+void WidgetRegistry::deleteAllWidgets()
+{
+    // Collect first: the destroyed() handlers modify the maps.
+    auto widgets = getAllWidgets();
+
+    for (const auto &widgetList: nonObjectWidgets_.values())
+        widgets.append(widgetList);
+
+    for (auto widget: widgets)
+        delete widget;
+
+    objectWidgets_.clear();
+    nonObjectWidgets_.clear();
+}
+
 }
