@@ -645,6 +645,21 @@ MVMEContext::~MVMEContext()
         }
     }
 
+    // The event server lives in the analysis thread and owns a QTcpServer.
+    // Move it back to the main thread while the analysis thread is still
+    // running. Otherwise the socket engine is destroyed from a foreign thread
+    // which triggers a Qt assertion in debug builds.
+    if (auto eventServer = m_d->m_eventServer.get();
+        eventServer && eventServer->thread() == m_analysisThread
+        && m_analysisThread->isRunning())
+    {
+        auto mainThread = thread();
+        QMetaObject::invokeMethod(eventServer, [eventServer, mainThread] {
+            eventServer->shutdown();
+            eventServer->moveToThread(mainThread);
+        }, Qt::BlockingQueuedConnection);
+    }
+
     m_readoutThread->quit();
     m_readoutThread->wait();
     m_analysisThread->quit();
@@ -669,8 +684,12 @@ MVMEContext::~MVMEContext()
     disconnect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged,
                this, &MVMEContext::onAnalysisWorkerStateChanged);
 
+    // Null the pointers: code running from nested event loops during the rest
+    // of the destruction (e.g. widget update timers) may still query them.
     delete m_controller;
+    m_controller = nullptr;
     delete m_readoutWorker;
+    m_readoutWorker = nullptr;
 
     Q_ASSERT(m_freeBuffers.size() + m_fullBuffers.size() == ReadoutBufferCount);
 
