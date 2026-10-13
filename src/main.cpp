@@ -137,7 +137,10 @@ int main(int argc, char *argv[])
     QObject::connect(&splashTimer, &QTimer::timeout, &splash, &QWidget::close);
 #endif
 
-    MVMEMainWindow w(options);
+    // The context is created before and destroyed after the main window and
+    // all the widgets referencing it.
+    MVMEContext context(nullptr, options);
+    MVMEMainWindow w(&context);
     w.show();
     w.restoreSettings();
 
@@ -183,6 +186,9 @@ int main(int argc, char *argv[])
     });
 
     int ret = app.exec();
+
+    // Usually a no-op as MVMEMainWindow::closeEvent() already did this.
+    context.shutdown();
 
     mvme_shutdown();
 

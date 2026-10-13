@@ -65,8 +65,8 @@ class LIBMVME_EXPORT MVMEMainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MVMEMainWindow(QWidget *parent = nullptr, const MVMEOptions &options = {});
-    explicit MVMEMainWindow(const MVMEOptions &options = {});
+    // The context must outlive the window.
+    explicit MVMEMainWindow(MVMEContext *context, QWidget *parent = nullptr);
     ~MVMEMainWindow();
 
     virtual void closeEvent(QCloseEvent *event) override;

@@ -117,7 +117,6 @@ struct MVMEWindowPrivate
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
 
     WidgetGeometrySaver *m_geometrySaver;
-    WidgetRegistry widgetRegistry;
 
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
@@ -150,7 +149,7 @@ struct MVMEWindowPrivate
     QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
 
     // Forwards mvlc log messages to the context. Removed from its parent sinks
-    // before the context is destroyed as the loggers are global.
+    // when the window is destroyed as the loggers are global.
     std::shared_ptr<spdlog::sinks::qt_sink_mt> qtLogSink;
     std::vector<std::shared_ptr<spdlog::sinks::dup_filter_sink_mt>> qtLogSinkParents;
 
@@ -159,18 +158,15 @@ struct MVMEWindowPrivate
     QString currentReplayFilename;
 };
 
-MVMEMainWindow::MVMEMainWindow(const MVMEOptions &options)
-    : MVMEMainWindow(nullptr, options)
-{ }
-
-MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
+MVMEMainWindow::MVMEMainWindow(MVMEContext *context, QWidget *parent)
     : QMainWindow(parent)
     , m_d(new MVMEWindowPrivate)
 {
+    assert(context);
     setObjectName(QSL("mvme"));
     setWindowTitle(QSL("mvme"));
 
-    m_d->m_context              = new MVMEContext(this, this, options);
+    m_d->m_context              = context;
 
 #if 1
     // Setup some of the mesytec-mvlc loggers to also log to the gui.
@@ -518,6 +514,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent, const MVMEOptions &options)
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
     connect(m_d->m_context, &MVMEContext::sigLogMessage, this, &MVMEMainWindow::appendToLog);
     connect(m_d->m_context, &MVMEContext::sigLogError, this, &MVMEMainWindow::appendErrorToLog);
+    connect(m_d->m_context, &MVMEContext::logCleared, this, &MVMEMainWindow::clearLog);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
@@ -746,9 +743,6 @@ MVMEMainWindow::~MVMEMainWindow()
 
     qDebug() << __PRETTY_FUNCTION__ << "MVMEMainWindow instance being destroyed";
 
-    // Explicit teardown order: everything using the context is destroyed
-    // before the context itself. Do not rely on QObject child order here.
-
     // The mvlc loggers are global and may still be used by other threads.
     if (m_d->qtLogSink)
     {
@@ -758,15 +752,18 @@ MVMEMainWindow::~MVMEMainWindow()
         m_d->qtLogSink.reset();
     }
 
-    // Top level windows holding pointers to the context.
-    m_d->widgetRegistry.deleteAllWidgets();
+    // Parentless top level windows created by the gui. Delete them here
+    // instead of leaking them past the lifetime of the main window.
+    getWidgetRegistry()->deleteAllWidgets();
+    delete m_d->m_context->getAnalysisUi();
     delete m_d->m_vmeDebugWidget;
     delete m_d->m_listfileBrowser;
     delete m_d->m_rateMonitorGui;
     delete m_d->m_logView;
     delete m_d->runNotesWidget;
 
-    // Central widget: DAQControlWidget, VMEConfigTreeWidget, DAQStatsWidget.
+    // Delete children accessing m_d or the window while both are still fully
+    // alive instead of leaving it to ~QWidget().
     delete takeCentralWidget();
     m_d->centralWidget = nullptr;
     m_d->m_daqControlWidget = nullptr;
@@ -775,11 +772,6 @@ MVMEMainWindow::~MVMEMainWindow()
 
     delete m_d->daqControl;
     m_d->daqControl = nullptr;
-
-    // No-op if closeEvent() already did it.
-    m_d->m_context->shutdown();
-    delete m_d->m_context;
-    m_d->m_context = nullptr;
 
     delete m_d;
 }
@@ -1109,42 +1101,42 @@ void MVMEMainWindow::restoreSettings()
 
 void MVMEMainWindow::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
 {
-    m_d->widgetRegistry.addObjectWidget(widget, object, stateKey);
+    getWidgetRegistry()->addObjectWidget(widget, object, stateKey);
 }
 
 bool MVMEMainWindow::hasObjectWidget(QObject *object) const
 {
-    return m_d->widgetRegistry.hasObjectWidget(object);
+    return getWidgetRegistry()->hasObjectWidget(object);
 }
 
 QWidget *MVMEMainWindow::getObjectWidget(QObject *object) const
 {
-    return m_d->widgetRegistry.getObjectWidget(object);
+    return getWidgetRegistry()->getObjectWidget(object);
 }
 
 QList<QWidget *> MVMEMainWindow::getObjectWidgets(QObject *object) const
 {
-    return m_d->widgetRegistry.getObjectWidgets(object);
+    return getWidgetRegistry()->getObjectWidgets(object);
 }
 
 void MVMEMainWindow::activateObjectWidget(QObject *object)
 {
-    m_d->widgetRegistry.activateObjectWidget(object);
+    getWidgetRegistry()->activateObjectWidget(object);
 }
 
 QMultiMap<QObject *, QWidget *> MVMEMainWindow::getAllObjectWidgets() const
 {
-    return m_d->widgetRegistry.getAllObjectWidgets();
+    return getWidgetRegistry()->getAllObjectWidgets();
 }
 
 void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
 {
-    m_d->widgetRegistry.addWidget(widget, stateKey);
+    getWidgetRegistry()->addWidget(widget, stateKey);
 }
 
 WidgetRegistry *MVMEMainWindow::getWidgetRegistry() const
 {
-    return &m_d->widgetRegistry;
+    return m_d->m_context->getWidgetRegistry();
 }
 
 void MVMEMainWindow::onActionNewVMEConfig_triggered()
@@ -1526,8 +1518,10 @@ void MVMEMainWindow::onActionAnalysis_UI_triggered()
         analysisUi = new analysis::ui::AnalysisWidget(m_d->m_context->getAnalysisServiceProvider());
         m_d->m_context->setAnalysisUi(analysisUi);
 
-        connect(analysisUi, &QObject::destroyed, this, [this] (QObject *) {
-            this->m_d->m_context->setAnalysisUi(nullptr);
+        // The context outlives this window, so do not use 'this' as the receiver.
+        auto ctx = m_d->m_context;
+        connect(analysisUi, &QObject::destroyed, ctx, [ctx] (QObject *) {
+            ctx->setAnalysisUi(nullptr);
         });
 
         add_widget_close_action(analysisUi);
@@ -1669,7 +1663,7 @@ void MVMEMainWindow::onActionTemplate_Info_triggered()
 
 void MVMEMainWindow::onObjectAboutToBeRemoved(QObject *object)
 {
-    auto widgets = m_d->widgetRegistry.getObjectWidgets(object);
+    auto widgets = getWidgetRegistry()->getObjectWidgets(object);
 
     for (auto widget: widgets)
         widget->close();
@@ -1784,7 +1778,7 @@ void MVMEMainWindow::onDAQAboutToStart()
 {
     QList<VMEScriptEditor *> scriptEditors;
 
-    for (auto widget: m_d->widgetRegistry.getAllWidgets())
+    for (auto widget: getWidgetRegistry()->getAllWidgets())
     {
         if (auto scriptEditor = qobject_cast<VMEScriptEditor *>(widget))
         {

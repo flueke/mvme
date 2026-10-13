@@ -22,6 +22,7 @@
 // Includes winsock2.h so it's placed at the top to avoid warnings.
 #include "mvme_context.h"
 
+#include <QApplication>
 #include <QHostAddress>
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -48,7 +49,7 @@
 #include "mvlc_stream_worker.h"
 #include "mvmecontext_analysis_service_provider.h"
 #include "mvme_context_lib.h"
-#include "mvme.h"
+#include "widget_registry.h"
 #include "mvme_listfile_worker.h"
 #include "mvme_mvlc_listfile.h"
 #include "mvme_prometheus.h"
@@ -191,6 +192,7 @@ struct MVMEContextPrivate
     mesytec::mvlc::WaitableProtected<MVMEState> m_mvmeState;
 
     AnalysisServiceProvider *analysisServiceProvider = nullptr;
+    WidgetRegistry *widgetRegistry = nullptr;
 
     MVMEContextPrivate(MVMEContext *q, const MVMEOptions &options)
         : m_q(q)
@@ -517,14 +519,12 @@ void MVMEContextPrivate::clearLog()
 {
     QMutexLocker lock(&m_logBufferMutex);
     m_logBuffer.clear();
+    lock.unlock();
 
-    if (m_q->m_mainwin)
-    {
-        m_q->m_mainwin->clearLog();
-    }
+    emit m_q->logCleared();
 }
 
-MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOptions &options)
+MVMEContext::MVMEContext(QObject *parent, const MVMEOptions &options)
     : QObject(parent)
     , m_d(new MVMEContextPrivate(this, options))
     , m_listFileFormat(ListFileFormat::ZIP)
@@ -532,14 +532,13 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent, const MVMEOpt
     , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
     , m_analysisThread(new QThread(this))
-    , m_mainwin(mainwin)
-
     , m_mode(GlobalMode::DAQ)
     , m_daqState(DAQState::Idle)
     , m_analysis(std::make_unique<analysis::Analysis>())
 {
     m_d->m_remoteControl = std::make_unique<RemoteControl>(this);
     m_d->analysisServiceProvider = new MVMEContextServiceProvider(this, this);
+    m_d->widgetRegistry = new WidgetRegistry(this);
 
     // analysis side data stream consumers
     m_d->m_eventServer = std::make_shared<EventServer>();
@@ -1880,62 +1879,37 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 
 void MVMEContext::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
 {
-    if (m_mainwin)
-    {
-        m_mainwin->addObjectWidget(widget, object, stateKey);
-    }
+    m_d->widgetRegistry->addObjectWidget(widget, object, stateKey);
 }
 
 bool MVMEContext::hasObjectWidget(QObject *object) const
 {
-    bool result = false;
-
-    if (m_mainwin)
-    {
-        result = m_mainwin->hasObjectWidget(object);
-    }
-
-    return result;
+    return m_d->widgetRegistry->hasObjectWidget(object);
 }
 
 QWidget *MVMEContext::getObjectWidget(QObject *object) const
 {
-    QWidget *result = nullptr;
-
-    if (m_mainwin)
-    {
-        result = m_mainwin->getObjectWidget(object);
-    }
-
-    return result;
+    return m_d->widgetRegistry->getObjectWidget(object);
 }
 
 QList<QWidget *> MVMEContext::getObjectWidgets(QObject *object) const
 {
-    QList<QWidget *> result;
-
-    if (m_mainwin)
-    {
-        result = m_mainwin->getObjectWidgets(object);
-    }
-
-    return result;
+    return m_d->widgetRegistry->getObjectWidgets(object);
 }
 
 void MVMEContext::activateObjectWidget(QObject *object)
 {
-    if (m_mainwin)
-    {
-        m_mainwin->activateObjectWidget(object);
-    }
+    m_d->widgetRegistry->activateObjectWidget(object);
 }
 
 void MVMEContext::addWidget(QWidget *widget, const QString &stateKey)
 {
-    if (m_mainwin)
-    {
-        m_mainwin->addWidget(widget, stateKey);
-    }
+    m_d->widgetRegistry->addWidget(widget, stateKey);
+}
+
+WidgetRegistry *MVMEContext::getWidgetRegistry() const
+{
+    return m_d->widgetRegistry;
 }
 
 void MVMEContext::logMessageRaw(const QString &msg)
@@ -2904,9 +2878,10 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         if (m_analysis)
             m_analysis->clear();
         setAnalysisConfigFilename(QString());
-        if (m_mainwin)
+        logError(QSL("Out of memory when creating analysis objects."));
+        if (qobject_cast<QApplication *>(qApp))
         {
-            QMessageBox::critical(m_mainwin, QSL("Error"),
+            QMessageBox::critical(QApplication::activeWindow(), QSL("Error"),
                                   QString("Out of memory when creating analysis objects."));
         }
         emit analysisChanged(m_analysis.get());

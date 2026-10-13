@@ -48,7 +48,6 @@
 #include <QSettings>
 #include <QWidget>
 
-class MVMEMainWindow;
 class ListFile;
 class QJsonObject;
 
@@ -104,6 +103,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void sigLogMessage(const QString &);
         void sigLogError(const QString &);
+        void logCleared();
 
         void daqAboutToStart();
 
@@ -119,13 +119,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void sniffedReadoutBufferReady(const mesytec::mvlc::ReadoutBuffer &readoutBuffer);
 
     public:
-        explicit MVMEContext(QObject *parent = nullptr, const MVMEOptions &options = {}):
-            MVMEContext(nullptr, parent, options)
-        { }
-
-        explicit MVMEContext(MVMEMainWindow *mainwin, QObject *parent = nullptr,
-                             const MVMEOptions &options = {});
-
+        explicit MVMEContext(QObject *parent = nullptr, const MVMEOptions &options = {});
         ~MVMEContext();
 
         // Stops DAQ/replay and analysis processing, shuts down the worker
@@ -251,8 +245,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         QStringList getLogBuffer() const;
 
-        friend class MVMEMainWindow;
-
 #if 1
         //QFuture<vme_script::ResultList>
         vme_script::ResultList
@@ -260,8 +252,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
                       vme_script::LoggerFun logger = vme_script::LoggerFun(),
                       bool logEachResult = false);
 #endif
-
-        MVMEMainWindow *getMainWindow() const { return m_mainwin; }
 
         // Workspace handling
         void newWorkspace(const QString &dirName);
@@ -323,6 +313,11 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void activateObjectWidget(QObject *object);
 
         void addWidget(QWidget *widget, const QString &stateKey);
+
+        // Registry of the (top-level) widgets created for context objects.
+        // The registry does not delete the widgets on destruction. This is
+        // left to the gui code creating them.
+        mesytec::mvme::WidgetRegistry *getWidgetRegistry() const;
 
         RunInfo getRunInfo() const;
         QString getRunNotes() const;
@@ -408,7 +403,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
-        MVMEMainWindow *m_mainwin;
         GlobalMode m_mode;
         bool m_isShutdown = false;
         DAQState m_daqState;

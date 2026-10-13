@@ -1,7 +1,6 @@
 #include "mvmecontext_analysis_service_provider.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
-#include "mvme.h" // MVMEMainWindow
 
 using namespace mesytec::mvme;
 
@@ -126,8 +125,7 @@ bool MVMEContextServiceProvider::loadAnalysisConfig(const QJsonDocument &doc, co
 
 mesytec::mvme::WidgetRegistry *MVMEContextServiceProvider::getWidgetRegistry()
 {
-    // TODO: move this into MVMEContext and get rid of the MVMEMainWindow dependency
-    return ctx_->getMainWindow()->getWidgetRegistry();
+    return ctx_->getWidgetRegistry();
 }
 
 
