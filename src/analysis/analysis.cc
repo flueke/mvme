@@ -1380,10 +1380,10 @@ Pipe *DataSourceMdppSampleDecoder::getOutput(s32 index)
 void DataSourceMdppSampleDecoder::beginRun(const RunInfo &, Logger)
 {
     /* Disconnect Pipes that will be removed. */
-    if (auto begin = std::begin(m_outputs) + getMaxChannels() + getStatsCount();
-        begin < std::end(m_outputs))
+    if (const size_t newSize = getMaxChannels() + getStatsCount();
+        newSize < m_outputs.size())
     {
-        std::for_each(begin, std::end(m_outputs),
+        std::for_each(std::begin(m_outputs) + newSize, std::end(m_outputs),
             [](auto &pipe) { if (pipe) pipe->disconnectAllDestinationSlots(); });
     }
     m_outputs.resize(getMaxChannels() + getStatsCount());
