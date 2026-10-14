@@ -7,6 +7,14 @@ Changelog
 Version 1.22.0-rc
 --------------------------------------------------
 
+* New command line tool ``mvme_listfile_export``: export module data arrays
+  from listfiles to CSV or plain text, one row per event, one column per array
+  element.
+
+  - ``explore`` lists meta info and all exportable arrays.
+  - Output to file or stdout, configurable separator (``--separator``) and
+    representation of missing values (``--missing nan|empty|0``).
+
 * Support markdown formatting in DAQ run_notes.
 
 * Waveforms: add 'clear' button, implement age based CRT-like fading of traces
@@ -17,7 +25,14 @@ Version 1.22.0-rc
 
   - Improve Expression Condition connection handling: Allow connections to arrays of size 1.
 
+  - Remove duplicate 'open in plot grid' context menu entries.
+
   - Crash fixes.
+
+* Fix crashes on startup and on application shutdown.
+
+* Windows installer: remove the Zadig USB driver installer. It is only needed
+  for the VM-USB, and was being installed for the MVLC, which breaks things.
 
 Version 1.21.0
 --------------------------------------------------
