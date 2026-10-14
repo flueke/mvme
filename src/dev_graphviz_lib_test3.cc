@@ -14,6 +14,7 @@
 #include <sstream>
 #include <set>
 #include <mesytec-mvlc/util/logging.h>
+#include "graphviz_compat.h"
 #include "graphviz_util.h"
 
 // similar to test2 but with more abstractions
@@ -230,8 +231,8 @@ int main(int argc, char *argv[])
     gvLayout(gvc, g, "dot");
 
     char *renderDest = nullptr;
-    unsigned int renderSize = 0;
-    gvRenderData(gvc, g, "svg", &renderDest, &renderSize);
+    size_t renderSize = 0;
+    gv_render_data(gvc, g, "svg", &renderDest, &renderSize);
 
     QByteArray svgData(renderDest);
 

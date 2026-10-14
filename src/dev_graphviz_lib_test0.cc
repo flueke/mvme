@@ -26,8 +26,8 @@ int main(int argc, char *argv[])
 
     // render the graph in png format into a memory buffer.
     char *renderDest = nullptr;
-    unsigned int renderSize = 0;
-    gvRenderData(gvc, g, "png", &renderDest, &renderSize);
+    size_t renderSize = 0;
+    gv_render_data(gvc, g, "png", &renderDest, &renderSize);
 
     QPixmap pixmap;
     pixmap.loadFromData(reinterpret_cast<const unsigned char *>(renderDest), renderSize, "png");
