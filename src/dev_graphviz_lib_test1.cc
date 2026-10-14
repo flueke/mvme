@@ -34,8 +34,8 @@ int main(int argc, char *argv[])
 
     // render the graph in png format into a memory buffer.
     char *renderDest = nullptr;
-    unsigned int renderSize = 0;
-    gvRenderData(gvc, g, "svg", &renderDest, &renderSize);
+    size_t renderSize = 0;
+    gv_render_data(gvc, g, "svg", &renderDest, &renderSize);
 
     QXmlStreamReader xmlReader(renderDest);
     QSvgRenderer svgRenderer(&xmlReader);
