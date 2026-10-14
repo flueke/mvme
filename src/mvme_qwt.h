@@ -48,8 +48,10 @@
 #include "libmvme_export.h"
 #include "util/qwt_scalepicker.h"
 
+#ifdef _WIN32
 extern template QwtSeriesData<QPointF>::QwtSeriesData();
 extern template QwtSeriesData<QPointF>::~QwtSeriesData();
+#endif
 
 namespace mvme_qwt
 {
