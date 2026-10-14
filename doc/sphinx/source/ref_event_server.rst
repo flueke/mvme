@@ -3,7 +3,7 @@
 
 EventServer for data export
 ===========================
-Currently there are two ways built into mvme which allow readout data to be
+Currently there are three ways built into mvme which allow readout data to be
 accessed by external software:
 
 * The :ref:`Analysis ExportSink <analysis-ExportSink>` which is described in
@@ -21,6 +21,13 @@ accessed by external software:
 
   The source code for a minimal example client and for a ROOT client is shipped
   with mvme.
+
+* The :ref:`mvme_listfile_export <reference-listfile_export>` command line
+  tool. It writes selected module data arrays from an MVLC listfile to CSV or
+  plain text files.
+
+  This method should be used for offline export of a small number of arrays
+  into a simple tabular format.
 
 Overview
 ---------------------------------------
