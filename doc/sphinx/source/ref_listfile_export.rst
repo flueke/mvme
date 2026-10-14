@@ -106,9 +106,15 @@ Limitations
   rejected.
 * Single crate listfiles only.
 * All selected arrays must belong to the same VME event.
-* Multi event readout is not supported. If a channel is hit more than once
-  within one readout event, only the last value is kept and a warning is
-  printed at the end of the export.
+* Multi event readout is not supported. Modules have to be configured to
+  transfer a single event per VME readout cycle. Otherwise the module events
+  transferred in one block read end up in the same output row.
+* Multi hit data is not supported. If the same channel appears more than once
+  in an event produced by a module, only the last value is kept.
+
+In both cases a channel value being overwritten is counted and reported by a
+warning at the end of the export. Multi event data where the transferred module
+events do not share any channels is not detected.
 
 Example
 -------
