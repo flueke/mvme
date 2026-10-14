@@ -20,3 +20,4 @@ build*/
 !.vscode/*.code-snippets
 CMakeUserPresets.json
 vcpkg_installed/
+**/__pycache__/**
