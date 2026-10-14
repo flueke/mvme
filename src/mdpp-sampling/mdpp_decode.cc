@@ -34,7 +34,7 @@ using mvlc::util::make_filter_with_caches;
 // CommonFilters contains filters used for all supported module types.
 //
 // The sub-structs contain "channel address yielding" filters only. These are
-// tested in the order they appear in the 'filters' array. The first matching
+// tested in the order they appear in the 'channelFilters' array. The first matching
 // filter contributes the current channel address during decoding.
 
 struct CommonFilters
@@ -343,6 +343,7 @@ DecodedMdppSampleEvent decode_mdpp_samples_impl(const u32 *data, const size_t si
     {
         logger_fun("trace", fmt::format("decode_mdpp_samples: Finished decoding a channel trace: channel={}, #samples={}, samples={}",
             currentTrace.channel, currentTrace.samples.size(), fmt::join(currentTrace.samples, ", ")));
+        totalSamples += currentTrace.samples.size();
         ret.traces.push_back(currentTrace);
     }
 

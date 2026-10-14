@@ -102,27 +102,6 @@ When starting a new DAQ run the initialization procedure will apply the current
 logic setup to the MVLC before further initializing any modules and setting up
 the readout stacks.
 
-Reserved logic units
-~~~~~~~~~~~~~~~~~~~~
-To implement events that should be periodcally read out mvme reserves the first
-two timer and stack start units. Currently these units are not available for
-modification in the user interface.
-
-Whenever a periodic event is created the first available timer unit is setup
-with the events readout period. The first available StackStart unit is then
-connected to the timer and setup to start the events readout command stack.
-
-Note that if more than two periodic VME events are created, the rest of the
-Timer and StackStart units will also be used by mvme. Having more than 4
-periodic events defined in the VME config is not allowed and will lead to an
-error at startup.
-
-.. figure:: images/mvlc_trigger_io_periodic_readout.png
-
-   Internal usage of Timer and StackStart units for a periodic VME event called
-   ``counter_readout``.
-
-
 .. _mvlc_trigger_io_gate_generators:
 
 Gate Generators

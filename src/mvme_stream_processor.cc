@@ -214,6 +214,18 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
             m_d->eventConfigs[eventIndex] = eventConfig;
         }
     }
+    else
+    {
+        auto eventConfigs = vmeConfig->getEventConfigs();
+
+        for (s32 eventIndex = 0;
+            eventIndex < eventConfigs.size();
+            ++eventIndex)
+        {
+            m_d->doMultiEventProcessing[eventIndex] = false;
+            m_d->eventConfigs[eventIndex] = eventConfigs[eventIndex];
+        }
+    }
 
     // TODO: check that the analysis has been built (no object needs a rebuild)
 

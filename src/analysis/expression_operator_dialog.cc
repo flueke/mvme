@@ -2903,14 +2903,9 @@ void ExpressionConditionDialog::apply()
         case ObjectEditorMode::New:
             {
                 m_d->m_op->setUserLevel(m_d->m_userLevel);
-                analysis->addOperator(m_d->m_op);
-
+                // Place the condition in the common "conditions" directory. Ignore m_destDir.
+                add_condition_to_analysis(analysis, m_d->m_op);
                 m_d->m_mode = ObjectEditorMode::Edit;
-
-                if (m_d->m_destDir)
-                {
-                    m_d->m_destDir->push_back(m_d->m_op);
-                }
             } break;
 
         case ObjectEditorMode::Edit:

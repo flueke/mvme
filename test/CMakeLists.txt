@@ -8,14 +8,16 @@ include_directories(../src)
 include_directories("${CMAKE_BINARY_DIR}/src")
 
 function(add_mvme_test exe_name exe_sources)
-    add_executable(${exe_name} ${exe_sources})
-    target_link_libraries(${exe_name}
-        PRIVATE libmvme
-        PRIVATE Qt5::Gui
-        PRIVATE Qt5::Test
-        PRIVATE Qt5::Widgets
-        )
-    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    if (MVME_BUILD_TESTS)
+        add_executable(${exe_name} ${exe_sources})
+        target_link_libraries(${exe_name}
+            PRIVATE libmvme
+            PRIVATE Qt5::Gui
+            PRIVATE Qt5::Test
+            PRIVATE Qt5::Widgets
+            )
+        add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    endif()
 endfunction(add_mvme_test)
 
 # IMPORTANT: When creating a new test you do need to create a new header file
@@ -24,41 +26,49 @@ endfunction(add_mvme_test)
 # code and we end up with undefined references to the vtable.
 
 add_mvme_test(test_data_filter test_data_filter.cc)
+if (TARGET test_data_filter)
 target_link_libraries(test_data_filter PRIVATE liba2_static)
+endif()
 #add_mvme_test(test_analysis_aggregate_ops test_analysis_aggregate_ops.cc)
-add_mvme_test(test_leaky_bucket test_leaky_bucket.cc)
+#add_mvme_test(test_leaky_bucket test_leaky_bucket.cc) # does not really test anything. fix and reenable
 
 # google/benchmark based tests
 find_package(Threads)
 
 function(add_mvme_bench exe_name exe_sources)
-    add_executable(${exe_name} ${exe_sources})
-    target_link_libraries(${exe_name}
-        PRIVATE libmvme
-        PRIVATE benchmark::benchmark
-        PRIVATE Threads::Threads)
-    if (WIN32)
+    if (MVME_BUILD_BENCHMARKS)
+        add_executable(${exe_name} ${exe_sources})
         target_link_libraries(${exe_name}
-            PRIVATE shlwapi.lib)
-    endif(WIN32)
-    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+            PRIVATE libmvme
+            PRIVATE benchmark::benchmark
+            PRIVATE Threads::Threads)
+        if (WIN32)
+            target_link_libraries(${exe_name}
+                PRIVATE shlwapi.lib)
+        endif(WIN32)
+        add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    endif()
 endfunction(add_mvme_bench)
 
 #add_mvme_bench(test_util_tree test_util_tree.cc)
 add_mvme_bench(bench_data_filter bench_data_filter.cc)
+if (TARGET bench_data_filter)
 target_link_libraries(bench_data_filter PRIVATE liba2_static)
+endif()
 add_mvme_bench(test_misc test_misc.cc)
 
 # gtest tests
 
 # For tests depending on libmvme
 function(add_mvme_gtest exe_name exe_source)
-    add_executable(${exe_name} ${exe_source})
-    target_link_libraries(${exe_name}
-        PRIVATE libmvme
-        PRIVATE gtest
-        PRIVATE gtest_main)
-    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    if (MVME_BUILD_TESTS)
+        add_executable(${exe_name} ${exe_source})
+        target_link_libraries(${exe_name}
+            PRIVATE libmvme
+            PRIVATE gtest
+            PRIVATE gtest_main)
+        add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+    endif()
 endfunction(add_mvme_gtest)
 
 add_mvme_gtest(test_util_databuffer "test_util_databuffer.cc")

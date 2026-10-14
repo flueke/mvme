@@ -53,6 +53,7 @@
 #include "mvme_listfile_worker.h"
 #include "mvme_mvlc_listfile.h"
 #include "mvme_prometheus.h"
+#include "mvme_stream_server.h"
 #include "mvme_stream_worker.h"
 #include "mvme_workspace.h"
 #include "remote_control.h"
@@ -175,6 +176,8 @@ struct MVMEContextPrivate
 #ifdef MVME_ENABLE_PROMETHEUS
     std::shared_ptr<StreamProcCountersPromExporter> m_streamCountersPromExporter;
 #endif
+    std::shared_ptr<mesytec::mvme::MvmeStreamServer> m_streamServer;
+
     using StreamConsumer = std::variant<std::shared_ptr<IStreamModuleConsumer>, std::shared_ptr<IStreamBufferConsumer>>;
     std::vector<StreamConsumer> streamConsumers_;
 
@@ -549,6 +552,9 @@ MVMEContext::MVMEContext(QObject *parent, const MVMEOptions &options)
     m_d->streamConsumers_.push_back(m_d->m_streamCountersPromExporter);
 #endif
 
+    m_d->m_streamServer = std::make_shared<mesytec::mvme::MvmeStreamServer>();
+    m_d->streamConsumers_.push_back(m_d->m_streamServer);
+
     {
         auto logger = [this](const QString &msg) { this->logMessage(msg); };
 
@@ -585,11 +591,11 @@ MVMEContext::MVMEContext(QObject *parent, const MVMEOptions &options)
     // Setup the readout side: readout thread and listfile reader.
     // The vme controller specific readout worker is created and setup in
     // setVMEController().
-    m_readoutThread->setObjectName("readout");
+    m_readoutThread->setObjectName("mvme_readout");
     m_readoutThread->start();
 
     // Setup the analysis/data processing side.
-    m_analysisThread->setObjectName("analysis");
+    m_analysisThread->setObjectName("mvme_analysis");
     m_analysisThread->start();
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: using a default constructed VMEConfig";

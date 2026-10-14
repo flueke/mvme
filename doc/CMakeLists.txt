@@ -7,7 +7,7 @@ if (DOXYGEN_FOUND)
 
     configure_file(Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 
-    add_custom_target(mvme_doc_doxygen
+    add_custom_target(mvme_doc_doxygen ALL
         COMMAND Doxygen::doxygen ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
         COMMENT "Running doxygen")
 

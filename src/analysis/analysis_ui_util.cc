@@ -7,6 +7,7 @@
 #include "analysis.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "histo_ops_widget.h"
 #include "multiplot_widget.h"
 #include "rate_monitor_widget.h"
 
@@ -186,6 +187,16 @@ QWidget *open_new_gridview_widget(
     return widget.release();
 }
 
+QWidget *open_new_histogram_operations_widget(
+    AnalysisServiceProvider *asp,
+    const std::shared_ptr<analysis::HistogramOperation> &op)
+{
+    auto widget = std::make_unique<HistogramOperationsWidget>(asp);
+    widget->setHistoOp(op);
+    asp->getWidgetRegistry()->addObjectWidget(widget.get(), op.get(), op->getId().toString());
+    return widget.release();
+}
+
 EventWidget *find_event_widget(const Analysis *analysis)
 {
     auto widgets = QApplication::topLevelWidgets();
@@ -237,6 +248,7 @@ ObjectEditorDialog *operator_editor_factory(const OperatorPtr &op,
     else
     {
         result = new AddEditOperatorDialog(op, userLevel, mode, destDir, eventWidget);
+        result->resize(400, 600);
     }
 
     QObject::connect(result, &ObjectEditorDialog::applied,

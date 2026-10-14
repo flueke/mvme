@@ -3,7 +3,7 @@
 
 EventServer for data export
 ===========================
-Currently there are two ways built into mvme which allow readout data to be
+Currently there are three ways built into mvme which allow readout data to be
 accessed by external software:
 
 * The :ref:`Analysis ExportSink <analysis-ExportSink>` which is described in
@@ -21,6 +21,13 @@ accessed by external software:
 
   The source code for a minimal example client and for a ROOT client is shipped
   with mvme.
+
+* The :ref:`mvme_listfile_export <reference-listfile_export>` command line
+  tool. It writes selected module data arrays from an MVLC listfile to CSV or
+  plain text files.
+
+  This method should be used for offline export of a small number of arrays
+  into a simple tabular format.
 
 Overview
 ---------------------------------------
@@ -102,9 +109,12 @@ To build the client run the following shell commands:
 
    ::
 
-       cd mvme                                        # cd into the mvme installation directory
-       source bin/initMVME                            # setup the enviroment ($PATH, $LD_LIBRARY_PATH)
-       make -C ${MVME}/share/mvme_root_client install # compile and install the client
+      # cd into the mvme installation directory
+      cd mvme
+      # setup the enviroment ($PATH, $LD_LIBRARY_PATH)
+      source bin/initMVME
+      # compile and install the client
+      make -C ${MVME}/share/mvme_root_client install
 
 You can now create a data directory to hold the generated code and output ROOT
 files and start the mvme_root_client from within this directory.

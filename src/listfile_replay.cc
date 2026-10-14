@@ -28,6 +28,7 @@
 #include <mesytec-mvlc/mesytec-mvlc.h>
 
 #include "analysis/analysis_util.h"
+#include "mvlc/vmeconfig_from_crateconfig.h"
 #include "mvlc_listfile_worker.h"
 #include "mvlc_stream_worker.h"
 #include "mvme_listfile_utils.h"
@@ -197,63 +198,79 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code>
 {
     switch (handle.format)
     {
-        case ListfileBufferFormat::MVMELST:
-            {
-                ListFile lf(handle.listfile.get());
-                lf.open();
-                return read_config_from_listfile(&lf, logger);
-            }
+    case ListfileBufferFormat::MVMELST:
+    {
+        ListFile lf(handle.listfile.get());
+        lf.open();
+        return read_config_from_listfile(&lf, logger);
+    }
 
-        case ListfileBufferFormat::MVLC_ETH:
-        case ListfileBufferFormat::MVLC_USB:
-            {
-                mvlc::listfile::ZipReader zipReader;
-                zipReader.openArchive(handle.inputFilename.toStdString());
-                auto lfh = zipReader.openEntry(handle.listfileFilename.toStdString());
-                auto preamble = mvlc::listfile::read_preamble(*lfh);
+    case ListfileBufferFormat::MVLC_ETH:
+    case ListfileBufferFormat::MVLC_USB:
+    {
+        mvlc::listfile::ZipReader zipReader;
+        zipReader.openArchive(handle.inputFilename.toStdString());
+        auto lfh = zipReader.openEntry(handle.listfileFilename.toStdString());
+        auto preamble = mvlc::listfile::read_preamble(*lfh);
 
-                #if 0
+#if 0
                 for (const auto &sysEvent: preamble.systemEvents)
                 {
                     qDebug() << __PRETTY_FUNCTION__ << "found preamble sysEvent type"
                         << mvlc::system_event_type_to_string(sysEvent.type).c_str();
                 }
-                #endif
+#endif
 
-                auto it = std::find_if(
-                    std::begin(preamble.systemEvents),
-                    std::end(preamble.systemEvents),
-                    [] (const mvlc::listfile::SystemEvent &sysEvent)
-                    {
-                        return sysEvent.type == mvlc::system_event::subtype::MVMEConfig;
-                    });
+        auto it = std::find_if(std::begin(preamble.systemEvents), std::end(preamble.systemEvents),
+                               [](const mvlc::listfile::SystemEvent &sysEvent) {
+                                   return sysEvent.type == mvlc::system_event::subtype::MVMEConfig;
+                               });
 
-                // TODO: implement a fallback using the MVLCCrateConfig data
-                // (or make it an explicit action in the GUI and put the code
-                // elsewhere)
-                if (it == std::end(preamble.systemEvents))
-                    throw std::runtime_error("No MVMEConfig found in listfile");
+        if (it != std::end(preamble.systemEvents))
+        {
+            // We did find a MVMEConfig section. Parse it as json and let VMEConfig read the data.
+            QByteArray qbytes(reinterpret_cast<const char *>(it->contents.data()),
+                              it->contents.size());
 
-                //qDebug() << __PRETTY_FUNCTION__ << "found MVMEConfig in listfile preamble, size =" << it->contents.size();
+            auto doc = QJsonDocument::fromJson(qbytes);
+            auto json = doc.object();
+            json = json.value("VMEConfig").toObject();
 
-                QByteArray qbytes(
-                    reinterpret_cast<const char *>(it->contents.data()),
-                    it->contents.size());
+            mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
+            updateOptions.skip_v4_VMEScriptVariableUpdate = true;
 
-                auto doc = QJsonDocument::fromJson(qbytes);
-                auto json = doc.object();
-                json = json.value("VMEConfig").toObject();
+            json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(
+                json, logger, updateOptions);
+            auto vmeConfig = std::make_unique<VMEConfig>();
+            auto ec = vmeConfig->read(json);
+            return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(std::move(vmeConfig), ec);
+        }
+        else
+        {
+            // Look for a mvlc crateconfig, load it and convert it to a VMEConfig. This is
+            // pretty messy but at least the file should be analyzable by mvme.
+            auto it_crateconf = std::find_if(
+                std::begin(preamble.systemEvents), std::end(preamble.systemEvents),
+                [](const mvlc::listfile::SystemEvent &sysEvent)
+                { return sysEvent.type == mvlc::system_event::subtype::MVLCCrateConfig; });
 
-                mvme::vme_config::json_schema::SchemaUpdateOptions updateOptions;
-                updateOptions.skip_v4_VMEScriptVariableUpdate = true;
-
-                json = mvme::vme_config::json_schema::convert_vmeconfig_to_current_version(json, logger, updateOptions);
-                auto vmeConfig = std::make_unique<VMEConfig>();
-                auto ec = vmeConfig->read(json);
-                return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(
-                    std::move(vmeConfig), ec);
+            if (it_crateconf != std::end(preamble.systemEvents))
+            {
+                auto crateConfigYaml =
+                    std::string(reinterpret_cast<const char *>(it_crateconf->contents.data()),
+                                it_crateconf->contents.size());
+                auto crateConfig = mvlc::crate_config_from_yaml(crateConfigYaml);
+                auto vmeConfig = mvme::vmeconfig_from_crateconfig(crateConfig);
+                return std::pair<std::unique_ptr<VMEConfig>, std::error_code>(std::move(vmeConfig),
+                                                                              std::error_code{});
             }
-            break;
+            else
+            {
+                throw std::runtime_error("No MVMEConfig or mvlc::CrateConfig found in listfile");
+            }
+        }
+    }
+    break;
     }
 
     return {};

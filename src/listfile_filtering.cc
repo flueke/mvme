@@ -258,7 +258,7 @@ void ListfileFilterStreamConsumer::beginRun(
     auto inputFilename = d->asp_->getReplayFileHandle().inputFilename;
     auto &outInfo = d->config_.outputInfo;
     assert(outInfo.prefix.isEmpty());
-    outInfo.prefix = QFileInfo(inputFilename).baseName();
+    outInfo.prefix = QFileInfo(inputFilename).completeBaseName();
 
     auto lfSetup = mesytec::mvme_mvlc::make_listfile_setup(outInfo, make_listfile_preamble());
 

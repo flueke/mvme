@@ -30,6 +30,15 @@ Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
     clear();
 }
 
+Histo1D::Histo1D(AxisBinning binning, QObject *parent)
+    : QObject(parent)
+    , m_xAxisBinning(binning)
+    , m_data(new double[binning.getBins()])
+{
+    //qDebug() << __PRETTY_FUNCTION__ << this;
+    clear();
+}
+
 Histo1D::Histo1D(AxisBinning binning, const SharedHistoMem &mem, QObject *parent)
     : QObject(parent)
     , m_xAxisBinning(binning)
@@ -144,10 +153,10 @@ double Histo1D::getCounts(double xMin, double xMax) const
     if (xMin >= xMax)
         std::swap(xMin, xMax);
 
-    double minBinF = m_xAxisBinning.getBinUnchecked(xMin);
-    double maxBinF = m_xAxisBinning.getBinUnchecked(xMax);
+    double minBinF = std::max(0.0, m_xAxisBinning.getBinUnchecked(xMin));
+    double maxBinF = std::max(0.0, m_xAxisBinning.getBinUnchecked(xMax));
 
-    if (minBinF < 0.0 || maxBinF < 0.0 || minBinF > maxBinF)
+    if (minBinF > maxBinF)
         return 0.0;
 
     double minBin;
@@ -165,6 +174,9 @@ double Histo1D::getCounts(double xMin, double xMax) const
         double binValue = getBinContent(minBin);
         return binValue * (maxFraction - minFraction);
     }
+
+    if (minBin > getBinCount())
+        return 0.0;
 
     // Range crosses multiple bins, sum the (fractional) bin counts
     double result = 0.0;

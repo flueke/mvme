@@ -1,5 +1,6 @@
 #include "mvmecontext_analysis_service_provider.h"
 #include "mvme_context.h"
+#include "mvme_context_lib.h"
 
 using namespace mesytec::mvme;
 
@@ -153,6 +154,15 @@ const ListfileReplayHandle &MVMEContextServiceProvider::getReplayFileHandle() co
     return ctx_->getReplayFileHandle();
 }
 
+void MVMEContextServiceProvider::closeReplayFileHandle()
+{
+    ctx_->closeReplayFileHandle();
+}
+
+const ListfileReplayHandle &MVMEContextServiceProvider::openListfile(const QString &filename, OpenListfileOptions options)
+{
+    return context_open_listfile(ctx_, filename, options);
+}
 
 DAQStats MVMEContextServiceProvider::getDAQStats() const
 {

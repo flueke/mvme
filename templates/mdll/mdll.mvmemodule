@@ -1,5 +1,35 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "displayName": "MDLL",
+            "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
+            "typeId": 22,
+            "typeName": "mdll",
+            "variables": [
+                {
+                    "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
+                    "name": "AnodeThreshold",
+                    "value": "0x0FFF"
+                },
+                {
+                    "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
+                    "name": "CathodeThreshold",
+                    "value": "0x0FFF"
+                },
+                {
+                    "comment": "0 to 4000",
+                    "name": "PulserAmpl",
+                    "value": "3000"
+                },
+                {
+                    "comment": "1= on, 0= off",
+                    "name": "PulserOn",
+                    "value": "1"
+                }
+            ],
+            "vendorName": "mesytec",
+            "vmeAddress": 4294901760
+        },
         "baseAddress": 4294901760,
         "enabled": true,
         "id": "{28dd54ed-1144-4e01-b8b4-6fc69037af37}",
@@ -130,35 +160,5 @@
             },
             "vme_script": "# Reset the module\n0x6008 1\nwait 500ms\n## Get Module ids for log file\nprint \"Hardware ID:\"\nread a32 d16 0x6008\t# hardware ID\nprint \"Firmware Revision:\"\nread a32 d16 0x600E # firmware revision\n"
         }
-    },
-    "ModuleMeta": {
-        "displayName": "MDLL",
-        "eventHeaderFilter": "0100 XXXX MMMM MMMM XXXX XXSS SSSS SSSS",
-        "typeId": 22,
-        "typeName": "mdll",
-        "variables": [
-            {
-                "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
-                "name": "AnodeThreshold",
-                "value": "0x0FFF"
-            },
-            {
-                "comment": " 1..0xFFFF, example: 0x200 -> 0.8%",
-                "name": "CathodeThreshold",
-                "value": "0x0FFF"
-            },
-            {
-                "comment": "0 to 4000",
-                "name": "PulserAmpl",
-                "value": "3000"
-            },
-            {
-                "comment": "1= on, 0= off",
-                "name": "PulserOn",
-                "value": "1"
-            }
-        ],
-        "vendorName": "mesytec",
-        "vmeAddress": 4294901760
     }
 }

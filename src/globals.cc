@@ -35,6 +35,8 @@ QString toString(const ListFileFormat &fmt)
             return QSL("LZ4");
         case ListFileFormat::ZMQ_Ganil:
             return QSL("ZMQ_GANIL");
+        case ListFileFormat::TcpStreamServer:
+            return QSL("TcpStreamServer");
     }
 
     return QString();
@@ -53,6 +55,9 @@ ListFileFormat listFileFormat_fromString(const QString &str)
 
     if (str == "ZMQ_GANIL")
         return ListFileFormat::ZMQ_Ganil;
+
+    if (str == "TcpStreamServer")
+        return ListFileFormat::TcpStreamServer;
 
     return ListFileFormat::Invalid;
 }

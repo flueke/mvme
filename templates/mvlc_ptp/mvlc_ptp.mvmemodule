@@ -1,0 +1,73 @@
+{
+    "ModuleConfig": {
+        "ModuleMeta": {
+            "displayName": "MVLC PTP Subsystem",
+            "eventHeaderFilters": [
+                {
+                    "description": "mesytec VME module header (non-sampling mode)",
+                    "filter": "0100XXX0MMMMMMMMXXXXXXSSSSSSSSSS"
+                }
+            ],
+            "typeId": 0,
+            "typeName": "mvlc_ptp",
+            "variables": [
+            ],
+            "vendorName": "mesytec",
+            "vmeAddress": "0xffff0000"
+        },
+        "baseAddress": 4294901760,
+        "enabled": true,
+        "id": "{3531d4fa-72d3-4189-b28d-f277872e0965}",
+        "initScripts": [
+            {
+                "enabled": true,
+                "id": "{773d44af-9abd-41f4-9dfb-d5f03d5ea3af}",
+                "name": "Module Init",
+                "properties": {
+                    "icon": ":/vme_script.png"
+                },
+                "variable_table": {
+                    "name": "",
+                    "variables": {
+                    }
+                },
+                "vme_script": "## Parameters\n\n# Note: some of these setting affect the stamper too. PTP and the stamper are coupled.\n\n# 0x6044 output_format:\n#  0: 30 bit counter\n#  1: 30 bit counter + 16 bit extended timestamp\n#  2: ptp_clock [ns] 30 bit, ptp_clock [s] 30 bit, extended_counter_ts 16 bit, counter_ts 30 bit\n# Note: this set the output format for both the ptp module and the builtin event_stamper.\n# PTP just adds more data to the event and thus unpacking is slightly different.\n0x6044 2"
+            }
+        ],
+        "name": "mvlc_ptp",
+        "type": "mvlc_ptp",
+        "variable_table": {
+            "name": "",
+            "variables": {
+            }
+        },
+        "vmeReadout": {
+            "enabled": true,
+            "id": "{8ca04a71-79a0-401d-b33f-d9a2af0f6ea3}",
+            "name": "Module Readout",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# BLT readout until BERR or number of transfers reached\n# Readout commands go here. For example a BLT read from the module.\nprint ns-time\nread A32 D32 0x4440 # read latches the high (seconds) register\nprint s-time\nread A32 D32 0x4444"
+        },
+        "vmeReset": {
+            "enabled": true,
+            "id": "{000c28c6-d374-4672-8ff7-dd47dabeb1de}",
+            "name": "Module Reset",
+            "properties": {
+                "icon": ":/vme_script.png"
+            },
+            "variable_table": {
+                "name": "",
+                "variables": {
+                }
+            },
+            "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\n"
+        }
+    }
+}

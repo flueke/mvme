@@ -217,7 +217,12 @@ void MVLC_StreamWorker::setupParserCallbacks(
             auto &moduleData = moduleDataList[parserModuleIndex];
             int moduleIndex = m_eventModuleIndexMaps[eventIndex][parserModuleIndex];
 
-            if (moduleData.data.size)
+            if (moduleIndex < 0)
+            {
+                logger->warn("mapped module index is out of range: eventIndex={}, originalModuleIndex={}, mappedModuleIndex={}",
+                    eventIndex, parserModuleIndex, moduleIndex);
+            }
+            else if (moduleData.data.size)
             {
                 if (m_diag)
                     m_diag->processModuleData(
@@ -225,14 +230,15 @@ void MVLC_StreamWorker::setupParserCallbacks(
 
                 UniqueLock guard(m_countersMutex);
                 m_counters.moduleCounters[eventIndex][moduleIndex]++;
+
+                if (m_state == WorkerState::SingleStepping)
+                {
+                    record_module_part(
+                        m_singleStepEventRecord, moduleIndex,
+                        moduleData.data.data, moduleData.data.size);
+                }
             }
 
-            if (m_state == WorkerState::SingleStepping)
-            {
-                record_module_part(
-                    m_singleStepEventRecord, moduleIndex,
-                    moduleData.data.data, moduleData.data.size);
-            }
         }
 
         // endEvent
@@ -391,7 +397,14 @@ void MVLC_StreamWorker::setupParserCallbacks(
                     mesytec::mvlc::event_builder2::ModuleConfig modCfg = {};
                     modCfg.offset = windowSettings.value("offset", mesytec::mvlc::event_builder2::DefaultMatchOffset).toInt();
                     modCfg.window = windowSettings.value("width", mesytec::mvlc::event_builder2::DefaultMatchWindow).toInt();
-                    modCfg.ignored = !windowSettings.value("enableModule", false).toBool();
+
+                    // Older mvme versions used 'ignoreModule', newer versions use 'enableModule'.
+                    // This broke when switching to event_builder2. Too many changes at once I guess..
+                    if (windowSettings.contains("ignoreModule") && windowSettings["ignoreModule"].toBool())
+                        modCfg.ignored = true;
+                    else
+                        modCfg.ignored = !windowSettings.value("enableModule", true).toBool();
+
                     modCfg.hasDynamic = m_parser.readoutStructure.at(eventIndex).at(moduleIndex).hasDynamic;
                     modCfg.prefixSize = m_parser.readoutStructure.at(eventIndex).at(moduleIndex).prefixLen;
                     modCfg.name = m_parser.readoutStructure.at(eventIndex).at(moduleIndex).name;

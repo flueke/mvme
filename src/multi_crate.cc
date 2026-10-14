@@ -1017,6 +1017,16 @@ const ListfileReplayHandle &MinimalAnalysisServiceProvider::getReplayFileHandle(
     return listfileReplayHandle_;
 }
 
+void MinimalAnalysisServiceProvider::closeReplayFileHandle()
+{
+    listfileReplayHandle_ = {};
+}
+
+const ListfileReplayHandle &MinimalAnalysisServiceProvider::openListfile(const QString &filename, OpenListfileOptions options)
+{
+    throw std::runtime_error("not implemented! just a placeholder for now!");
+}
+
 DAQStats MinimalAnalysisServiceProvider::getDAQStats() const
 {
     return daqStats_.copy();

@@ -21,6 +21,7 @@ class LIBMVME_EXPORT WaveformSink1DWidget: public histo_ui::PlotWidget
 
     public slots:
         void replot() override;
+        void clear();
 
     private:
         struct Private;

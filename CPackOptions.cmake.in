@@ -1,6 +1,6 @@
 # vim:ft=cmake
 
-#include(CMakePrintHelpers)
+include(CMakePrintHelpers)
 #cmake_print_variables(CPACK_TEMPORARY_DIRECTORY)
 #cmake_print_variables(CPACK_TOPLEVEL_DIRECTORY)
 #cmake_print_variables(CPACK_PACKAGE_DIRECTORY)
@@ -11,12 +11,14 @@ set(PROJECT_NAME        "@CMAKE_PROJECT_NAME@")
 set(PACKAGE_ARCH_STRING "@PACKAGE_ARCH_STRING@")
 set(PACKAGE_VERSION     "@GIT_VERSION_SHORT@")
 set(SOURCE_DIR          "@CMAKE_SOURCE_DIR@")
-set(GIT_BRANCH          "@GIT_BRANCH@")
+set(GIT_BRANCH          "$ENV{BUILD_BRANCH}")
 
 set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}-${PACKAGE_ARCH_STRING}")
 set(CPACK_RESOURCE_FILE_LICENSE "${SOURCE_DIR}/LICENSE-SHORT.TXT")
 set(CPACK_STRIP_FILES TRUE)
 set(CPACK_PACKAGE_CHECKSUM SHA256)
+
+cmake_print_variables(GIT_BRANCH PACKAGE_VERSION CPACK_PACKAGE_FILE_NAME)
 
 # Include the branch name in the package if it's not the main branch.
 if (GIT_BRANCH AND NOT "${GIT_BRANCH}" STREQUAL "main")

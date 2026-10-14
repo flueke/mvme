@@ -172,6 +172,7 @@ enum class ListFileFormat
     ZIP,
     LZ4,
     ZMQ_Ganil,
+    TcpStreamServer,
 };
 
 QString toString(const ListFileFormat &fmt);

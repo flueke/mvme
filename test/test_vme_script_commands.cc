@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "vme_script.h"
+#include "vme_script_exec.h"
 #include <cstring>
 #include <QDebug>
 
@@ -164,7 +165,7 @@ TEST(vme_script_commands, MVLC_CompareLoopAccu)
         R"_(mvlc_compare_loop_accu gt 15)_",
     };
 
-    for (const auto input: inputs)
+    for (const auto &input: inputs)
     {
         auto script = vme_script::parse(input);
         ASSERT_EQ(script.size(), 1);
@@ -780,4 +781,36 @@ TEST(vme_script_commands, ParseVMEAddressModes)
     ASSERT_EQ(vme_script::parseAddressMode("0x2a"), 42);
 
     ASSERT_THROW(vme_script::parseAddressMode("foobar"), const char *);
+}
+
+TEST(vme_script_commands, AccuSet)
+{
+    auto input = QSL("accu_set 0xDEADCAFE\naccu_add 1234");
+    auto script = vme_script::parse(input);
+
+    ASSERT_EQ(script.size(), 2);
+
+    {
+        auto &cmd = script[0];
+        ASSERT_EQ(cmd.type, CommandType::Accu_Set);
+        ASSERT_EQ(cmd.value, 0xDEADCAFE);
+    }
+
+    {
+        auto &cmd = script[1];
+        ASSERT_EQ(cmd.type, CommandType::Accu_Add);
+        ASSERT_EQ(cmd.value, 1234);
+    }
+
+    auto results = vme_script::run_script(
+        nullptr,
+        script,
+        [] (const QString &msg) { qDebug() << "run_script:" << msg; }
+        //,vme_script::run_script_options::LogEachResult
+    );
+
+    ASSERT_EQ(results.size(), 2);
+    ASSERT_EQ(results[0].state.accu, 0xDEADCAFEu);
+    ASSERT_EQ(results[1].state.accu, 0xDEADCAFEu + 1234u);
+
 }

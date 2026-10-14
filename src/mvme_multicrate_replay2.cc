@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
             {
                 ctx->setName(fmt::format("analysis_crate{}", crateId));
                 ctx->crateId = configs.crateConfig.crateId;
-                ctx->runInfo.runId = QFileInfo(listfileFilename.c_str()).baseName();
+                ctx->runInfo.runId = QFileInfo(listfileFilename.c_str()).completeBaseName();
                 ctx->runInfo.isReplay = true;
                 ctx->runInfo.infoDict["replaySourceFile"] = listfileFilename.c_str();
                 // TODO analysis object id handling / rewriting before beginRun()
@@ -461,7 +461,7 @@ int main(int argc, char *argv[])
         pbStop->setEnabled(!pbStart->isEnabled());
     };
 
-    auto log_counters = [&]
+    [[maybe_unused]] auto log_counters = [&]
     {
         for (const auto &[crateId, steps]: cratePipelineSteps)
         {

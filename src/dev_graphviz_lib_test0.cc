@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QDebug>
 #include <sstream>
+#include "graphviz_compat.h"
 
 // DOT -> layout -> png
 

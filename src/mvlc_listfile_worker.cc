@@ -130,15 +130,22 @@ void MVLCListfileWorker::setSnoopQueues(mesytec::mvlc::ReadoutBufferQueues *queu
 
 void MVLCListfileWorker::setListfile(ListfileReplayHandle *handle)
 {
-    QIODevice *input = handle->listfile.get();
+    try
+    {
+        QIODevice *input = handle->listfile.get();
 
-    if (qobject_cast<QFile *>(input))
-        throw std::runtime_error("MVLC replays from flat file are not supported yet.");
+        if (qobject_cast<QFile *>(input))
+            throw std::runtime_error("MVLC replays from flat file are not supported yet.");
 
-    d->replayHandle = handle;
+        d->replayHandle = handle;
 
-    if (auto inZipFile = qobject_cast<QuaZipFile *>(input))
-        d->stats.access()->listfileFilename = inZipFile->getZipName();
+        if (auto inZipFile = qobject_cast<QuaZipFile *>(input))
+            d->stats.access()->listfileFilename = inZipFile->getZipName();
+    }
+    catch (const std::exception &e)
+    {
+        logError(QString::fromStdString(e.what()));
+    }
 }
 
 DAQStats MVLCListfileWorker::getStats() const

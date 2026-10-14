@@ -7,7 +7,7 @@
                     # 1 -> operate banks independently
 
 # tdc_resolution
-0x6042  2          	# 9 -> 500 ps
+0x6042  2           # 9 -> 500 ps
                     # 8 -> 250 ps
                     # 7 -> 125 ps
                     # 6 -> 62.5 ps (1 ns /  16)
@@ -26,36 +26,36 @@
 # ############################################################################
 # bank0_win_start
 0x6050  16284       # 16284 = -100ns
-					# Window of interest start time relative to trigger.
-					# Window start   = 16384  + delay[ns];
-					#  Hex notation: = 0x3FFF + delay[ns];
-					# Delay can be negative to register hits before the trigger
+                    # Window of interest start time relative to trigger.
+                    # Window start   = 16384  + delay[ns];
+                    #  Hex notation: = 0x3FFF + delay[ns];
+                    # Delay can be negative to register hits before the trigger
                     # Delay may be in the range [-16384 ns, +16384 ns]
                     # < 0 -> window starts before trigger
                     # > 0 -> window is delayed
 
 
 # bank1_win_start
-0x6052  16284      	# same as for bank0
+0x6052  16284       # same as for bank0
 
 # bank0_win_width
-0x6054  200        	# 200 = 200ns; Unit: ns, max 16k == 16.384 us, unsigned
+0x6054  200         # 200 = 200ns; Unit: ns, max 16k == 16.384 us, unsigned
 
 # bank1_win_width
-0x6056  200        	# Unit: ns, max 16k == 16.384 us, unsigned
+0x6056  200         # Unit: ns, max 16k == 16.384 us, unsigned
 
 # trigger source
 # bank0_trig_source
 0x6058  0x001       # In split bank mode for bank0, otherwise for both banks.
-					# Defines the trigger which creates the window of interest. This can be one or
-					# both of the trigger inputs, any of the 32 channel inputs or a whole bank.
-					#   0x001 -> trigger 0 input
-					#   0x002 -> trigger 1 input
-					#   0x100 -> bank0
-					#   0x200 -> bank1
-					#   single channel: trig_source = 128 + (chan * 4)
-					#                   with channel in 0..31
- 					# +-------------+--------------------+---------+
+                    # Defines the trigger which creates the window of interest. This can be one or
+                    # both of the trigger inputs, any of the 32 channel inputs or a whole bank.
+                    #   0x001 -> trigger 0 input
+                    #   0x002 -> trigger 1 input
+                    #   0x100 -> bank0
+                    #   0x200 -> bank1
+                    #   single channel: trig_source = 128 + (chan * 4)
+                    #                   with channel in 0..31
+                    # +-------------+--------------------+---------+
                     # | Whole bank  |     32_channels    |  trig   |
                     # |   2 bits    |       6 bits       | 2 bits  |
                     # +============================================|
@@ -95,24 +95,23 @@
                     # 3 -> as CBus output
                     # 8 -> data in buffer above threshold 0x6018 (= Data ready)
 
-
-
 # Bank Input Configuration for unipolar signal inputs
 # ############################################################################
 # negative_edge
 0x6060  0b00        # bit0: bank0, bit1: bank1
-                    # if bit is set:
-                    # * for differential input jumper: channel triggers on
-                    #   negative edge
-                    # * for unipolar input jumper: trigger on rising edge of
-                    #   signal
+                    # for differential (ECL, PECL or LVDS) input (-> diff jumpers)set 0b00
+                    #                                         (trigger when +input gets pos and -input gets neg)
+                    # for NIM input (unipol jumpers)  set 0b00 (trigger on negative edge)
+                    # for TTL input (unipol jumpers)  set 0b11 (trigger on positive edge)
 
 # bank0_input_thr
-0x6078  105         # Discriminator level for unipolar input bank0.
-                    # For NIM 105 is optimum.
+0x6078  105         # Discriminator level for unipolar input bank0. 128=0V,0=-1.7V,255=+1.7V
+                    # For NIM 105 is optimum (threshold -170mV).
+                    # For TTL 240 is optimum (threshold + 1.5V).
 
 # bank1_input_thr
 0x607A  105         # Discriminator level for bank1.
+
 
 # Internal Test Pulser
 # ############################################################################
@@ -143,5 +142,3 @@
                     # 1 -> time stamper mode
                     # Note: In time stamper mode further "Operation Mode" and
                     # "Trigger" registers have no effect.
-
-

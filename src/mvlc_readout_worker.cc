@@ -543,6 +543,10 @@ void MVLCReadoutWorker::start(quint32 cycles)
                 // code does not expect it.
             }
 #endif
+            else if (outInfo.format == ListFileFormat::TcpStreamServer)
+            {
+                d->listfileWriteHandle = std::make_shared<mvlc::listfile::StreamServerListfileWriteHandle>();
+            }
             else
             {
                 throw std::runtime_error("Unsupported listfile format");

@@ -414,6 +414,8 @@ class LIBMVME_EXPORT MinimalAnalysisServiceProvider: public AnalysisServiceProvi
 
         GlobalMode getGlobalMode() override; // DAQ or Listfile
         const ListfileReplayHandle &getReplayFileHandle() const override;
+        void closeReplayFileHandle() override;
+        const ListfileReplayHandle &openListfile(const QString &filename, OpenListfileOptions options) override;
 
         DAQStats getDAQStats() const override;
         RunInfo getRunInfo() const override;

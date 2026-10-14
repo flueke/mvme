@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.5
+# vim:ft=dockerfile
+
+# Dockerfile containing instructions to build mvme and run the unit tests.
+
+# Example docker build invocation from the root of the source tree:
+#   DOCKER_BUILDKIT=1 docker build -f ./extras/docker/Dockerfile.ubuntu25.10_package --output=. .
+
+# Note: submodules have to be initialized and updated in order for the build to
+# succeed.
+
+FROM ubuntu:rolling AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash build-essential git cmake ninja-build ca-certificates \
+    qtbase5-dev qtbase5-dev-tools libqt5websockets5-dev libqt5opengl5-dev libqt5svg5-dev \
+    libqt5serialport5-dev libqwt-qt5-dev libquazip5-dev libusb-dev zlib1g-dev libgraphviz-dev \
+    libboost-dev sphinx-common sphinx-rtd-theme-common python3-sphinx python3-sphinxcontrib.qthelp \
+    texlive-latex-base texlive-latex-extra texlive-latex-recommended latexmk texlive-fonts-recommended \
+    libzmq3-dev prometheus-cpp-dev
+
+COPY . /sources
+WORKDIR /build
+
+ENV QT_QPA_PLATFORM=minimal
+
+RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
+          -DMVME_BUILD_TESTS=ON /sources \
+    && ninja && ctest . -LE not_in_docker --output-on-failure && ninja package
+
+FROM scratch
+COPY --from=build /build/packages ./build-artifacts

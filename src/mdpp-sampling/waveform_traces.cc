@@ -106,7 +106,7 @@ std::vector<const Trace *> get_trace_column(const TraceHistories &history, size_
 {
     auto accu = [traceIndex] (std::vector<const waveforms::Trace *> &acc, const waveforms::TraceHistory &history)
     {
-        if (0 <= traceIndex && static_cast<size_t>(traceIndex) < history.size())
+        if (traceIndex < history.size())
             acc.push_back(&history[traceIndex]);
         return acc;
     };
@@ -142,6 +142,16 @@ std::string trace_meta_to_string(const Trace::MetaMap &meta)
 
     std::sort(std::begin(strParts), std::end(strParts));
     return fmt::format("{}", fmt::join(strParts, ", "));
+}
+
+size_t get_trace_count(const TraceHistories &traceHistories)
+{
+    size_t result = 0;
+
+    for (const auto &history: traceHistories)
+        result += history.size();
+
+    return result;
 }
 
 }

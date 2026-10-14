@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     }
 
     QString inputFilename(argv[1]);
-    QString outputFilename = QFileInfo(inputFilename).baseName() + "_updated.zip";
+    QString outputFilename = QFileInfo(inputFilename).completeBaseName() + "_updated.zip";
 
 #define DO_CATCH 1
 

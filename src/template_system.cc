@@ -126,7 +126,7 @@ namespace
             }
             else
             {
-                vmeTemplate.name = QFileInfo(fileName).baseName();
+                vmeTemplate.name = QFileInfo(fileName).completeBaseName();
             }
 
             result.init.push_back(vmeTemplate);
@@ -268,7 +268,7 @@ VMEModuleMeta read_modulemeta_from_mvmemodule_file(
     const QString &filename, TemplateLogger logger)
 {
     auto moduleJson = read_json_file(filename, logger).object();
-    auto mm = modulemeta_from_json(moduleJson["ModuleMeta"].toObject());
+    auto mm = modulemeta_from_json(moduleJson["ModuleConfig"].toObject()["ModuleMeta"].toObject());
     auto moduleDir = QFileInfo(filename).absoluteDir();
     mm.templatePath = moduleDir.path();
     mm.templateFile = moduleDir.filePath(filename);
@@ -626,7 +626,7 @@ GenericVMEScriptInfo read_default_mvlc_trigger_io_script()
 {
     for (const auto &scriptInfo: read_mvlc_trigger_io_scripts())
     {
-        if (scriptInfo.fileInfo.baseName() == QSL("mvlc_trigger_io-Default_Trigger_IO"))
+        if (scriptInfo.fileInfo.completeBaseName() == QSL("mvlc_trigger_io-Default_Trigger_IO"))
             return scriptInfo;
     }
 

@@ -63,8 +63,7 @@ message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
 # graphviz
 find_package(Graphviz REQUIRED)
-message("-- Using GRAPHVIZ_INCLUDE_DIRS=${GRAPHVIZ_INCLUDE_DIRS}")
-message("-- Using GRAPHVIZ_LIBRARIES=${GRAPHVIZ_LIBRARIES}")
+message("-- Found graphviz version ${GRAPHVIZ_VERSION}")
 
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
@@ -76,6 +75,7 @@ if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
     string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
     set(BUILD_CXX_FLAGS "${BUILD_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${build_type_upper}}")
 endif()
+string(TIMESTAMP BUILD_YEAR "%Y")
 configure_file("build_info.cc.in" "build_info.cc" @ONLY)
 
 #
@@ -206,6 +206,8 @@ add_library(libmvme SHARED
     analysis/exportsink_codegen.cc
     analysis/expression_operator_dialog.cc
     analysis/event_builder_monitor.cc
+    analysis/histo_ops_widget.cc
+    analysis/histo_ops_widget_p.cc
     analysis/listfilter_extractor_dialog.cc
     analysis/mdpp_sample_decoder_monitor_widget.cc
     analysis/object_editor_dialog.cc
@@ -236,6 +238,7 @@ add_library(libmvme SHARED
     histo2d.cc
     histo2d_widget.cc
     histo2d_widget_p.cc
+    histo_algo.cc
     histo_gui_util.cc
     histo_stats_widget.cc
     histo_ui.cc
@@ -294,6 +297,7 @@ add_library(libmvme SHARED
     mvme_session.cc
     mvme_stream_iter.cc
     mvme_stream_processor.cc
+    mvme_stream_server.cc
     mvme_stream_util.cc
     mvme_stream_worker.cc
     mvmecontext_analysis_service_provider.cc
@@ -307,6 +311,7 @@ add_library(libmvme SHARED
     remote_control.cc
     replay_ui.cc
     replay_ui_p.cc
+    run_notes_widget.cc
     scrollbar.cpp
     scrollzoomer.cpp
     sis3153.cc
@@ -319,7 +324,10 @@ add_library(libmvme SHARED
     timed_block.cc
     treewidget_utils.cc
     util.cc
+    util/expand_env_vars.cc
     util/mesy_nng_pipeline.cc
+    util/markdownhighlighter.cpp
+    util/qownlanguagedata.cpp
     util/qledindicator.cpp
     util/qt_eventfilters.cc
     util/qt_gui_io.cc
@@ -334,6 +342,7 @@ add_library(libmvme SHARED
     util/version_compare.cc
     util_zip.cc
     vme_analysis_common.cc
+    vme_config_diff_ui.cc
     vme_config.cc
     vme_config_json_schema_updates.cc
     vme_config_model_view.cc
@@ -344,6 +353,7 @@ add_library(libmvme SHARED
     vme_config_ui_variable_editor.cc
     vme_config_util.cc
     vme_config_version.cc
+    vme_config_diff.cc
     vme_controller.cpp
     vme_controller_factory.cc
     vme_controller_ui.cc
@@ -383,9 +393,10 @@ target_link_libraries(libmvme
     PRIVATE nlohmann-json
     PRIVATE qgvcore
     PRIVATE range-v3::range-v3
+    PRIVATE dtl
     PUBLIC ${QUAZIP_QT5}
     PUBLIC ${QWT_LIBRARY}
-    PUBLIC BFG::Lyra
+    PUBLIC bfg::lyra
     PUBLIC Qt5::Concurrent
     PUBLIC Qt5::Gui
     PUBLIC Qt5::Network
@@ -420,6 +431,12 @@ endif()
 #    PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
 #    PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
 #    )
+
+if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+    target_compile_options(libmvme PRIVATE -DQT_NO_DEBUG_OUTPUT)
+endif()
+
+#target_include_directories(libmvme PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/analysis/a2)
 
 find_package(prometheus-cpp CONFIG)
 
@@ -475,8 +492,7 @@ install(TARGETS libmvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 # mvme - the main GUI binary
 #
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
-    #add_executable(mvme WIN32 main.cpp)
-    add_executable(mvme main.cpp)
+    add_executable(mvme WIN32 main.cpp)
 else()
     #add_definitions(-DMVME_ENABLE_TIMED_BLOCKS)
     add_executable(mvme main.cpp)
@@ -617,16 +633,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(event_server)
 
-# handling of GSI MBS LMD files
-if (NOT WIN32)
-  add_subdirectory(gsi-mbs-api)
-  add_library(gsi-mbs-wrappers STATIC mbs_wrappers.cc)
-  target_link_libraries(gsi-mbs-wrappers PRIVATE mesytec-mvlc PRIVATE gsi-mbs-api)
-
-  add_mvme_exe(lmd2mvme "lmd2mvme.cc")
-  target_link_libraries(lmd2mvme PRIVATE gsi-mbs-wrappers)
-endif()
-
 #add_subdirectory(listfile_reader)
 
 add_mvme_exe(mvme_histo_viewer mvme_histo_viewer_main.cc)
@@ -635,6 +641,11 @@ install(TARGETS mvme_histo_viewer RUNTIME DESTINATION bin LIBRARY DESTINATION li
 # listfile recovery tool
 add_mvme_exe(mvme_listfile_recovery_gui mvme_listfile_recovery_gui.cc)
 install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+
+# export module data arrays from mvlc listfiles to csv/text
+add_mvme_exe(mvme_listfile_export
+    "listfile_export/mvme_listfile_export.cc;listfile_export/listfile_export.cc;listfile_export/filter_db_from_templates.cc")
+install(TARGETS mvme_listfile_export RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvlc vmeconfig -> crateconfig debug tool
 add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
@@ -659,6 +670,7 @@ install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINA
 add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
 add_mvme_exe(statemachine_test statemachine_test.cc)
 add_mvme_dev_exe(dev_some_gui_thing dev_some_gui_thing.cc)
+add_mvme_dev_exe(dev_vme_config_diff dev_vme_config_diff.cc)
 
 add_custom_target(multicrate2_dev_tools)
 add_dependencies(multicrate2_dev_tools
@@ -699,10 +711,13 @@ if(MVME_BUILD_TESTS)
     add_mvme_gtest(test_mesy_nng_pipeline2 util/mesy_nng_pipeline2.test.cc)
     add_mvme_gtest(test_multi_crate_nng multi_crate_nng.test.cc)
     add_mvme_gtest(test_mdpp_sampling mdpp-sampling/mdpp_sampling.test.cc)
+    add_mvme_gtest(test_listfile_export "listfile_export/listfile_export.test.cc;listfile_export/listfile_export.cc")
     add_mvme_gtest(test_waveform_plotting mdpp-sampling/waveform_plotting.test.cc)
-    add_mvme_gtest(test_waveform_interpolation mdpp-sampling/waveform_interpolation.test.cc)
+    #add_mvme_gtest(test_waveform_interpolation mdpp-sampling/waveform_interpolation.test.cc) # Disabled, does not do anything
     add_mvme_gtest(test_mdpp_decode mdpp-sampling/mdpp_decode.test.cc)
     add_mvme_gtest(test_template_system template_system.test.cc)
+    set_tests_properties(test_template_system PROPERTIES LABELS "not_in_docker")
+    add_mvme_gtest(test_vme_config_diff vme_config_diff.test.cc)
 
     add_mvme_dev_exe(dev_qtwi_checkstate_test "analysis/dev_qtwi_checkstate_test.cc")
 endif(MVME_BUILD_TESTS)

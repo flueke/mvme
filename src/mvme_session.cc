@@ -62,6 +62,7 @@ void mvme_init(const QString &appName, bool showDebugInfo)
 #ifndef NDEBUG
     spdlog::set_level(spdlog::level::debug);
     mesytec::mvlc::set_global_log_level(spdlog::level::debug);
+    //mesytec::mvlc::get_logger("readout_parser")->set_level(spdlog::level::trace);
 #else
     spdlog::set_level(spdlog::level::info);
     mesytec::mvlc::set_global_log_level(spdlog::level::info);

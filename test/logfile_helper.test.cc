@@ -186,11 +186,10 @@ TEST_F(LogfileHelperTestFixture, ExceedMaxFiles)
 // Note: for correctness the cases in the LastlogHelper constructor should be
 // checked. This means file permissions would have to be changed so that
 // removing, renaming and file creation fail :-(
-TEST(LastlogHelper, MissingDirConstructorThrows)
+TEST(LastlogHelper, MissingDirConstructorHasNoOpenFile)
 {
-    ASSERT_THROW(
-        LastlogHelper(QDir(logDirName), "foo.log", "last_foo.log"),
-        std::runtime_error);
+    LastlogHelper helper(QDir(logDirName), "foo.log", "last_foo.log");
+    ASSERT_FALSE(helper.hasOpenFile());
 }
 
 // Testing the LastlogHelper:

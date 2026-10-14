@@ -486,7 +486,7 @@ QString debug_format_module_index_mappings(const EventModuleIndexMaps &mappings,
             if (auto analysisIndex = indexMap[pim];
                 analysisIndex >= 0)
             {
-                out << "parserModuleIndex=" << pim << " -> analysisModuleIndex=" << indexMap[pim]
+                out << "  parserModuleIndex=" << pim << " -> analysisModuleIndex=" << indexMap[pim]
                  << " " << modules[indexMap[pim]]->objectName() << "\n";
             }
         }

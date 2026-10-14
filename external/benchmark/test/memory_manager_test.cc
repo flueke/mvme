@@ -14,7 +14,8 @@ class TestMemoryManager : public benchmark::MemoryManager {
 
 void BM_empty(benchmark::State& state) {
   for (auto _ : state) {
-    auto iterations = state.iterations();
+    auto iterations = static_cast<double>(state.iterations()) *
+                      static_cast<double>(state.iterations());
     benchmark::DoNotOptimize(iterations);
   }
 }
@@ -39,6 +40,7 @@ ADD_CASES(TC_JSONOut, {{"\"name\": \"BM_empty\",$"},
 ADD_CASES(TC_CSVOut, {{"^\"BM_empty\",%csv_report$"}});
 
 int main(int argc, char* argv[]) {
+  benchmark::MaybeReenterWithoutASLR(argc, argv);
   std::unique_ptr<benchmark::MemoryManager> mm(new TestMemoryManager());
 
   benchmark::RegisterMemoryManager(mm.get());

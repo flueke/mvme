@@ -86,7 +86,6 @@ int main(int argc, char **argv)
     setup_intervals_combo(&plotWidget1, newIntervalPicker, intervalEditorPicker);
 
     debug_watch_plot_pickers(plotWidget1.getPlot());
-    auto exclusiveActions = group_picker_actions(&plotWidget1);
 
 #if 0
     // log PlotWidget enter/leave events
@@ -108,6 +107,7 @@ int main(int argc, char **argv)
         auto w = new QWidget;
         w->setAttribute(Qt::WA_DeleteOnClose);
         auto vbox = new QVBoxLayout(w);
+        auto exclusiveActions = group_picker_actions(&plotWidget1);
 
         for (auto action: exclusiveActions->actions())
         {

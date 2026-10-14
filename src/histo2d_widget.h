@@ -51,16 +51,23 @@ class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
         Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent = 0);
         Histo2DWidget(Histo2D *histo, QWidget *parent = 0);
         Histo2DWidget(const Histo1DSinkPtr &histo1DSink, AnalysisServiceProvider *asp, QWidget *parent = 0);
-        ~Histo2DWidget();
+        explicit Histo2DWidget(QWidget *parent = 0);
+
+        ~Histo2DWidget() override;
 
         void setServiceProvider(AnalysisServiceProvider *asp);
         AnalysisServiceProvider *getServiceProvider() const;
+        // Analysis sink
         void setSink(const SinkPtr &sink,
                      HistoSinkCallback addSinkCallback,
                      HistoSinkCallback sinkModifiedCallback,
                      MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
 
         SinkPtr getSink() const;
+
+        // Direct Histo2D
+        void setHistogram(const Histo2DPtr &histo);
+        Histo2DPtr getHistogram() const;
 
         bool event(QEvent *event) override;
 
@@ -73,6 +80,9 @@ class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
         const QwtPlot *getPlot() const override;
         QToolBar *getToolBar() override;
         QStatusBar *getStatusBar() override;
+
+        QJsonObject getViewState() const override;
+        void setViewState(const QJsonObject &state) override;
 
     public slots:
         void replot() override;
@@ -93,12 +103,11 @@ class LIBMVME_EXPORT Histo2DWidget: public histo_ui::IPlotWidget
         void doSlice(Qt::Axis axis);
 
     private:
-        explicit Histo2DWidget(QWidget *parent = 0);
-
         bool zAxisIsLog() const;
         bool zAxisIsLin() const;
         QwtLinearColorMap *getColorMap() const;
         void updateCursorInfoLabel();
+        void doProjection(Qt::Axis axis);
         void doXProjection();
         void doYProjection();
 

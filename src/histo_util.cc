@@ -28,6 +28,7 @@
 #include <QFrame>
 #include <QGroupBox>
 #include <QRadioButton>
+#include <QRegularExpression>
 
 const s64 AxisBinning::Underflow;
 const s64 AxisBinning::Overflow;
@@ -138,49 +139,54 @@ HistoAxisLimitsUI make_axis_limits_ui(const QString &limitButtonTitle, double in
     return result;
 }
 
-Histo1DPtr make_x_projection(Histo2D *histo)
+Histo1DPtr make_x_projection(Histo2D *histo, const ResolutionReductionFactors &rrf)
 {
-    return make_projection(histo, Qt::XAxis);
+    return make_projection(histo, Qt::XAxis, rrf);
 }
 
 Histo1DPtr make_x_projection(Histo2D *histo,
                              double startX, double endX,
-                             double startY, double endY)
+                             double startY, double endY,
+                             const ResolutionReductionFactors &rrf)
 {
-    return make_projection(histo, Qt::XAxis, startX, endX, startY, endY);
+    return make_projection(histo, Qt::XAxis, startX, endX, startY, endY, rrf);
 }
 
-Histo1DPtr make_y_projection(Histo2D *histo)
+Histo1DPtr make_y_projection(Histo2D *histo, const ResolutionReductionFactors &rrf)
 {
-    return make_projection(histo, Qt::YAxis);
+    return make_projection(histo, Qt::YAxis, rrf);
 }
 
 Histo1DPtr make_y_projection(Histo2D *histo,
                              double startX, double endX,
-                             double startY, double endY)
+                             double startY, double endY,
+                             const ResolutionReductionFactors &rrf)
 {
-    return make_projection(histo, Qt::YAxis, startX, endX, startY, endY);
+    return make_projection(histo, Qt::YAxis, startX, endX, startY, endY, rrf);
 }
 
-std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis)
+std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis, const ResolutionReductionFactors &rrf)
 {
     auto projBinning  = histo->getAxisBinning(axis);
     auto otherBinning = histo->getAxisBinning(axis == Qt::XAxis ? Qt::YAxis : Qt::XAxis);
 
     return make_projection(histo, axis,
                            projBinning.getMin(), projBinning.getMax(),
-                           otherBinning.getMin(), otherBinning.getMax());
+                           otherBinning.getMin(), otherBinning.getMax(), rrf);
 }
 
 std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
                                          double startX, double endX,
-                                         double startY, double endY)
+                                         double startY, double endY,
+                                         const ResolutionReductionFactors &rrf)
 {
-    //qDebug() << __PRETTY_FUNCTION__
-    //    << axis
-    //    << "startX" << startX << "endX" << endX
-    //    << "startY" << startY << "endY" << endY;
+    qDebug() << __PRETTY_FUNCTION__
+        << axis
+        << "startX" << startX << "endX" << endX
+        << "startY" << startY << "endY" << endY;
 
+    auto projRrf = (axis == Qt::XAxis) ? rrf.x : rrf.y;
+    auto otherRrf = (axis == Qt::XAxis) ? rrf.y : rrf.x;
 
     double projStart = (axis == Qt::XAxis ? startX : startY);
     double projEnd   = (axis == Qt::XAxis ? endX : endY);
@@ -191,31 +197,64 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
     auto projBinning  = histo->getAxisBinning(axis);
     auto otherBinning = histo->getAxisBinning(axis == Qt::XAxis ? Qt::YAxis : Qt::XAxis);
 
-    s64 projStartBin = projBinning.getBinBounded(projStart);
-    s64 projEndBin   = projBinning.getBinBounded(projEnd) + 1;
+    s64 projStartBin = projBinning.getBinBounded(projStart, projRrf);
+    s64 projEndBin   = projBinning.getBinBounded(projEnd, projRrf) + 1;
 
-    s64 otherStartBin = otherBinning.getBinBounded(otherStart);
-    s64 otherEndBin   = otherBinning.getBinBounded(otherEnd) + 1;
+    s64 otherStartBin = otherBinning.getBinBounded(otherStart, otherRrf);
+    s64 otherEndBin   = otherBinning.getBinBounded(otherEnd, otherRrf) + 1;
 
-    s64 nProjBins = (projEndBin - projStartBin);
-
-    //qDebug() << __PRETTY_FUNCTION__
-    //    << "projEndBin" << projEndBin
-    //    << "otherEndBin" << otherEndBin
-    //    << "nProjBins" << nProjBins;
+    s64 nProjBins = (projEndBin - projStartBin); // number of bins the projection actually touches.
 
 
-    // adjust start and end to low edge of corresponding bin
-    projStart = projBinning.getBinLowEdge(projStartBin);
-    projEnd   = projBinning.getBinLowEdge(projEndBin);
+    qDebug() << __PRETTY_FUNCTION__
+        << "axis" << axis
+        << "projRrf" << projRrf
+        << "otherRrf" << otherRrf
+        << "projStartBin " << projStartBin
+        << "projEndBin" << projEndBin
+        << "otherStartBin" << otherStartBin
+        << "otherEndBin" << otherEndBin
+        << "nProjBins" << nProjBins;
 
-    auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
+    qDebug() << "projBinning used for the physical resolution:"
+             << "min" << projBinning.getMin()
+             << "max" << projBinning.getMax()
+             << "bins" << projBinning.getBins(projRrf);
+    qDebug() << "projecting from" << projStart << "to" << projEnd << ", total of"
+            << (projEndBin - projStartBin) << "bins";
+
+
+    // Adjust start and end to the low edge of the corresponding bin.
+    projStart = projBinning.getBinLowEdge(projStartBin, projRrf);
+    projEnd   = projBinning.getBinLowEdge(projEndBin, projRrf);
+
+    // Create dest binning covering only the zoomed region.
+    auto destBinning = AxisBinning(nProjBins, projStart, projEnd);
+    qDebug() << "destBinning:"
+             << "min" << destBinning.getMin()
+             << "max" << destBinning.getMax()
+             << "bins" << destBinning.getBins();
+
+    auto result = std::make_shared<Histo1D>(destBinning);
     result->setAxisInfo(Qt::XAxis, histo->getAxisInfo(axis));
     result->setObjectName(histo->objectName()
                           + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y"))
                           + QSL(" Projection"));
 
     u32 destBin = 0;
+    ResolutionReductionFactors samplingRrf;
+    if (axis == Qt::XAxis)
+    {
+        samplingRrf = ResolutionReductionFactors{projRrf, otherRrf};
+    }
+    else
+    {
+        samplingRrf = ResolutionReductionFactors{otherRrf, projRrf};
+    }
+
+    qDebug() << "samplingRrf: x =" << samplingRrf.x
+        << "y =" << samplingRrf.y;
+
 
     for (u32 binI = projStartBin;
          binI < projEndBin;
@@ -229,11 +268,11 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
         {
             if (axis == Qt::XAxis)
             {
-                value += histo->getBinContent(binI, binJ);
+                value += histo->getBinContent(binI, binJ, samplingRrf);
             }
             else
             {
-                value += histo->getBinContent(binJ, binI);
+                value += histo->getBinContent(binJ, binI, samplingRrf);
             }
         }
 
@@ -246,8 +285,7 @@ std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
     return result;
 }
 
-/* Creates a projection for a combined view of the given histograms list.
- * Assumes that all histograms in the list have the same x-axis binning!. */
+// Creates a projection for a combined view of the given histograms list.
 // TODO: ResReduction
 Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
                            double startX, double endX,
@@ -272,12 +310,29 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     {
         projBinning  = xBinning;
         otherBinning = histos[0]->getAxisBinning(Qt::XAxis);
+
+        for (const auto &histo: histos)
+        {
+            otherBinning.setBins(std::min(otherBinning.getBins(), histo->getAxisBinning(Qt::XAxis).getBins()));
+            otherBinning.setMin(std::min(otherBinning.getMin(), histo->getAxisBinning(Qt::XAxis).getMin()));
+            otherBinning.setMax(std::max(otherBinning.getMax(), histo->getAxisBinning(Qt::XAxis).getMax()));
+        }
     }
     else if (axis == Qt::YAxis)
     {
         projBinning  = histos[0]->getAxisBinning(Qt::XAxis);
         otherBinning = xBinning;
+
+        for (const auto &histo: histos)
+        {
+            projBinning.setBins(std::min(projBinning.getBins(), histo->getAxisBinning(Qt::XAxis).getBins()));
+            projBinning.setMin(std::min(projBinning.getMin(), histo->getAxisBinning(Qt::XAxis).getMin()));
+            projBinning.setMax(std::max(projBinning.getMax(), histo->getAxisBinning(Qt::XAxis).getMax()));
+        }
     }
+
+    //qDebug() << "projBinning:" << projBinning.getMin() << projBinning.getMax()
+    //         << "otherBinning:" << otherBinning.getMin() << otherBinning.getMax();
 
     s64 projStartBin = projBinning.getBinBounded(projStart);
     s64 projEndBin   = projBinning.getBinBounded(projEnd);
@@ -294,13 +349,26 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     // adjust start and end to low edge of corresponding bin
     projStart = projBinning.getBinLowEdge(projStartBin);
     projEnd   = projBinning.getBinLowEdge(projEndBin + 1);
+    const auto projBinWidth = projBinning.getBinWidth();
 
     auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
 
-    // FIXME: TODO
-    //result->setAxisInfo(Qt::XAxis, histo->getAxisInfo(axis));
-    //result->setObjectName(histo->objectName() + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y")) + QSL(" Projection"));
-    //
+    if (axis == Qt::XAxis)
+    {
+        AxisInfo axisInfo;
+        axisInfo.title = "Histogram #";
+        result->setAxisInfo(Qt::XAxis, axisInfo);
+    }
+    else
+    {
+        result->setAxisInfo(Qt::XAxis, histos[0]->getAxisInfo(Qt::XAxis));
+    }
+
+    auto histoName = histos[0]->objectName();
+    histoName.replace(QRegularExpression(R"(\s*\[\d+\]$)"), QSL("[n]"));
+    result->setObjectName(histoName + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y")) + QSL(" Projection"));
+    result->setTitle(QSL("%1 %2 Projection").arg(histoName).arg(axis == Qt::XAxis ? "X" : "Y"));
+
     u32 destBin = 0;
 
     for (u32 binI = projStartBin;
@@ -313,13 +381,19 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
              binJ <= otherEndBin;
              ++binJ)
         {
+            // Note: Cannot sample directly from the source histogram bins as
+            // the scaling of that histogram may be different than the
+            // calculated projection binning. Have to use getCounts() instead.
             if (axis == Qt::XAxis)
             {
-                value += histos[binI]->getBinContent(binJ);
+                // binJ indexes otherBinning (data axis), not projBinning (histo-index axis)
+                auto lowEdge = otherBinning.getBinLowEdge(binJ);
+                value += histos[binI]->getCounts(lowEdge, lowEdge + otherBinning.getBinWidth());
             }
             else
             {
-                value += histos[binJ]->getBinContent(binI);
+                auto lowEdge = projBinning.getBinLowEdge(binI);
+                value += histos[binJ]->getCounts(lowEdge, lowEdge + projBinWidth);
             }
         }
 
@@ -399,55 +473,54 @@ Histo1DList slice(Histo2D *histo, Qt::Axis axis,
     return result;
 }
 
-Histo1DPtr add(const Histo1D &a, const Histo1D &b)
+QRectF snap_to_bin_edges(const AxisBinning &xBinning, const AxisBinning &yBinning,
+                         const QRectF &rect, const ResolutionReductionFactors &rrf)
 {
-    size_t nBins = std::min(a.getNumberOfBins(), b.getNumberOfBins());
-    size_t xMin = std::min(a.getXMin(), b.getXMin());
-    size_t xMax = std::max(a.getXMax(), b.getXMax());
+    auto binXLo = xBinning.getBinBounded(rect.left(), rrf.x);
+    auto binXHi = xBinning.getBinBounded(rect.right(), rrf.x);
+    auto binYLo = yBinning.getBinBounded(rect.top(), rrf.y);
+    auto binYHi = yBinning.getBinBounded(rect.bottom(), rrf.y);
 
-    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
+    assert(binXLo <= binXHi);
+    assert(binYLo <= binYHi);
 
-    for (size_t destbin = 0; destbin < nBins; ++destbin)
-    {
-        double xLow = result->getBinLowEdge(destbin);
-        double xHigh = xLow + result->getBinWidth();
+    if (binXLo > 0 && binXLo > rect.left())
+        --binXLo;
 
-        auto countsA = a.getCounts(xLow, xHigh);
-        auto countsB = a.getCounts(xLow, xHigh);
+    if (binXHi < xBinning.getBinCount() - 1 && binXHi < rect.right())
+        ++binXHi;
 
-        result->setBinContent(destbin,
-            countsA + countsB,
-            countsA + countsB);
-    }
-    return result;
-}
+    if (binYLo > 0 && binYLo < rect.bottom())
+        --binYLo;
 
-Histo1DPtr add(const Histo1DList &histos)
-{
-    size_t nBins = 0;
-    double xMin = 0;
-    double xMax = 0;
+    if (binYHi < yBinning.getBinCount() - 1 && binYHi > rect.top())
+        ++binYHi;
 
-    for (const auto &histo: histos)
-    {
-        nBins = std::min(nBins, static_cast<size_t>(histo->getNumberOfBins()));
-        xMin = std::min(xMin, histo->getXMin());
-        xMax = std::max(xMax, histo->getXMax());
-    }
+    auto left = xBinning.getBinLowEdge(binXLo, rrf.x);
+    auto right = xBinning.getBinLowEdge(binXHi, rrf.x);
+    auto top = yBinning.getBinLowEdge(binYHi, rrf.y);
+    auto bot = yBinning.getBinLowEdge(binYLo, rrf.y);
 
-    auto result = std::make_shared<Histo1D>(nBins, xMin, xMax);
+    // handle empty axis binnings, e.g. there's no y axis binning for h1d widgets
+    if (std::isnan(left))
+        left = rect.left();
 
-    for (const auto &histo: histos)
-    {
-        for (size_t destbin = 0; destbin < nBins; ++destbin)
-        {
-            double xLow = result->getBinLowEdge(destbin);
-            double xHigh = xLow + result->getBinWidth();
-            auto counts = histo->getCounts(xLow, xHigh);
-            auto newCounts = result->getBinContent(destbin) + counts;
-            result->setBinContent(destbin, newCounts, newCounts);
-        }
-    }
+    if (std::isnan(right))
+        right = rect.right();
+
+    if (std::isnan(top))
+        top = rect.top();
+
+    if (std::isnan(bot))
+        bot = rect.bottom();
+
+    QRectF result;
+    result.setLeft(left);
+    result.setRight(right);
+    result.setTop(top);
+    result.setBottom(bot);
+
+    //qDebug() << "snap_to_bin_edges: input rect" << rect << "snapped rect" << result;
 
     return result;
 }

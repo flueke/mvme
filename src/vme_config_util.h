@@ -40,11 +40,13 @@ vme_script::SymbolTable LIBMVME_EXPORT make_standard_event_variables(u8 irq = 1,
 // the given VMEConfig.
 // - A new unique objectName is set on the returned value.
 // - The trigger IRQ value is set to the first unused irq in the system or '0' if
-//   all irqs are in use.
+//   all irqs are in use or '1' if no parent VMEConfig is given.
 // - The set of default variables for the event is created: sys_irq, mesy_mcst,
 //   mesy_readout_num_events, mesy_eoe_marker.
+// - The default event scripts (daq_start, daq_stop, readout_start, readout_end)
+//   are instantiated and added to the event.
 
-std::unique_ptr<EventConfig> LIBMVME_EXPORT make_new_event_config(const VMEConfig *parentVMEConfig);
+std::unique_ptr<EventConfig> LIBMVME_EXPORT make_new_event_config(const VMEConfig *parentVMEConfig = nullptr);
 
 // Returns the first unused irq number in the given config or 0 if there are no
 // unused irqs.
@@ -163,6 +165,10 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_c
     const QByteArray &data);
 std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_config_from_data(
     const std::vector<u8> &data);
+
+// Factory function for creating a new ModuleConfig instance. Handles meta info and template instantiation.
+std::unique_ptr<ModuleConfig> LIBMVME_EXPORT make_module_config(const QString &moduleTypeName);
+
 }
 
 #endif /* __MVME_VME_CONFIG_UTIL_H__ */

@@ -1,5 +1,15 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "typeId": 23,
+            "displayName": "MDLL Counter Events",
+            "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+            "typeName": "mdll_counter_events",
+            "variables": [
+            ],
+            "vendorName": "mesytec",
+            "vmeAddress": 4294901760
+        },
         "baseAddress": 0,
         "enabled": true,
         "id": "{4155c85e-ebcf-49b0-8782-7d722592fe90}",
@@ -82,15 +92,5 @@
             },
             "vme_script": ""
         }
-    },
-    "ModuleMeta": {
-        "typeId": 23,
-        "displayName": "MDLL Counter Events",
-        "eventHeaderFilter": "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
-        "typeName": "mdll_counter_events",
-        "variables": [
-        ],
-        "vendorName": "mesytec",
-        "vmeAddress": 4294901760
     }
 }

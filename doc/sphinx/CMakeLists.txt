@@ -30,7 +30,7 @@ if (SPHINX_EXECUTABLE)
     # Copies the footer logo for the latex build.
     configure_file(
         "${SPHINX_SOURCE_DIR}/images/mesytec-logo-yellow.png"
-        "${SPHINX_LATEX_DIR}/mesytec-logo-yellow.png"
+        "${SPHINX_BUILD_BASE}/latex/mesytec-logo-yellow.png"
         COPYONLY
         )
 

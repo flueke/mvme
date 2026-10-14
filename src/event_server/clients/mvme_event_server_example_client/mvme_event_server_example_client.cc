@@ -222,12 +222,7 @@ int main(int argc, char *argv[])
 
     setup_signal_handlers();
 
-    int res = mvme::event_server::lib_init();
-    if (res != 0)
-    {
-        cerr << "lib_init() failed with code " << res << endl;
-        return 1;
-    }
+    mvme::event_server::lib_init();
 
     Context ctx;
 

@@ -313,6 +313,13 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         }
 
         //
+        // Reset IRQ mask
+        //
+        error = vmusb->resetIrqMask();
+        if (error.isError())
+            throw QString("Resetting IRQ mask failed: %1").arg(error.toString());
+
+        //
         // DAQ Settings Register
         //
         u32 daqSettings = 0;
@@ -779,6 +786,8 @@ void VMUSBReadoutWorker::readoutLoop()
         throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
 
     while (readBuffer(leaveDaqReadTimeout_ms).bytesRead > 0);
+
+    vmusb->resetIrqMask();
 
     error = vmusb->setLedSources(0);
     if (error.isError())

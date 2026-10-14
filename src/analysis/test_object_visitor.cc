@@ -63,6 +63,12 @@ class CountingVisitor: public ObjectVisitor
             nObjects++;
         }
 
+        void visit(HistogramOperation *histoOp) override
+        {
+            Q_UNUSED(histoOp);
+            nObjects++;
+        }
+
         int nSources = 0,
             nOperators = 0,
             nConditions = 0,

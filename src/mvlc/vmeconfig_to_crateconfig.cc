@@ -179,6 +179,8 @@ mvlc::StackCommand vme_script_command_to_mvlc_command(const vme_script::Command 
         case CommandType::Accu_Set:
         case CommandType::Accu_MaskAndRotate:
         case CommandType::Accu_Test:
+        case CommandType::Accu_Add:
+        case CommandType::Accu_Write:
         case CommandType::MVLC_InlineStack:
         case CommandType::VMUSB_ReadRegister:
         case CommandType::VMUSB_WriteRegister:
@@ -264,7 +266,6 @@ void add_stack_group(
 
 mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
 {
-#if 1
     auto add_stack_group = [](
         mesytec::mvlc::StackCommandBuilder &stack,
         const std::string &groupName,
@@ -288,7 +289,6 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
             }
         }
     };
-#endif
 
     mesytec::mvlc::CrateConfig dstConfig;
 
@@ -327,37 +327,40 @@ mvlc::CrateConfig vmeconfig_to_crateconfig(const VMEConfig *vmeConfig)
     // readout stacks
     for (const auto &eventConfig: eventConfigs)
     {
-        const auto moduleConfigs = eventConfig->getModuleConfigs();
+            const auto moduleConfigs = eventConfig->getModuleConfigs();
 
-        mesytec::mvlc::StackCommandBuilder readoutStack(eventConfig->objectName().toStdString());
+            mesytec::mvlc::StackCommandBuilder readoutStack(
+                eventConfig->objectName().toStdString());
 
-        add_stack_group(
-            readoutStack, "readout_start",
-            mesytec::mvme::parse(eventConfig->vmeScripts["readout_start"]));
+            add_stack_group(readoutStack, "readout_start",
+                            mesytec::mvme::parse(eventConfig->vmeScripts["readout_start"]),
+                            {{"mvme.event_id", eventConfig->getId().toString().toStdString()}});
 
-        for (const auto &moduleConfig: moduleConfigs)
-        {
-            if (!moduleConfig->isEnabled())
+            for (const auto &moduleConfig: moduleConfigs)
+            {
+                if (!moduleConfig->isEnabled())
                 continue;
 
-            auto moduleName = moduleConfig->objectName().toStdString();
-            auto moduleType = moduleConfig->getModuleMeta().typeName.toStdString();
-            auto moduleVendor = moduleConfig->getModuleMeta().vendorName.toStdString();
+                auto moduleName = moduleConfig->objectName().toStdString();
+                auto moduleType = moduleConfig->getModuleMeta().typeName.toStdString();
+                auto moduleVendor = moduleConfig->getModuleMeta().vendorName.toStdString();
 
-            auto moduleReadoutScript = mesytec::mvme::parse(
-                    moduleConfig->getReadoutScript(), moduleConfig->getBaseAddress());
+                auto moduleReadoutScript = mesytec::mvme::parse(moduleConfig->getReadoutScript(),
+                                                                moduleConfig->getBaseAddress());
 
-            std::map<std::string, std::string> groupMeta;
-            groupMeta["vme_module_type"] = moduleType;
-            groupMeta["vme_module_vendor"] = moduleVendor;
-            add_stack_group(readoutStack, moduleName, moduleReadoutScript, groupMeta);
-        }
+                std::map<std::string, std::string> groupMeta;
+                groupMeta["vme_module_type"] = moduleType;
+                groupMeta["vme_module_vendor"] = moduleVendor;
+                groupMeta["mvme.event_id"] = eventConfig->getId().toString().toStdString();
+                groupMeta["mvme.module_id"] = moduleConfig->getId().toString().toStdString();
+                add_stack_group(readoutStack, moduleName, moduleReadoutScript, groupMeta);
+            }
 
-        add_stack_group(
-            readoutStack, "readout_end",
-            mesytec::mvme::parse(eventConfig->vmeScripts["readout_end"]));
+            add_stack_group(readoutStack, "readout_end",
+                            mesytec::mvme::parse(eventConfig->vmeScripts["readout_end"]),
+                            {{"mvme.event_id", eventConfig->getId().toString().toStdString()}});
 
-        dstConfig.stacks.emplace_back(readoutStack);
+            dstConfig.stacks.emplace_back(readoutStack);
     }
 
     // trigger values

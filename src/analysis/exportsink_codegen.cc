@@ -333,7 +333,7 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render,
     {
         mu::data data = makeGlobalTemplateData();
 
-        data["event_import"] = QFileInfo(pyFilePath).baseName().toStdString();
+        data["event_import"] = QFileInfo(pyFilePath).completeBaseName().toStdString();
 
         render(QSL(":/analysis/export_templates/python_%1_event.py.mustache").arg(fmtString),
                        data, pyFilePath, 0, logger);

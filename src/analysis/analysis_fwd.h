@@ -37,6 +37,7 @@ class Directory;
 class OperatorInterface;
 class PipeSourceInterface;
 class PlotGridView;
+class HistogramOperation;
 class SinkInterface;
 class SourceInterface;
 

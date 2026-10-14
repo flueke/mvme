@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
+#include "graphviz_compat.h"
 
 // read DOT from fixed in put filename write svg to fixed output filename
 

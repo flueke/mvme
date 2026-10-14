@@ -117,7 +117,7 @@ TEST(MdppSampling, interpolate_min_required_samples)
         ASSERT_EQ(result.size(), expected.size());
         const double epsilon = 0.00001;
 
-        for (auto i = 0; i < result.size(); ++i)
+        for (size_t i = 0; i < result.size(); ++i)
         {
             auto x = result.xs[i];
             auto y = result.ys[i];

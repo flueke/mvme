@@ -87,6 +87,7 @@ class LIBMVME_EXPORT Histo1D: public QObject
         /* This constructor will make the histo allocate memory internally.
          * resize() will be available. */
         Histo1D(u32 nBins, double xMin, double xMax, QObject *parent = 0);
+        Histo1D(AxisBinning binning, QObject *parent = 0);
 
         /* Uses the memory passed in with the data pointer. resize() will not
          * be available. */

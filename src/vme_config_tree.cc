@@ -23,6 +23,7 @@
 #include "vme_config_tree_p.h"
 
 #include <QClipboard>
+#include <QComboBox>
 #include <QDebug>
 #include <QDialogButtonBox>
 #include <QFileDialog>
@@ -52,7 +53,10 @@
 #include "util/qt_font.h"
 #include "util/qt_fs.h"
 #include "util/qt_gui_io.h"
+#include "util/qt_monospace_textedit.h"
 #include "vme_config.h"
+#include "vme_config_diff.h"
+#include "vme_config_diff_ui.h"
 #include "vme_config_scripts.h"
 #include "vme_config_ui.h"
 #include "vme_config_util.h"
@@ -227,7 +231,7 @@ std::unique_ptr<QMenu> make_menu_load_mvlc_trigger_io(
 
     for (const auto &scriptInfo: scripts)
     {
-        auto title = scriptInfo.fileInfo.baseName();
+        auto title = scriptInfo.fileInfo.completeBaseName();
 
         if (title.startsWith(ScriptPrefix))
             title.remove(0, ScriptPrefix.size());
@@ -237,15 +241,6 @@ std::unique_ptr<QMenu> make_menu_load_mvlc_trigger_io(
         auto action_triggered = [destScriptConfig, scriptInfo] ()
         {
             destScriptConfig->setScriptContents(scriptInfo.contents);
-
-            for (QObject *obj = destScriptConfig; obj; obj = obj->parent())
-            {
-                if (auto vmeConfig = qobject_cast<VMEConfig *>(obj))
-                {
-                    mesytec::mvme_mvlc::update_trigger_io_inplace(*vmeConfig);
-                    break;
-                }
-            }
         };
 
         result->addAction(title, action_triggered);
@@ -924,14 +919,18 @@ TreeNode *VMEConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     eventNode->addChild(readoutLoopNode);
 
     {
-        auto node = makeNode(event->vmeScripts["readout_start"]);
+        auto scriptObj = event->vmeScripts["readout_start"];
+        auto node = makeNode(scriptObj);
+        m_treeMap[scriptObj] = node;
         node->setText(0, QSL("Cycle Start"));
         node->setIcon(0, QIcon(":/vme_script.png"));
         readoutLoopNode->addChild(node);
     }
 
     {
-        auto node = makeNode(event->vmeScripts["readout_end"]);
+        auto scriptObj = event->vmeScripts["readout_end"];
+        auto node = makeNode(scriptObj);
+        m_treeMap[scriptObj] = node;
         node->setText(0, QSL("Cycle End"));
         node->setIcon(0, QIcon(":/vme_script.png"));
         readoutLoopNode->addChild(node);
@@ -1121,6 +1120,25 @@ void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
             << "item=" << item
             << "column=" << column
             << "nodeForItem=" << *it;
+
+        if (auto qobj = get_qobject<QObject>(item, DataRole_Pointer))
+        {
+            if (auto cfgObj = qobject_cast<ConfigObject *>(qobj))
+            {
+                qDebug() << "ConfigObject:" << cfgObj
+                    << ", name:" << cfgObj->objectName()
+                    << ", class:" << cfgObj->metaObject()->className()
+                    << ", id:" << cfgObj->getId();
+            }
+            else
+            {
+                qDebug() << "Object:" << qobj
+                    << ", name:" << qobj->objectName()
+                    << ", class:" << qobj->metaObject()->className()
+                    << ", non ConfigObject!";
+            }
+        }
+
         if (auto moduleConfig = get_qobject<ModuleConfig>(item, DataRole_Pointer))
         {
             auto mmJ = vats::modulemeta_to_json(moduleConfig->getModuleMeta());
@@ -1309,6 +1327,19 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                        [this, eventConfig]
                        { saveEventToFile(eventConfig); });
 
+        menu.addAction(
+            QIcon(QSL(":/")), QSL("Compare with template"), [this, eventConfig]
+            {
+                    auto diff = vme_config::diff_event_against_template(eventConfig);
+                    auto widget = std::make_unique<VMEConfigDiffWidget>();
+                    widget->setDiff(std::move(diff));
+                    widget->setWindowTitle("Diff: " + eventConfig->objectName() + " vs Template");
+                    widget->setAttribute(Qt::WA_DeleteOnClose);
+                    widget->show();
+                    add_widget_close_action(widget.get());
+                    widget.release();
+            });
+
         menu.addSeparator();
 
         action = menu.addAction(QIcon(QSL(":/vme_module.png")), QSL("Add Module"),
@@ -1443,7 +1474,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     // - Rename for scripts if they are under any of the global nodes.
     // - Rename for directories if they are under any of the global nodes.
     // - Recursive enable/disable of trees if they are under any of the global
-    //   nodes.  Note: disabling scripts under "manual" doesn't really make
+    //   nodes. Note: disabling scripts under "manual" doesn't really make
     //   sense but it makes the code quite a bit simpler especially as the case
     //   where disabled objects hierarchies are pasted under "manual" does not
     //   need special handling.
@@ -1525,6 +1556,20 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
                 QIcon(QSL(":/document-save.png")),
                 "Save Module to File",
                 [this, moduleConfig] { saveModuleToFile(moduleConfig); });
+
+            menu.addAction(
+                QIcon(QSL(":/")), QSL("Compare with template"), [this, moduleConfig]
+                {
+
+                    auto diff = vme_config::diff_module_against_template(moduleConfig);
+                    auto widget = std::make_unique<VMEConfigDiffWidget>();
+                    widget->setDiff(std::move(diff));
+                    widget->setWindowTitle("Diff: " + moduleConfig->objectName() + " vs Template");
+                    widget->setAttribute(Qt::WA_DeleteOnClose);
+                    widget->show();
+                    add_widget_close_action(widget.get());
+                    widget.release();
+                });
         }
     }
 
@@ -1681,7 +1726,6 @@ void VMEConfigTreeWidget::removeEvent()
     {
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
         m_config->removeEventConfig(event);
-        mesytec::mvme_mvlc::update_trigger_io_inplace(*m_config);
         event->deleteLater();
     }
 }
@@ -1803,30 +1847,11 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
     // Work on a clone of the input module. We modify some of its internal
     // values before saving it to the output file.
     auto mod = clone_config_object(*mod_);
-
-    // Show a dialog to input custom values for vendorName, typeName, etc.
-    // Then use these values for the meta data.
     auto meta = mod->getModuleMeta();
 
-    // Get the module variables and build a JSON structure as used in the
-    // vmmr_monitor/module_info.json file.
-    auto vars = mod->getVariables();
-
-    // Note(230125): the special variable handling here is only done so that the
-    // variables and their values can be stored in the ModuleMeta data in the
-    // output json file. Check if this is actually needed as this information is
-    // also written out with the module config itself via the default
-    // ConfigObject::write() mechanism.
-    QJsonArray varsArray;
-
-    for (const auto &varName: vars.symbols.keys())
-    {
-        QJsonObject varJ;
-        varJ["name"] = varName;
-        varJ["value"] = vars.symbols[varName].value;
-        varJ["comment"] = vars.symbols[varName].comment;
-        varsArray.append(varJ);
-    }
+    std::set<QString> systemTypeNames;
+    for (const auto &m: read_templates().moduleMetas)
+        systemTypeNames.insert(m.typeName);
 
     {
         auto le_typeName = new QLineEdit;
@@ -1837,7 +1862,23 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
         auto headerFiltersEditor = new ModuleEventHeaderFiltersEditor;
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
-        le_typeName->setText(meta.typeName);
+        auto newTypeName = meta.typeName;
+
+        if (systemTypeNames.find(newTypeName) != systemTypeNames.end())
+        {
+            // The module type name is the same as one of the built-in module
+            // types. Suggest a new name.
+            int suffix = 1;
+
+            do
+            {
+                newTypeName = QSL("%1_custom%2").arg(meta.typeName).arg(suffix++);
+            }
+            while (systemTypeNames.find(newTypeName) != systemTypeNames.end());
+        }
+
+        le_typeName->setText(newTypeName);
+
         le_displayName->setText(meta.displayName);
         le_vendorName->setText(meta.vendorName);
         headerFiltersEditor->setData(meta.eventHeaderFilters);
@@ -1903,10 +1944,11 @@ void VMEConfigTreeWidget::saveModuleToFile(const ModuleConfig *mod_)
     // Store parts of the VMEModuleMeta in a json object
     auto metaJ = vats::modulemeta_to_json(meta);
 
-    // Outer container for both the module and the meta
+    // "ModuleMeta" used to be an extra root key in the mvmemodule file but that
+    // was changed. ModuleMeta json is now only stored under
+    // ["ModuleConfig"]["ModuleMeta"].
     QJsonObject containerJ;
     containerJ["ModuleConfig"] = modJ;
-    containerJ["ModuleMeta"] = metaJ;
 
     QJsonDocument doc(containerJ);
 
@@ -1971,6 +2013,7 @@ void VMEConfigTreeWidget::addModuleFromFile()
     // Now run the module config dialog on the newly loaded module
     ModuleConfigDialog dialog(mod.get(), event, m_config, this);
     dialog.setWindowTitle(QSL("Add Module"));
+    dialog.setAllowTypeChange(false);
     int result = dialog.exec();
 
     if (result != QDialog::Accepted)
@@ -2203,7 +2246,7 @@ void VMEConfigTreeWidget::loadScriptFromFile()
     if (scriptContents.isEmpty())
         return;
 
-    auto scriptName = QFileInfo(filename).baseName();
+    auto scriptName = QFileInfo(filename).completeBaseName();
     auto scriptConfig = std::make_unique<VMEScriptConfig>();
     scriptConfig->setObjectName(scriptName);
     scriptConfig->setScriptContents(scriptContents);

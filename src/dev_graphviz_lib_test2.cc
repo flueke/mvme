@@ -11,6 +11,7 @@
 #include <QSvgRenderer>
 #include <QXmlStreamReader>
 #include <sstream>
+#include "graphviz_compat.h"
 
 // DOT -> layout -> svg -> individual QGraphicsSvgItems created using the same shared renderer
 

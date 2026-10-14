@@ -29,10 +29,12 @@
 #include <QFutureWatcher>
 #include <QGuiApplication>
 #include <QHash>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QKeySequence>
 #include <QLabel>
 #include <QObject>
+#include <QRectF>
 #include <QSettings>
 #include <QStatusBar>
 #include <QToolBar>
@@ -47,6 +49,18 @@ class QAction;
 class QEvent;
 class QWidget;
 
+// Implement in widgets that support save/restore of internal view state.
+class LIBMVME_EXPORT IWidgetViewState
+{
+public:
+    virtual QJsonObject getViewState() const = 0;
+    virtual void setViewState(const QJsonObject &state) = 0;
+    virtual ~IWidgetViewState() = default;
+};
+
+LIBMVME_EXPORT QJsonArray rectToJson(const QRectF &rect);
+LIBMVME_EXPORT QRectF rectFromJson(const QJsonArray &arr);
+
 class LIBMVME_EXPORT WidgetGeometrySaver: public QObject
 {
     public:
@@ -59,6 +73,23 @@ class LIBMVME_EXPORT WidgetGeometrySaver: public QObject
 
     protected:
         bool eventFilter(QObject *obj, QEvent *event);
+
+    private:
+        QSettings m_settings;
+        QHash<QWidget *, QString> m_widgetKeys;
+};
+
+class LIBMVME_EXPORT WidgetViewStateSaver: public QObject
+{
+    public:
+        explicit WidgetViewStateSaver(QObject *parent = nullptr);
+
+        void addWidget(QWidget *widget, const QString &key);
+        void restoreState(QWidget *widget, const QString &key);
+        void addAndRestore(QWidget *widget, const QString &key);
+
+    protected:
+        bool eventFilter(QObject *obj, QEvent *event) override;
 
     private:
         QSettings m_settings;
@@ -315,6 +346,21 @@ QAction *make_copy_to_clipboard_action(ItemWidget *widget, QWidget *actionParent
     result->setShortcuts(QKeySequence::Copy);
     QObject::connect(result, &QAction::triggered, widget, make_copy_to_clipboard_handler(widget));
     return result;
+}
+
+// Helper to insert an action at the front of a toolbar.
+template <typename ...Args>
+QAction *insert_action_at_front(QToolBar *toolBar, Args &&...args)
+{
+    auto newAction = toolBar->addAction(std::forward<Args>(args)...);
+
+    if (auto actions = toolBar->actions(); actions.size() > 1 && actions.first() != newAction)
+    {
+        toolBar->removeAction(newAction);
+        toolBar->insertAction(actions.first(), newAction);
+    }
+
+    return newAction;
 }
 
 #endif /* __QT_UTIL_H__ */

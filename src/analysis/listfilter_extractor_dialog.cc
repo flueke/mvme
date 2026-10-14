@@ -196,6 +196,10 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.filter_highWord = makeFilterEdit();
     e.combo_wordSize = new QComboBox;
     e.cb_swapWords = new QCheckBox;
+    e.cb_swapWords->setToolTip(
+        "If checked the order of the input words is reversed for the combine step so the last "
+        "input word fills the low bits and the first input word fills the high bits of the "
+        "combined intermediate data word.");
     e.cb_addRandom = new QCheckBox;
     e.cb_highestBitIsSignBit = new QCheckBox;
 

@@ -89,6 +89,19 @@ QJsonObject serialize(PlotGridView *view)
     return dest;
 }
 
+QJsonObject serialize(HistogramOperation *histOp)
+{
+    QJsonObject dest;
+    dest["id"]        = histOp->getId().toString();
+    dest["name"]      = histOp->objectName();
+    dest["class"]     = getClassName(histOp);
+    dest["userLevel"] = histOp->getUserLevel();
+    QJsonObject dataJson;
+    histOp->write(dataJson);
+    dest["data"] = dataJson;
+    return dest;
+}
+
 uint qHash(const Connection &con, uint seed)
 {
     return ::qHash(con.srcObject.get(), seed)
@@ -247,6 +260,12 @@ void ObjectSerializerVisitor::visit(PlotGridView *view)
 {
     genericObjectsArray.append(serialize(view));
     visitedObjects.append(view->shared_from_this());
+}
+
+void ObjectSerializerVisitor::visit(HistogramOperation *histOp)
+{
+    genericObjectsArray.append(serialize(histOp));
+    visitedObjects.append(histOp->shared_from_this());
 }
 
 QJsonArray ObjectSerializerVisitor::serializeConnections() const
@@ -702,6 +721,56 @@ QJsonObject v3_to_v4(QJsonObject json, const VMEConfig *)
     return json;
 }
 
+QJsonObject v4_to_v5(QJsonObject json, const VMEConfig *)
+{
+    auto oldObjectSettings = json["VMEObjectSettings"].toObject();
+    QJsonObject newObjectSettings;
+
+    for (auto it = oldObjectSettings.begin(); it != oldObjectSettings.end(); ++it)
+    {
+        auto eventId = it.key();
+        auto oldSettings = it.value().toObject();
+        auto oldEbSettings = oldSettings["EventBuilderSettings"].toObject();
+
+        QJsonObject newSettings;
+        QJsonObject newEbSettings;
+
+        newSettings["EventBuilderEnabled"] = oldSettings["EventBuilderEnabled"].toBool();
+        // set defaults for things not present in the old config
+        newEbSettings["ClockFrequency"] = 16;
+        auto histoSettings = QJsonObject();
+        histoSettings["binCount"] = 32;
+        histoSettings["minValue"] = -16;
+        histoSettings["maxValue"] = 16;
+        newEbSettings["Histograms"] = histoSettings;
+
+        auto oldMatchWindows = oldEbSettings["MatchWindows"].toObject();
+        QJsonObject newMatchWindows;
+
+        for (auto jt = oldMatchWindows.begin(); jt != oldMatchWindows.end(); ++jt)
+        {
+            auto moduleId = jt.key();
+            auto oldMwSettings = jt.value().toObject();
+            QJsonObject newMwSettings;
+
+            newMwSettings["enableModule"] = !oldMwSettings.value("ignoreModule").toBool();
+            newMwSettings["offset"] = 0;
+            // use the original (upper, lower) width for the new window width
+            newMwSettings["window"] = oldMwSettings["upper"].toInt() - oldMwSettings["lower"].toInt();
+            newMatchWindows[moduleId] = newMwSettings;
+        }
+
+        newEbSettings["MatchWindows"] = newMatchWindows;
+        newSettings["EventBuilderSettings"] = newEbSettings;
+        newObjectSettings[eventId] = newSettings;
+    }
+
+    // overwrite the existing entry
+    json["VMEObjectSettings"] = newObjectSettings;
+
+    return json;
+}
+
 using VersionConverter = std::function<QJsonObject (QJsonObject, const VMEConfig *)>;
 
 QVector<VersionConverter> get_version_converters()
@@ -712,6 +781,7 @@ QVector<VersionConverter> get_version_converters()
         v1_to_v2,       // 1 -> 2
         noop_converter, // 2 -> 3 (addition of Directory objects)
         v3_to_v4,       // 3 -> 4 (dirs for raw histograms, removed raw sink special casing from the UI)
+        v4_to_v5,       // 4 -> 5 (event_builder1 -> event_builder2, conversion plus
     };
 
     return VersionConverters;

@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
     if (!cliParseResult)
     {
         cerr << "Error parsing command line arguments: "
-            << cliParseResult.errorMessage() << endl;
+            << cliParseResult.message() << endl;
         return 1;
     }
 

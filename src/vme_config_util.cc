@@ -105,18 +105,44 @@ std::unique_ptr<EventConfig> make_new_event_config(const VMEConfig *vmeConfig)
 {
     auto eventConfig = std::make_unique<EventConfig>();
 
-    u8 irq = get_next_free_irq(vmeConfig);
-    u8 mcst = get_next_mcst(vmeConfig);
+    u8 irq = vmeConfig ? get_next_free_irq(vmeConfig) : 1u;
+    u8 mcst = vmeConfig ? get_next_mcst(vmeConfig) : 0xbb;
 
     // If there's no free irq reuse the first valid one.
-    if (irq == 0) irq = vme::MinIRQ;;
+    if (irq == 0) irq = vme::MinIRQ;
 
-    eventConfig->setObjectName(QString("event%1").arg(vmeConfig->getEventConfigs().size()));
+    eventConfig->setObjectName(QString("event%1").arg(vmeConfig ? vmeConfig->getEventConfigs().size() : 0));
     eventConfig->triggerCondition = TriggerCondition::Interrupt;
     eventConfig->irqLevel = irq;
 
     auto vars = make_standard_event_variables(irq, mcst);
     eventConfig->setVariables(vars);
+
+    // Load the default event scripts for non-periodic events. These contain
+    // the 'readout cycle end' and 'daq start/stop' commands which write to
+    // the events mcst address. We only want this for non-periodic events,
+    // periodic ones usually should not write the 'readout_reset' register
+    // via mcst. Maybe find a better place for this code.
+    if (eventConfig->triggerCondition != TriggerCondition::Periodic
+        && eventConfig->triggerCondition != TriggerCondition::MvlcStackTimer)
+    {
+        auto templates = vats::read_templates().eventTemplates;
+
+        eventConfig->vmeScripts["daq_start"]->setScriptContents(
+            templates.daqStart.contents);
+
+        eventConfig->vmeScripts["daq_stop"]->setScriptContents(
+            templates.daqStop.contents);
+
+        eventConfig->vmeScripts["readout_start"]->setScriptContents(
+            templates.readoutCycleStart.contents);
+
+        eventConfig->vmeScripts["readout_end"]->setScriptContents(
+            templates.readoutCycleEnd.contents);
+    }
+
+    // Set some default trigger options.
+    eventConfig->triggerOptions["IRQUseIACK"] = false;
 
     return eventConfig;
 }
@@ -563,4 +589,56 @@ std::pair<std::unique_ptr<VMEConfig>, std::error_code> LIBMVME_EXPORT read_vme_c
     return read_vme_config_from_data(qbytes);
 }
 
+std::unique_ptr<ModuleConfig> make_module_config(const QString &moduleTypeName)
+{
+    auto ret = std::make_unique<ModuleConfig>();
+
+    auto opt_mm =
+        vats::get_module_meta_by_typename(vats::read_templates(), moduleTypeName);
+    ret->setModuleMeta(opt_mm ? *opt_mm : vats::VMEModuleMeta());
+
+    auto mm = ret->getModuleMeta();
+
+    if (!mm.templateFile.isEmpty())
+    {
+        // New style template from a single json file.
+        mvme::vme_config::load_moduleconfig_from_modulejson(*ret, mm.moduleJson);
+    }
+    else if (!mm.templatePath.isEmpty())
+    {
+        // Old style template from multiple .vme files
+        if (auto rdoScript = ret->getReadoutScript())
+        {
+            if (rdoScript->objectName().isEmpty())
+                rdoScript->setObjectName(mm.templates.readout.name);
+            if (rdoScript->getScriptContents().isEmpty())
+                rdoScript->setScriptContents(mm.templates.readout.contents);
+        }
+
+        if (auto resetScript = ret->getResetScript())
+        {
+            if (resetScript->objectName().isEmpty())
+                resetScript->setObjectName(mm.templates.reset.name);
+            if (resetScript->getScriptContents().isEmpty())
+                resetScript->setScriptContents(mm.templates.reset.contents);
+        }
+
+        if (ret->getInitScripts().isEmpty())
+        {
+            for (const auto &vmeTemplate: mm.templates.init)
+            {
+                ret->addInitScript(
+                    new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
+            }
+        }
+    }
+
+    // Make sure there's at least one init script present.
+    if (ret->getInitScripts().isEmpty())
+    {
+        ret->addInitScript(new VMEScriptConfig("Module Init", QString()));
+    }
+
+    return ret;
+}
 }

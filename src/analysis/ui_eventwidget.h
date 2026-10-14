@@ -109,6 +109,7 @@ class EventWidget: public QWidget
         friend class AnalysisWidget;
         friend struct AnalysisWidgetPrivate;
 
+        void selectObject(const AnalysisObjectPtr &obj);
         void selectObjects(const AnalysisObjectVector &objects);
         AnalysisObjectVector getAllSelectedObjects() const;
         AnalysisObjectVector getTopLevelSelectedObjects() const;

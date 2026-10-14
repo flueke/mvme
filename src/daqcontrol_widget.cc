@@ -20,20 +20,22 @@
  */
 #include "daqcontrol_widget.h"
 
-#include <QHBoxLayout>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QHBoxLayout>
+#include <QHeaderView>
 #include <QRegularExpressionValidator>
 #include <QStorageInfo>
 
 #include "mvme_context.h"
+#include "mvme_stream_server.h"
 #include "mvme_workspace.h"
 #include "qt_util.h"
 #include "sis3153.h"
+#include "ui_daq_run_settings_dialog.h"
 #include "util.h"
 #include "util/strings.h"
 #include "vme_controller_ui.h"
-#include "ui_daq_run_settings_dialog.h"
 
 enum CompressionPreset
 {
@@ -41,6 +43,7 @@ enum CompressionPreset
     Fast_LZ4 = 1,           // LZ4, level 0 (faster than ZIP level 1)
     Fast_ZIP = 2,           // ZIP, level 1 aka "super fast"
     ZmqServer_Ganil = 3,    // Hack to be able to choose ZMQ pub via the compression combo. TODO: redesign the GUI!
+    TcpStreamServer = 4,    // Another hack to add the TCP stream server option aswell.
 };
 
 static void fill_compression_combo(QComboBox *combo, bool isMVLC)
@@ -59,6 +62,10 @@ static void fill_compression_combo(QComboBox *combo, bool isMVLC)
     if (isMVLC)
         combo->addItem(QSL("ZMQ Publisher"), CompressionPreset::ZmqServer_Ganil);
 #endif
+
+    if (isMVLC)
+        combo->addItem(QSL("TCP Stream Server"), CompressionPreset::TcpStreamServer);
+
 }
 
 DAQControlWidget::DAQControlWidget(QWidget *parent)
@@ -183,6 +190,11 @@ DAQControlWidget::DAQControlWidget(QWidget *parent)
             case CompressionPreset::ZmqServer_Ganil:
                 m_listFileOutputInfo.format = ListFileFormat::ZMQ_Ganil;
                 // Requested by GANIL: always enable "listfile writing" when ZMQ output is selected.
+                cb_writeListfile->setChecked(true);
+                break;
+
+                case CompressionPreset::TcpStreamServer:
+                m_listFileOutputInfo.format = ListFileFormat::TcpStreamServer;
                 cb_writeListfile->setChecked(true);
                 break;
 
@@ -588,6 +600,8 @@ void DAQControlWidget::updateWidget()
             comboData = 1;
         else if (outputInfo.format == ListFileFormat::ZMQ_Ganil)
             comboData = CompressionPreset::ZmqServer_Ganil;
+        else if (outputInfo.format == ListFileFormat::TcpStreamServer)
+            comboData = CompressionPreset::TcpStreamServer;
 
         for (int i=0; i<combo_compression->count(); ++i)
         {
@@ -805,13 +819,16 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     : QDialog(parent)
     , gb_jsonRPC(new QGroupBox(QSL("Enable JSON-RPC Server")))
     , gb_eventServer(new QGroupBox(QSL("Enable Event Server")))
+    , gb_streamServer(new QGroupBox(QSL("Stream Server")))
     , le_jsonRPCListenAddress(new QLineEdit)
     , le_eventServerListenAddress(new QLineEdit)
     , le_listfileDir(new QLineEdit)
+    , tw_streamServerListenUris(new QTableWidget)
     , pb_listfileDir(new QPushButton(QSL("Select")))
     , spin_jsonRPCListenPort(new QSpinBox)
     , spin_eventServerListenPort(new QSpinBox)
     , cb_ignoreStartupErrors(new QCheckBox("Ignore VME Init Startup Errors"))
+    //, cb_sendRawFormat(new QCheckBox)
     , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
     , m_settings(settings)
 {
@@ -884,9 +901,12 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
     {
         auto label = make_explanation_label(QSL(
                 "Enables the EventServer component which streams "
-                "extracted Event data over a TCP socket.\n"
+                "extracted (aka unpacked) Event data over a TCP socket.\n"
                 "The listen address may be a hostname or an IP address. Leave blank to"
-                " bind to all local interfaces."));
+                " bind to all local interfaces.\n"
+                "Use with mvme_root_client or the mvme_event_server_example_client to"
+                " receive unpacked event data."
+            ));
 
         auto l = new QFormLayout(gb_eventServer);
         l->addRow(label);
@@ -894,8 +914,80 @@ WorkspaceSettingsDialog::WorkspaceSettingsDialog(const std::shared_ptr<QSettings
         l->addRow(QSL("Listen Port"), spin_eventServerListenPort);
     }
 
+    // Stream Server - duplicates the readout data stream
+    //cb_sendRawFormat->setChecked(true);
+    gb_streamServer->setCheckable(true);
+    tw_streamServerListenUris->setColumnCount(1);
+    tw_streamServerListenUris->verticalHeader()->setVisible(false);
+    tw_streamServerListenUris->setHorizontalHeaderLabels({QSL("Listen URIs")});
+    tw_streamServerListenUris->horizontalHeader()->setStretchLastSection(true);
+
+    connect(tw_streamServerListenUris, &QTableWidget::itemChanged,
+            this, [this](QTableWidgetItem *)
+    {
+        // Make sure there's at least one empty row in the table.
+        for (int row = 0; row < tw_streamServerListenUris->rowCount(); ++row)
+        {
+            auto item = tw_streamServerListenUris->item(row, 0);
+
+            if (!item)
+                continue;
+
+            if (item->text().trimmed().isEmpty())
+                return;
+        }
+        tw_streamServerListenUris->setRowCount(tw_streamServerListenUris->rowCount() + 1);
+    });
+
+    auto pb_streamServerRestoreDefaults = new QPushButton(QSL("Restore Default URIs"));
+
+    connect(pb_streamServerRestoreDefaults, &QPushButton::clicked,
+            this, [this]()
+    {
+        auto &uris = mesytec::mvme::MvmeStreamServer::DefaultListenUris;
+
+        QSignalBlocker sb(tw_streamServerListenUris);
+        tw_streamServerListenUris->clearContents();
+        tw_streamServerListenUris->setRowCount(uris.size()+1);
+        int row = 0;
+        for (const auto &uri: uris)
+        {
+            tw_streamServerListenUris->setItem(row, 0, new QTableWidgetItem(uri.c_str()));
+            ++row;
+        }
+    });
+
+    {
+        auto label = make_explanation_label(QSL(
+            "Enables a Stream Server which duplicates the readout data stream.\n"
+            "The listen URIs must be of the form 'tcp://<address>:<port>' or 'ipc:///<path>/<to>/<socket>'. "
+            "'tcp4://' and 'tcp6://' schemes are also supported.\n"
+            "${env} vars in the uri strings are expanded (e.g. ${USER} or ${HOME}).\n"
+        ));
+        auto l = new QFormLayout(gb_streamServer);
+        l->addRow(label);
+
+        auto h = new QHBoxLayout;
+        h->setContentsMargins(0, 0, 0, 0);
+        #if 0 // TODO: enable once there's a decent client, able to handle the framed format.
+        h->addWidget(cb_sendRawFormat);
+        {
+            auto l = new QLabel(QSL("Send Raw Format (no <b><tt>[sequence number, buffer "
+                                    "size]</tt></b> prefix is sent)"));
+            h->addWidget(l);
+            l->setBuddy(cb_sendRawFormat);
+        }
+        #endif
+        h->addStretch();
+        l->addRow(h);
+
+        l->addRow(QSL("Listen URIs"), tw_streamServerListenUris);
+        l->addRow(pb_streamServerRestoreDefaults);
+    }
+
     widgetLayout->addWidget(gb_jsonRPC);
     widgetLayout->addWidget(gb_eventServer);
+    widgetLayout->addWidget(gb_streamServer);
     widgetLayout->addStretch(1);
     widgetLayout->addWidget(m_bb);
 
@@ -933,6 +1025,30 @@ void WorkspaceSettingsDialog::populate()
     gb_eventServer->setChecked(m_settings->value(QSL("EventServer/Enabled")).toBool());
     le_eventServerListenAddress->setText(m_settings->value(QSL("EventServer/ListenAddress")).toString());
     spin_eventServerListenPort->setValue(m_settings->value(QSL("EventServer/ListenPort")).toInt());
+
+    gb_streamServer->setChecked(m_settings->value(QSL("StreamServer/Enabled"), false).toBool());
+    //cb_sendRawFormat->setChecked(m_settings->value(QSL("StreamServer/SendRawFormat"), false).toBool());
+
+    auto uris = m_settings->value(QSL("StreamServer/ListenUris")).toStringList();
+
+    // Set defaults if no uris were stored in the config file.
+    if (uris.isEmpty())
+    {
+        for (const auto &uri: mesytec::mvme::MvmeStreamServer::DefaultListenUris)
+        {
+            uris.append(QString::fromStdString(uri));
+        }
+    }
+
+    QSignalBlocker sb(tw_streamServerListenUris);
+    tw_streamServerListenUris->clearContents();
+    tw_streamServerListenUris->setRowCount(uris.size()+1);
+    int row = 0;
+    for (const auto &uri: uris)
+    {
+        tw_streamServerListenUris->setItem(row, 0, new QTableWidgetItem(uri));
+        ++row;
+    }
 }
 
 void WorkspaceSettingsDialog::accept()
@@ -952,6 +1068,25 @@ void WorkspaceSettingsDialog::accept()
     m_settings->setValue(QSL("EventServer/ListenAddress"), le_eventServerListenAddress->text());
     m_settings->setValue(QSL("EventServer/ListenPort"), spin_eventServerListenPort->value());
 
+    m_settings->setValue(QSL("StreamServer/Enabled"), gb_streamServer->isChecked());
+    //m_settings->setValue(QSL("StreamServer/SendRawFormat"), cb_sendRawFormat->isChecked());
+
+    QStringList uris;
+    for (int row = 0; row < tw_streamServerListenUris->rowCount(); ++row)
+
+    {
+        auto item = tw_streamServerListenUris->item(row, 0);
+
+        if (!item)
+            continue;
+
+        if (auto uri = item->text().trimmed(); !uri.isEmpty())
+            uris.append(uri);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "setting StreamServer/ListenUris to" << uris;
+
+    m_settings->setValue(QSL("StreamServer/ListenUris"), uris);
     m_settings->sync();
 
     QDialog::accept();

@@ -38,10 +38,11 @@ struct HistoStatsWidget::Private
     // is subtracted from model->rowCount() to calculate the final row index.
     enum SpecialRowIndexes
     {
-        Rms = 4,
-        Min = 3,
-        Max = 2,
-        Mean = 1,
+        Rms = 5,
+        Min = 4,
+        Max = 3,
+        Mean = 2,
+        Sum = 1,
     };
 
     struct AggregateStats
@@ -50,6 +51,7 @@ struct HistoStatsWidget::Private
         double min;
         double max;
         double mean;
+        double sum;
     };
 
     HistoStatsWidget *q = {};
@@ -232,6 +234,7 @@ void HistoStatsWidget::Private::repopulate()
     model->item(model->rowCount() - SpecialRowIndexes::Min, 0)->setData("min", Qt::DisplayRole);
     model->item(model->rowCount() - SpecialRowIndexes::Max, 0)->setData("max", Qt::DisplayRole);
     model->item(model->rowCount() - SpecialRowIndexes::Mean, 0)->setData("mean", Qt::DisplayRole);
+    model->item(model->rowCount() - SpecialRowIndexes::Sum, 0)->setData("sum", Qt::DisplayRole);
 
     auto sm = tableView_->selectionModel();
     tableView_->setModel(model.get());
@@ -359,6 +362,7 @@ void HistoStatsWidget::Private::refresh()
         itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Min, col)->setData(aggs.min, Qt::DisplayRole);
         itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Max, col)->setData(aggs.max, Qt::DisplayRole);
         itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Mean, col)->setData(aggs.mean, Qt::DisplayRole);
+        itemModel_->item(itemModel_->rowCount() - SpecialRowIndexes::Sum, col)->setData(aggs.sum, Qt::DisplayRole);
     }
 
     tableView_->resizeColumnsToContents();
@@ -467,12 +471,14 @@ HistoStatsWidget::Private::AggregateStats HistoStatsWidget::Private::calculateAg
 
     result.min = std::numeric_limits<double>::max();
     result.max = std::numeric_limits<double>::lowest();
+    result.sum = 0.0;
 
     for (const auto &value: values)
     {
         result.min = std::min(result.min, value);
         result.max = std::max(result.max, value);
         result.mean += value;
+        result.sum += value;
     }
 
     if (!values.empty())

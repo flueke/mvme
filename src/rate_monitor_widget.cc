@@ -679,6 +679,29 @@ RateMonitorWidget::~RateMonitorWidget()
 {
 }
 
+QJsonObject RateMonitorWidget::getViewState() const
+{
+    QJsonObject s;
+    s["yScaleIndex"] = m_d->m_yScaleCombo->currentIndex();
+    s["plotIndex"]   = m_d->m_currentIndex;
+    s["zoomRect"]    = rectToJson(m_d->m_plotWidget->getZoomer()->zoomRect());
+    return s;
+}
+
+void RateMonitorWidget::setViewState(const QJsonObject &state)
+{
+    if (state.contains("yScaleIndex"))
+        m_d->m_yScaleCombo->setCurrentIndex(state["yScaleIndex"].toInt());
+    if (state.contains("plotIndex"))
+        m_d->m_spin_plotIndex->setValue(state["plotIndex"].toInt());
+    if (state.contains("zoomRect"))
+    {
+        auto r = rectFromJson(state["zoomRect"].toArray());
+        if (r.isValid() && !r.isEmpty())
+            m_d->m_plotWidget->getZoomer()->zoom(r);
+    }
+}
+
 void RateMonitorWidget::setSink(const SinkPtr &sink, SinkModifiedCallback sinkModifiedCallback)
 {
     m_d->m_sink = sink;

@@ -22,6 +22,9 @@ git_describe(GIT_VERSION "--always")
 #string(REGEX REPLACE "^v" "" GIT_VERSION ${GIT_VERSION}) # strip leavind 'v' from tags
 
 if(GIT_VERSION MATCHES v[^-]*-)
+    # This tries to extract the git commit number (-NNN) and use it as part of
+    # the normal (dot separated) version string. Trailing suffixes like -rc1 are
+    # ignored here. They do not work with e.g. cmakes project() command.
     string(REGEX REPLACE "v([^-]*)-([0-9]+)-.*" "\\1.\\2"  GIT_VERSION_SHORT ${GIT_VERSION})
 else()
     string(REGEX REPLACE "v(.*)" "\\1" GIT_VERSION_SHORT ${GIT_VERSION})
@@ -131,21 +134,22 @@ message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 # no test target is generated. Do this before any add_subdirectory() commands
 # as otherwise ctest won't pick up any tests in subprojects.
 option(MVME_BUILD_TESTS "Build test binaries" OFF)
+option(MVME_BUILD_BENCHMARKS "Build benchmark binaries" OFF)
 
 if (MVME_BUILD_TESTS)
-    if (NOT TARGET gtest)
-        message(">>> mvme tests enabled. using local copy of google test")
-        option(INSTALL_GTEST "Enable installation of googletest." OFF)
-        add_subdirectory(external/googletest)
-    endif()
+    message("-- mvme: Building tests")
+endif()
 
+if (MVME_BUILD_BENCHMARKS)
+    message("-- mvme: Building benchmarks")
     if (NOT TARGET benchmark)
         message(">>> mvme tests enabled. using local copy of google benchmark")
         option(BENCHMARK_ENABLE_TESTING "Enable testing of the benchmark library." OFF)
         add_subdirectory(external/benchmark)
     endif()
+endif()
 
-    message("-- mvme: Building tests")
+if (MVME_BUILD_TESTS OR MVME_BUILD_BENCHMARKS)
     include(CTest)
     enable_testing()
     add_subdirectory(test)

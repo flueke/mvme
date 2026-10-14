@@ -31,7 +31,7 @@
 #define LOG_LEVEL_TRACE 400
 
 #ifndef MULTI_EVENT_SPLITTER_LOG_LEVEL
-#define MULTI_EVENT_SPLITTER_LOG_LEVEL LOG_LEVEL_OFF
+#define MULTI_EVENT_SPLITTER_LOG_LEVEL LOG_LEVEL_WARN
 #endif
 
 #define LOG_LEVEL_SETTING MULTI_EVENT_SPLITTER_LOG_LEVEL
@@ -359,9 +359,33 @@ std::error_code event_data(State &state, Callbacks &callbacks, void *userContext
 
         callbacks.eventData(userContext, state.outputCrateIndex, ei, moduleDataList, moduleCount);
 
-        for (size_t mi = 0; mi < moduleCount; ++mi)
-            ++state.counters.outputModules[ei][mi];
-        ++state.counters.outputEvents[ei];
+        if (ei < static_cast<int>(state.counters.outputModules.size()))
+        {
+            for (size_t mi = 0; mi < moduleCount; ++mi)
+            {
+                if (mi < state.counters.outputModules[ei].size())
+                {
+                    ++state.counters.outputModules[ei][mi];
+                }
+                else
+                {
+                    LOG_WARN("event_data(): counters.outputModules: eventIndex=%d, moduleIndex=%lu is out of range!", ei, mi);
+                }
+            }
+        }
+        else
+        {
+            LOG_WARN("event_data(): counters.outputModules: eventIndex=%d is out of range!", ei);
+        }
+
+        if (ei < static_cast<int>(state.counters.outputEvents.size()))
+        {
+            ++state.counters.outputEvents[ei];
+        }
+        else
+        {
+            LOG_WARN("event_data(): counters.outputEvents: eventIndex=%d is out of range!", ei);
+        }
 
         return {};
     }

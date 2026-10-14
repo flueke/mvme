@@ -3,8 +3,6 @@
 
 #include <QWidget>
 #include "analysis_service_provider.h"
-#include "histo_ui.h"
-#include "mvme_qwt.h"
 #include "libmvme_export.h"
 
 class LIBMVME_EXPORT MultiPlotWidget: public QWidget
@@ -49,6 +47,7 @@ class LIBMVME_EXPORT MultiPlotWidget: public QWidget
         void mouseReleaseEvent(QMouseEvent *ev) override;
         void wheelEvent(QWheelEvent *ev) override;
         void mouseDoubleClickEvent(QMouseEvent *event) override;
+        void closeEvent(QCloseEvent *event) override;
 
     private:
         struct Private;

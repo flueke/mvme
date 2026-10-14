@@ -63,6 +63,10 @@ ADD_CASES(TC_CSVOut, {{"%csv_header,"
 
 void BM_Counters_Tabular(benchmark::State& state) {
   for (auto _ : state) {
+    // This test requires a non-zero CPU time to avoid divide-by-zero
+    auto iterations = static_cast<double>(state.iterations()) *
+                      static_cast<double>(state.iterations());
+    benchmark::DoNotOptimize(iterations);
   }
   namespace bm = benchmark;
   state.counters.insert({
@@ -330,7 +334,7 @@ ADD_CASES(TC_CSVOut,
           {{"^\"BM_Counters_Tabular/repeats:2/threads:1_stddev\",%csv_report,"
             "%float,%float,%float,%float,%float,%float$"}});
 ADD_CASES(TC_CSVOut,
-          {{"^\"BM_Counters_Tabular/repeats:2/threads:1_cv\",%csv_report,"
+          {{"^\"BM_Counters_Tabular/repeats:2/threads:1_cv\",%csv_cv_report,"
             "%float,%float,%float,%float,%float,%float$"}});
 ADD_CASES(TC_CSVOut,
           {{"^\"BM_Counters_Tabular/repeats:2/threads:2\",%csv_report,"
@@ -348,7 +352,7 @@ ADD_CASES(TC_CSVOut,
           {{"^\"BM_Counters_Tabular/repeats:2/threads:2_stddev\",%csv_report,"
             "%float,%float,%float,%float,%float,%float$"}});
 ADD_CASES(TC_CSVOut,
-          {{"^\"BM_Counters_Tabular/repeats:2/threads:2_cv\",%csv_report,"
+          {{"^\"BM_Counters_Tabular/repeats:2/threads:2_cv\",%csv_cv_report,"
             "%float,%float,%float,%float,%float,%float$"}});
 // VS2013 does not allow this function to be passed as a lambda argument
 // to CHECK_BENCHMARK_RESULTS()
@@ -372,7 +376,8 @@ CHECK_BENCHMARK_RESULTS("BM_Counters_Tabular/repeats:2/threads:2$",
 void BM_CounterRates_Tabular(benchmark::State& state) {
   for (auto _ : state) {
     // This test requires a non-zero CPU time to avoid divide-by-zero
-    auto iterations = state.iterations();
+    auto iterations = static_cast<double>(state.iterations()) *
+                      static_cast<double>(state.iterations());
     benchmark::DoNotOptimize(iterations);
   }
   namespace bm = benchmark;
@@ -555,4 +560,7 @@ CHECK_BENCHMARK_RESULTS("BM_CounterSet2_Tabular", &CheckSet2);
 // --------------------------- TEST CASES END ------------------------------ //
 // ========================================================================= //
 
-int main(int argc, char* argv[]) { RunOutputTests(argc, argv); }
+int main(int argc, char* argv[]) {
+  benchmark::MaybeReenterWithoutASLR(argc, argv);
+  RunOutputTests(argc, argv);
+}

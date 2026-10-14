@@ -53,6 +53,12 @@
             "scriptName": "MVLC Read Trigger Aliases",
             "vendorName": "mesytec",
             "moduleName": "MVLC"
+        },
+        {
+            "fileName": "mvlc-enable_ptp_sync.vmescript",
+            "scriptName": "MVLC Enable PTP sync",
+            "vendorName": "mesytec",
+            "moduleName": "MVLC"
         }
     ]
 }

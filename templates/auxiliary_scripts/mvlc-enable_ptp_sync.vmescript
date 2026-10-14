@@ -1,0 +1,16 @@
+setbase 0xFFFF0000
+
+0x4436 1 # switch on synchronisation with ethernet clock, PTP
+
+print ns-time
+read A32 D32 0x4440 # read latches the high (seconds) register
+print s-time
+read A32 D32 0x4444
+
+write A32 D32 0x7050 0			# set ns compare register
+write A32 D32 0x7054 0 			# set  s compare register
+
+# Bitmask to set the irqs raised when the comparison is equal.
+# Bit0: irq1, Bit1: irq2, ...
+write A32 D32 0x705A 0b0000'0000'0000'0000  #set map register -> IRQs[15:0] to activate
+

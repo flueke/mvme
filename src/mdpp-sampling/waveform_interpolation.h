@@ -3,6 +3,7 @@
 
 #include <functional>
 
+#include "libmvme_export.h"
 #include "mdpp-sampling/waveform_traces.h"
 #include "typedefs.h"
 
@@ -16,21 +17,22 @@ using EmitterFun = std::function<void(double x, double y)>;
 // Lowest level interpolation function. Currently hardcoded to use sinc()
 // interpolation with a window size of 6. Factor specifies the number of points
 // that are interpolated between two samples.
-void interpolate_sinc(const span<const double> &xs, const span<const double> &ys, u32 factor,
-                      EmitterFun emitter);
+LIBMVME_EXPORT void interpolate_sinc(const span<const double> &xs, const span<const double> &ys,
+                                     u32 factor, EmitterFun emitter);
 
 // Reserves temporary memory to construct the xs and ys vectors from the input
-void interpolate_sinc(const span<const s16> &samples, double dtSample, u32 factor,
-                      EmitterFun emitter);
+LIBMVME_EXPORT void interpolate_sinc(const span<const s16> &samples, double dtSample, u32 factor,
+                                     EmitterFun emitter);
 
 // Writes into the output trace. The output trace is cleared before writing.
-void interpolate_sinc(const waveforms::Trace &input, waveforms::Trace &output, u32 factor);
+LIBMVME_EXPORT void interpolate_sinc(const waveforms::Trace &input, waveforms::Trace &output,
+                                     u32 factor);
 
 // From raw samples to interpolated trace. The output trace is cleared before writing.
-void interpolate_sinc(const span<const s16> &samples, double dtSample, u32 factor,
-                      waveforms::Trace &output);
+LIBMVME_EXPORT void interpolate_sinc(const span<const s16> &samples, double dtSample, u32 factor,
+                                     waveforms::Trace &output);
 
-struct SplineParams
+struct LIBMVME_EXPORT SplineParams
 {
     // The spline type. One of "cspline", "cspline_hermite", "linear".
     std::string splineType = "cspline";
@@ -49,11 +51,11 @@ struct SplineParams
 };
 
 // Note: This throws if SplineParams contains invalid strings.
-void interpolate_spline(const std::vector<double> &xs, const std::vector<double> &ys,
-                        const SplineParams &params, u32 factor, EmitterFun emitter);
+LIBMVME_EXPORT void interpolate_spline(const std::vector<double> &xs, const std::vector<double> &ys,
+                                       const SplineParams &params, u32 factor, EmitterFun emitter);
 
-void interpolate_spline(const waveforms::Trace &input, waveforms::Trace &output,
-                        const SplineParams &params, u32 factor);
+LIBMVME_EXPORT void interpolate_spline(const waveforms::Trace &input, waveforms::Trace &output,
+                                       const SplineParams &params, u32 factor);
 
 } // namespace mesytec::mvme::waveforms
 

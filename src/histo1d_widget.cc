@@ -336,6 +336,9 @@ struct Histo1DWidgetPrivate
 
     u32 getRRF()
     {
+        if (!getCurrentHisto())
+            return Histo1D::NoRR;
+
         auto xBinning = getCurrentHisto()->getAxisBinning(Qt::XAxis);
         u32 rrf = 0;
 
@@ -365,7 +368,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     : IPlotWidget(parent)
     , m_d(std::make_unique<Histo1DWidgetPrivate>())
 {
-    assert(!histos.isEmpty());
+    //assert(!histos.isEmpty());
 
     m_d->m_q = this;
     m_d->m_histos = histos;
@@ -374,7 +377,7 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     m_d->m_cursorPosition = { make_quiet_nan(), make_quiet_nan() };
     m_d->m_plot = new QwtPlot;
     m_d->m_histoSpin = new QSpinBox(this);
-    m_d->m_histoSpin->setMaximum(histos.size() - 1);
+    m_d->m_histoSpin->setMaximum(histos.isEmpty() ? 0 : histos.size() - 1);
     set_widget_font_pointsize_relative(m_d->m_histoSpin, -2);
 
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
@@ -395,15 +398,19 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     DO_AND_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo1DWidget::mouseCursorLeftPlot));
 
-    DO_AND_ASSERT(connect(m_d->getCurrentHisto().get(), &Histo1D::axisBinningChanged,
-                       this, [this] (Qt::Axis) {
-        // Handle axis changes by zooming out fully. This will make sure
-        // possible axis scale changes are immediately visible and the zoomer
-        // is in a clean state.
-        m_d->m_zoomer->setZoomStack(QStack<QRectF>(), -1);
-        m_d->m_zoomer->zoom(0);
-        replot();
-    }));
+    if (auto rawHisto = m_d->getCurrentHisto().get())
+    {
+        DO_AND_ASSERT(connect(rawHisto, &Histo1D::axisBinningChanged, this,
+                              [this](Qt::Axis)
+                              {
+                                  // Handle axis changes by zooming out fully. This will make sure
+                                  // possible axis scale changes are immediately visible and the
+                                  // zoomer is in a clean state.
+                                  m_d->m_zoomer->setZoomStack(QStack<QRectF>(), -1);
+                                  m_d->m_zoomer->zoom(0);
+                                  replot();
+                              }));
+    }
 
     DO_AND_ASSERT(connect(m_d->m_plot->axisWidget(QwtPlot::xBottom), SIGNAL(scaleDivChanged()),
                           this, SLOT(onPlotBottomScaleDivChanged())));
@@ -621,11 +628,14 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
             });
 
     auto actionShowDependencyGraph = tb->addAction(QIcon(":/node-select.png"), "Dependency Graph");
-    connect(actionShowDependencyGraph, &QAction::triggered,
-            this, [this]
+    connect(actionShowDependencyGraph, &QAction::triggered, this,
+            [this]
             {
-                if (auto asp = getServiceProvider())
-                    analysis::graph::show_dependency_graph(asp, getSink());
+                if (auto sink = getSink())
+                {
+                    if (auto asp = getServiceProvider())
+                        analysis::graph::show_dependency_graph(asp, sink);
+                }
             });
 
 #ifndef QT_NO_DEBUG
@@ -641,6 +651,9 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
                  replot();
             });
 #endif
+
+    // on histo selection queue an immediate replot
+    connect(this, &Histo1DWidget::histogramSelected, this, &Histo1DWidget::replot);
 
     // Final, right-side spacer. The listwidget adds the histo selection spinbox after
     // this.
@@ -852,6 +865,18 @@ Histo1DWidget::Histo1DWidget(const HistoList &histos, QWidget *parent)
     resize(1000, 562);
     selectHistogram(0);
     m_d->combo_maxRes_->setCurrentIndex(m_d->combo_maxRes_->count() - 1);
+
+
+    double lowerBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double upperBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+
+    qDebug() << "Histo1DWidget: initial xBottom lowerBound=" << lowerBound << ", upperBound=" << upperBound;
+}
+
+// no histo
+Histo1DWidget::Histo1DWidget(QWidget *parent)
+    : Histo1DWidget(HistoList{}, parent)
+{
 }
 
 Histo1DWidget::~Histo1DWidget()
@@ -1145,6 +1170,28 @@ void Histo1DWidget::replot()
 #endif
 }
 
+void Histo1DWidget::zoom(const QRectF &zoomRect)
+{
+    #if 0
+    // Zooming directly into the given zoom rect means we do not necessarily
+    // align up with bin edges. When doing projections from a 2d widget and
+    // zooming in the counts in the 2d widget and the 1d projection can diverge
+    // slightly because of this.
+    // The fix is to adjust the zoom rect to align to each axis' bin edges.
+    QRectF adjustedRect;
+    if (auto histo = m_d->getCurrentHisto())
+    {
+        ResolutionReductionFactors rrf = {m_d->getRRF(), AxisBinning::NoResolutionReduction};
+        adjustedRect = snap_to_bin_edges(histo->getAxisBinning(Qt::XAxis),
+                                         histo->getAxisBinning(Qt::YAxis), zoomRect, rrf);
+        qDebug() << __PRETTY_FUNCTION__ << "zoomRect =" << zoomRect << ", adjustedRect =" << adjustedRect;
+    }
+    m_d->m_zoomer->zoom(adjustedRect);
+    #else
+    m_d->m_zoomer->zoom(zoomRect);
+    #endif
+}
+
 void Histo1DWidgetPrivate::displayChanged()
 {
     auto scaleType = static_cast<AxisScaleType>(m_yScaleCombo->currentData().toInt());
@@ -1166,6 +1213,9 @@ void Histo1DWidgetPrivate::displayChanged()
 
 void Histo1DWidget::onZoomerZoomed(const QRectF &)
 {
+    if (!m_d->getCurrentHisto())
+        return;
+
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
@@ -1285,6 +1335,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
     double thingsBelowGauss = a * s * Sqrt2Pi;
     // Scale with the max y value. This is the value of the maxBin
     thingsBelowGauss *= scaleFactor;
+    double relWidth = m_stats.fwhm / m_stats.fwhmCenter;
 
     static const QString gaussStatsTemplate = QSL(
         "<table>"
@@ -1292,6 +1343,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         "<tr><td align=\"left\">FWHM  </td><td>%L1</td></tr>"
         "<tr><td align=\"left\">Center</td><td>%L2</td></tr>"
         "<tr><td align=\"left\">Counts</td><td>%L3</td></tr>"
+        "<tr><td align=\"left\">Rel.Width</td><td>%L4</td></tr>"
         "</table>"
         );
 
@@ -1299,6 +1351,7 @@ void Histo1DWidgetPrivate::updateStatistics(u32 rrf)
         .arg(m_stats.fwhm)
         .arg(m_stats.fwhmCenter)
         .arg(thingsBelowGauss)
+        .arg(relWidth)
         ;
 
     if (!m_gaussStatsText)
@@ -1456,16 +1509,19 @@ void Histo1DWidgetPrivate::updateCursorInfoLabel(u32 rrf)
         double x = plotX;
         double y = getCurrentHisto()->getBinContent(binX, rrf);
         double binLowEdge = binning.getBinLowEdge((u32)binX, rrf);
+        double binWidth   = binning.getBinWidth(rrf);
 
         text = QString("x=%1\n"
                        "y=%2\n"
                        "bin=%3\n"
-                       "low edge=%4"
+                       "low edge=%4\n"
+                       "width=%5"
                       )
             .arg(x)
             .arg(y)
             .arg(binX)
             .arg(binLowEdge)
+            .arg(binWidth)
             ;
 #if 0
         double binXUnchecked = binning.getBinUnchecked(plotX);
@@ -1655,6 +1711,10 @@ void Histo1DWidget::setResolutionReductionFactor(u32 rrf)
     {
         m_d->combo_maxRes_->setCurrentIndex(idx);
     }
+    else
+    {
+        qDebug("Could not find rrf=%u (visBins=%u, physBins=%u) in combo box", rrf, visBins, physBins);
+    }
 }
 
 void Histo1DWidget::on_tb_subRange_clicked()
@@ -1699,6 +1759,9 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
 
 void Histo1DWidget::on_tb_gauss_toggled(bool checked)
 {
+    if (!m_d->getCurrentHisto())
+        return;
+
     if (checked)
     {
         m_d->m_gaussCurve->show();
@@ -1719,6 +1782,9 @@ void Histo1DWidget::on_tb_test_clicked()
 
 void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
 {
+    if (!m_d->getCurrentHisto())
+        return;
+
     if (std::isnan(m_d->m_rateEstimationData.x1))
     {
         m_d->m_rateEstimationData.x1 = pos.x();
@@ -1869,6 +1935,35 @@ void Histo1DWidget::selectHistogram(int index)
 s32 Histo1DWidget::currentHistoIndex() const
 {
     return m_d->m_histoIndex;
+}
+
+QJsonObject Histo1DWidget::getViewState() const
+{
+    QJsonObject s;
+    s["yScaleIndex"] = m_d->m_yScaleCombo->currentIndex();
+    s["histoIndex"]  = m_d->m_histoIndex;
+    s["zoomRect"]    = rectToJson(m_d->m_zoomer->zoomRect());
+    s["maxVisBins"]  = static_cast<qint64>(m_d->maxVisibleBins_);
+    return s;
+}
+
+void Histo1DWidget::setViewState(const QJsonObject &state)
+{
+    if (state.contains("yScaleIndex"))
+        m_d->m_yScaleCombo->setCurrentIndex(state["yScaleIndex"].toInt());
+    if (state.contains("histoIndex"))
+        selectHistogram(state["histoIndex"].toInt());
+    if (state.contains("maxVisBins"))
+    {
+        m_d->maxVisibleBins_ = static_cast<u32>(state["maxVisBins"].toInt());
+        select_resolution_in_combo(m_d->combo_maxRes_, m_d->maxVisibleBins_);
+    }
+    if (state.contains("zoomRect"))
+    {
+        auto r = rectFromJson(state["zoomRect"].toArray());
+        if (r.isValid() && !r.isEmpty())
+            m_d->m_zoomer->zoom(r);
+    }
 }
 
 void Histo1DWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)

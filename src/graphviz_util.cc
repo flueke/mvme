@@ -21,6 +21,7 @@
 
 #include "analysis/code_editor.h"
 #include "graphicsview_util.h"
+#include "graphviz_compat.h"
 #include "qt_util.h"
 #include "util/qt_eventfilters.h"
 
@@ -61,7 +62,7 @@ std::string layout_and_render_dot(
             {
                 char *renderDest = nullptr;
                 size_t renderSize = 0;
-                gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
+                gv_render_data(gvc, g, outputFormat, &renderDest, &renderSize);
 
                 result = { renderDest ? renderDest : std::string{""} };
 

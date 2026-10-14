@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
             << ", rate=" << countersJ["rate_mbs"].toDouble() << " MB/s" << '\n';
 
         auto reportFilename = QSL("mvme_replay_bench-%1-%2.json")
-            .arg(QFileInfo(listfileFilename).baseName())
+            .arg(QFileInfo(listfileFilename).completeBaseName())
             .arg(QDateTime::currentDateTime().toString(Qt::ISODate))
             ;
 

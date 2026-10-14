@@ -1,5 +1,15 @@
 {
     "ModuleConfig": {
+        "ModuleMeta": {
+            "displayName": "CAEN V1742",
+            "eventHeaderFilter": "1010 SSSS SSSS SSSS SSSS SSSS SSSS SSSS",
+            "typeId": 144,
+            "typeName": "caen_v1742",
+            "variables": [
+            ],
+            "vendorName": "CAEN",
+            "vmeAddress": 0
+        },
         "baseAddress": 0,
         "enabled": true,
         "id": "{9519291c-cb50-4504-a646-79a9d7d37b20}",
@@ -54,15 +64,5 @@
             },
             "vme_script": "# Reset the module to a clean default state here. This is executed before\n# initializing the modules at DAQ start time.\n\nwrite a32 d16 0xef24 1      # soft reset\nwait 10ms "
         }
-    },
-    "ModuleMeta": {
-        "displayName": "CAEN V1742",
-        "eventHeaderFilter": "1010 SSSS SSSS SSSS SSSS SSSS SSSS SSSS",
-        "typeId": 144,
-        "typeName": "caen_v1742",
-        "variables": [
-        ],
-        "vendorName": "CAEN",
-        "vmeAddress": 0
     }
 }

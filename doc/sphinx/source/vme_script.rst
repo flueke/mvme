@@ -356,7 +356,27 @@ accu_test_warn
 
 * **accu_test_warn** *<compare_op>* *<compare_value>* *<message>*
 
-Same as :ref:`accu_test <vme-command-accu-test>` but does not stop script execution on failure.
+Same as :ref:`accu_test <vme-command-accu-test>` but does not stop script
+execution on failure.
+
+.. _vme-command-accu-add:
+
+accu_add
+^^^^^^^^
+
+* **accu_add** *<value>*
+
+Adds the given value to the script local accumulator.
+
+.. _vme-command-accu-write:
+
+accu_write
+^^^^^^^^^^
+
+* **accu_write** *<amode> <dwidth> <address> <value>*
+
+Same as :ref:`write <vme-command-write>` but writes the current value of the
+script local accumulator.
 
 mvme_require_version
 ^^^^^^^^^^^^^^^^^^^^

@@ -58,16 +58,6 @@ std::error_code LIBMVME_EXPORT
 std::error_code LIBMVME_EXPORT
     setup_trigger_io(MVLC_VMEController *mvlc, VMEConfig &vmeConfig, Logger logger);
 
-// Parses the trigger io contained in the vmeconfig, updates it to handle
-// periodic and externally triggered events and returns the updated TriggerIO
-// structure.
-mesytec::mvme_mvlc::trigger_io::TriggerIO LIBMVME_EXPORT
-    update_trigger_io(const VMEConfig &vmeConfig);
-
-// Reads the trigger io script from the VMEConfig, runs update_trigger_io(),
-// recreates the script and stores it back in the VMEConfig.
-void LIBMVME_EXPORT update_trigger_io_inplace(const VMEConfig &vmeConfig);
-
 mvlc::StackCommandBuilder LIBMVME_EXPORT make_module_init_stack(const VMEConfig &vmeConfig);
 
 // Removes non-output-producing command groups from each of the readout stacks.

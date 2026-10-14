@@ -125,8 +125,7 @@ int main(int argc, char *argv[])
     // Compare mvlc trigger/io init sequences
     // ======================================
     {
-        auto vmeConfTriggerIo = mvme_mvlc::update_trigger_io(*vmeConfig);
-        auto vmeConfTriggerIoScriptText = mvme_mvlc::trigger_io::generate_trigger_io_script_text(vmeConfTriggerIo);
+        auto vmeConfTriggerIoScriptText = vmeConfig->getMVLCTriggerIOScript()->getScriptContents();
         auto vmeConfTriggerIoScript = vme_script::parse(vmeConfTriggerIoScriptText);
         auto vmeConfTriggerIoBuilder = mvme_mvlc::build_mvlc_stack(vmeConfTriggerIoScript);
         auto crateConfTriggerIoBuilder = crateConfig.initTriggerIO;

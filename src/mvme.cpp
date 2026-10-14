@@ -51,6 +51,7 @@
 #include "qt_assistant_remote_control.h"
 #include "qt_util.h"
 #include "rate_monitor_gui.h"
+#include "run_notes_widget.hpp"
 #include "sis3153_util.h"
 #include "util/qt_logview.h"
 #include "util/qt_monospace_textedit.h"
@@ -119,7 +120,7 @@ struct MVMEWindowPrivate
 
     ListfileBrowser *m_listfileBrowser = nullptr;
     RateMonitorGui *m_rateMonitorGui = nullptr;
-    QPlainTextEdit *runNotesWidget = nullptr;
+    mvme::RunNotesWidget *runNotesWidget = nullptr;
 
     DAQControl *daqControl = nullptr;
 
@@ -169,6 +170,10 @@ MVMEMainWindow::MVMEMainWindow(MVMEContext *context, QWidget *parent)
 
 #if 1
     // Setup some of the mesytec-mvlc loggers to also log to the gui.
+    // FIXME: this is bugged in 1.16 and probably all earlier versions:
+    // loggers that are created before this code is run will not get the new
+    // sinks attached to them. It could be done here by modifying the sinks()
+    // vector, but that's not thread-safe.
     {
         auto consolesink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         auto qtsink = std::make_shared<spdlog::sinks::qt_sink_mt>(m_d->m_context, "logMessageRaw");
@@ -179,7 +184,7 @@ MVMEMainWindow::MVMEMainWindow(MVMEContext *context, QWidget *parent)
         auto loggerNames =
         {
              "listfile", "readout_worker", "replay", "readout_parser",
-             "mvlc_listfile_zmq_ganil"
+             "mvlc_listfile_zmq_ganil", "mvme_tcp_stream_server"
         };
 
         for (const auto &loggerName: loggerNames)
@@ -247,7 +252,7 @@ MVMEMainWindow::MVMEMainWindow(MVMEContext *context, QWidget *parent)
                     closeAllHistogramWidgets();
                     m_d->m_context->openWorkspace(dirName);
                     if (m_d->runNotesWidget)
-                        m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+                        m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
 
                     QSettings settings;
                     auto recents = settings.value("RecentWorkspaces").toStringList();
@@ -868,7 +873,7 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
         closeAllHistogramWidgets();
         m_d->m_context->openWorkspace(dirName);
         if (m_d->runNotesWidget)
-            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+            m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
 
         QSettings settings;
         auto recents = settings.value("RecentWorkspaces").toStringList();
@@ -924,10 +929,12 @@ void MVMEMainWindow::displayAbout()
     QString buildInfo = QSL("Build Type: '%1', Build Flags='%2'")
         .arg(BUILD_TYPE).arg(BUILD_CXX_FLAGS);
 
+    QString copyright = QSL("© 2015-%1 mesytec GmbH & Co. KG").arg(BUILD_YEAR);
+
     layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
     layout->addWidget(new QLabel(versionString));
     layout->addWidget(new QLabel(buildInfo));
-    layout->addWidget(new QLabel(QSL("© 2015-2023 mesytec GmbH & Co. KG")));
+    layout->addWidget(new QLabel(copyright));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
 
     {
@@ -960,6 +967,7 @@ void MVMEMainWindow::displayAbout()
         QStringList build_infos;
         build_infos << versionString;
         build_infos << QSL("Git Version: %1").arg(mvme_git_describe_version());
+        build_infos << QSL("Git Hash: %1").arg(mvme_git_hash());
         build_infos << QSL("Build Type: ") + BUILD_TYPE;
         build_infos << QSL("Build Flags:") + BUILD_CXX_FLAGS;
 
@@ -1210,7 +1218,7 @@ bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
     {
         // Use the listfile basename to suggest a filename.
         const auto &replayHandle = m_d->m_context->getReplayFileHandle();
-        path += "/" +  QFileInfo(replayHandle.listfileFilename).baseName() + ".vme";
+        path += "/" +  QFileInfo(replayHandle.listfileFilename).completeBaseName() + ".vme";
     }
     else
     {
@@ -1390,7 +1398,7 @@ void MVMEMainWindow::onActionImportFromMVLC_triggered()
         // Strip the extension from the input filename, add "-imported.vme" and use
         // that as the suggested vme config name.
         QFileInfo fi(fileName);
-        auto configName = fi.baseName() + QSL("-imported.vme");
+        auto configName = fi.completeBaseName() + QSL("-imported.vme");
 
         m_d->m_context->setVMEConfig(vmeConfig.release());
         m_d->m_context->setVMEConfigFilename(configName, false);
@@ -1983,6 +1991,7 @@ void MVMEMainWindow::updateActions()
     // Workspaces
     m_d->actionNewWorkspace->setEnabled(isDAQIdle);
     m_d->actionOpenWorkspace->setEnabled(isDAQIdle);
+    m_d->actionRecentWorkspaces->setEnabled(isDAQIdle);
 
     // VME Config
     m_d->actionNewVMEConfig->setEnabled(isDAQIdle);
@@ -2188,34 +2197,22 @@ void MVMEMainWindow::runAddVMEEventDialog()
 
     if (result == QDialog::Accepted)
     {
-        // Load the default event scripts for non-periodic events. These contain
-        // the 'readout cycle end' and 'daq start/stop' commands which write to
-        // the events mcst address. We only want this for non-periodic events,
-        // periodic ones usually should not write the 'readout_reset' register
-        // via mcst. Maybe find a better place for this code.
-        if (eventConfig->triggerCondition != TriggerCondition::Periodic
-            && eventConfig->triggerCondition != TriggerCondition::MvlcStackTimer)
+        // For periodic events: empty the default 'readout_start',
+        // 'readout_end', 'daq_start' and 'daq_stop' scripts. These scripts deal
+        // with writes to the events MCST address, e.g. synchronous
+        // readout_reset of all modules in the event.  Periodic events usually
+        // should not do this as they are used to read out counters and other
+        // status info but are not used for the main readout.
+        if (eventConfig->triggerCondition == TriggerCondition::Periodic
+            || eventConfig->triggerCondition == TriggerCondition::MvlcStackTimer)
         {
-            auto logger = [this](const QString &msg) { m_d->m_context->logMessage(msg); };
-            VMEEventTemplates templates = read_templates(logger).eventTemplates;
-
-            eventConfig->vmeScripts["daq_start"]->setScriptContents(
-                templates.daqStart.contents);
-
-            eventConfig->vmeScripts["daq_stop"]->setScriptContents(
-                templates.daqStop.contents);
-
-            eventConfig->vmeScripts["readout_start"]->setScriptContents(
-                templates.readoutCycleStart.contents);
-
-            eventConfig->vmeScripts["readout_end"]->setScriptContents(
-                templates.readoutCycleEnd.contents);
+            eventConfig->vmeScripts["daq_start"]->setScriptContents({});
+            eventConfig->vmeScripts["daq_stop"]->setScriptContents({});
+            eventConfig->vmeScripts["readout_start"]->setScriptContents({});
+            eventConfig->vmeScripts["readout_end"]->setScriptContents({});
         }
 
         vmeConfig->addEventConfig(eventConfig.release());
-
-        if (is_mvlc_controller(vmeConfig->getControllerType()))
-            mesytec::mvme_mvlc::update_trigger_io_inplace(*vmeConfig);
     }
 }
 
@@ -2378,6 +2375,10 @@ void MVMEMainWindow::runDAQRunSettingsDialog()
 void MVMEMainWindow::runWorkspaceSettingsDialog()
 {
     WorkspaceSettingsDialog dialog(m_d->m_context->makeWorkspaceSettings());
+
+    m_d->m_geometrySaver->addAndRestore(
+        &dialog, QSL("WindowGeometries/WorkspaceSettingsDialog"));
+
     dialog.setWindowModality(Qt::ApplicationModal);
     if (dialog.exec() == QDialog::Accepted)
     {
@@ -2527,10 +2528,9 @@ void MVMEMainWindow::showRunNotes()
 {
     if (!m_d->runNotesWidget)
     {
-        m_d->runNotesWidget = new QPlainTextEdit;
-        m_d->runNotesWidget = mesytec::mvme::util::make_monospace_plain_textedit().release();
+        m_d->runNotesWidget = new mvme::RunNotesWidget;
         m_d->runNotesWidget->setWindowTitle(QSL("DAQ Run Notes"));
-        m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+        m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
         m_d->runNotesWidget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(m_d->runNotesWidget);
 
@@ -2548,7 +2548,7 @@ void MVMEMainWindow::showRunNotes()
             m_d->runNotesWidget->setReadOnly(ro);
 
             QSignalBlocker b(m_d->runNotesWidget);
-            m_d->runNotesWidget->setPlainText(getContext()->getRunNotes());
+            m_d->runNotesWidget->setMarkdown(getContext()->getRunNotes());
         };
 
         on_global_mode_changed(getContext()->getMode());
@@ -2557,10 +2557,10 @@ void MVMEMainWindow::showRunNotes()
             this->m_d->runNotesWidget = nullptr;
         });
 
-        connect(m_d->runNotesWidget, &QPlainTextEdit::textChanged,
+        connect(m_d->runNotesWidget, &mvme::RunNotesWidget::textChanged,
                 this, [this] ()
                 {
-                    getContext()->setRunNotes(m_d->runNotesWidget->toPlainText());
+                    getContext()->setRunNotes(m_d->runNotesWidget->toMarkdown());
                 });
 
         connect(getContext(), &MVMEContext::modeChanged,

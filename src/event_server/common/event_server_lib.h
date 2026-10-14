@@ -26,12 +26,13 @@
         //#include <winsock2.h>
         #include <ws2tcpip.h> // getaddrinfo
     #endif
-    #include <io.h>
+    #define PLATFORM_WINDOWS
 #else
     // POSIX socket API
     #include <netdb.h>
     #include <sys/socket.h>
     #include <sys/types.h>
+    #define PLATFORM_POSIX
 #endif
 
 #include <cassert>
@@ -192,32 +193,135 @@ struct BufferIterator
     inline size_t used() const { return buffp - data; }
 };
 
-//
-// Library init/shutdown. Both return 0 on success.
-//
+// Library init and shutdown. Currently only for the windows socket subsystem.
+static bool socketSystemInitialized = false;
+
 __attribute__((__used__))
-static int lib_init()
+static void lib_init()
 {
-#ifdef _WIN32
-    WORD wVersionRequested;
-    WSADATA wsaData;
-    wVersionRequested = MAKEWORD(2, 1);
-    return WSAStartup( wVersionRequested, &wsaData );
-#else
-    return 0;
+    if (!socketSystemInitialized)
+    {
+#ifdef PLATFORM_WINDOWS
+        WORD wVersionRequested;
+        WSADATA wsaData;
+        wVersionRequested = MAKEWORD(2, 1);
+        int res = WSAStartup(wVersionRequested, &wsaData);
+        if (res != 0)
+            throw exception("init_socket_system(): WSAStartup failed: " + std::string(gai_strerror(res)));
 #endif
+        socketSystemInitialized = true;
+    }
 }
 
 __attribute__((__used__))
-static int lib_shutdown()
+static void lib_shutdown()
 {
-#ifdef _WIN32
-    return WSACleanup();
-#else
-    return 0;
+#ifdef PLATFORM_WINDOWS
+    WSACleanup();
 #endif
 }
 
+inline void lookup(const char *host, const char* service, sockaddr_in &dest)
+{
+    // FIXME (maybe): find a better error code to return here
+    if (strlen(host) == 0)
+        throw exception("lookup(): empty hostname given");
+
+    lib_init();
+
+    dest = {};
+    struct addrinfo hints = {};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    struct addrinfo *result = nullptr, *rp = nullptr;
+
+    int rc = getaddrinfo(host, service, &hints, &result);
+
+    if (rc != 0)
+    {
+        #ifdef PLATFORM_WINDOWS
+        fprintf(stderr, "getaddrinfo(): host=%s, service=%s, error=%s\n", host, service, gai_strerror(rc));
+        #endif
+        throw exception("lookup(): getaddrinfo() failed: " + std::string(gai_strerror(rc)));
+    }
+
+    for (rp = result; rp != NULL; rp = rp->ai_next)
+    {
+        if (rp->ai_addrlen == sizeof(dest))
+        {
+            std::memcpy(&dest, rp->ai_addr, rp->ai_addrlen);
+            break;
+        }
+    }
+
+    freeaddrinfo(result);
+
+    if (!rp)
+        throw exception("lookup(): no results found");
+}
+
+inline void lookup(const char *host, std::uint16_t port, sockaddr_in &dest)
+{
+    char buffer[128];
+    snprintf(buffer, sizeof(buffer), "%u", port);
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    return lookup(host, buffer, dest);
+}
+
+inline void close_socket(int sock)
+{
+#ifdef PLATFORM_WINDOWS
+    int res = ::closesocket(sock);
+#else
+    int res = ::close(sock);
+#endif
+    if (res != 0)
+        throw exception("close_socket(): error: " + std::string(strerror(errno)));
+}
+
+// Connects via TCP to the given host and service (the port in our case).
+// Returns the socket file descriptor on success, throws if an error occured.
+inline int connect_to(const char *host, const char *port)
+{
+    lib_init();
+
+    struct sockaddr_in addr = {};
+
+    lookup(host, port, addr);
+
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    if (sock < 0)
+    {
+        throw std::system_error(errno, std::system_category(), "connect_to: socket creation failed");
+    }
+
+    // bind the socket
+    {
+        struct sockaddr_in localAddr = {};
+        localAddr.sin_family = AF_INET;
+        localAddr.sin_addr.s_addr = INADDR_ANY;
+
+        if (::bind(sock, reinterpret_cast<struct sockaddr *>(&localAddr),
+                   sizeof(localAddr)))
+        {
+            throw std::system_error(errno, std::system_category(), "connect_to: socket bind failed");
+        }
+    }
+
+    // connect
+    if (::connect(sock, reinterpret_cast<struct sockaddr *>(&addr),
+                  sizeof(addr)))
+    {
+        close_socket(sock);
+        throw std::system_error(errno, std::system_category(), "connect_to: socket connect failed");
+    }
+
+    return sock;
+}
 
 //
 // Utilities for reading messages from a file descriptor
@@ -232,11 +336,11 @@ static void read_data(int fd, uint8_t *dest, size_t size)
 {
     while (size > 0)
     {
-        #ifndef _WIN32
-        s64 bytesRead = read(fd, dest, size);
-        #else
-        s64 bytesRead = _read(fd, dest, size);
-        #endif
+#ifdef PLATFORM_WINDOWS
+        ssize_t bytesRead = ::recv(fd, reinterpret_cast<char *>(dest), size, 0);
+#else
+        ssize_t bytesRead = ::read(fd, dest, size);
+#endif
 
         if (bytesRead < 0)
         {
@@ -303,66 +407,6 @@ static void read_message(int fd, Message &msg)
 
     read_data(fd, msg.contents.data(), size);
     assert(msg.isValid());
-}
-
-// Connects via TCP to the given host and service (the port in our case).
-// Returns the socket file descriptor on success, throws if an error occured.
-inline int connect_to(const char *host, const char *service)
-{
-    // Note (flueke): The following code was taken from the example in `man 3
-    // getaddrinfo' on a linux machine and modified to throw on error.
-
-    struct addrinfo hints;
-    struct addrinfo *result, *rp;
-    int sfd = -1, s;
-
-    /* Obtain address(es) matching host/port */
-
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;     /* Allow IPv4 or IPv6 */
-    hints.ai_socktype = SOCK_STREAM; /* Stream socket (TCP) */
-    hints.ai_flags = 0;
-    hints.ai_protocol = 0;           /* Any protocol */
-
-    s = getaddrinfo(host, service, &hints, &result);
-    if (s != 0) {
-        throw exception(gai_strerror(s));
-    }
-
-    /* getaddrinfo() returns a list of address structures.
-       Try each address until we successfully connect(2).
-       If socket(2) (or connect(2)) fails, we (close the socket
-       and) try the next address. */
-
-    for (rp = result; rp != NULL; rp = rp->ai_next) {
-        sfd = socket(rp->ai_family, rp->ai_socktype,
-                     rp->ai_protocol);
-        if (sfd == -1)
-            continue;
-
-        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
-            break;                  /* Success */
-
-        close(sfd);
-    }
-
-    freeaddrinfo(result);           /* No longer needed */
-
-    if (rp == NULL) {               /* No address succeeded */
-        throw exception("Could not connect");
-    }
-
-    return sfd;
-}
-
-// Same as above but taking a port number instead of a string.
-inline int connect_to(const char *host, uint16_t port)
-{
-    char buffer[128];
-    snprintf(buffer, sizeof(buffer), "%u", static_cast<unsigned>(port));
-    buffer[sizeof(buffer) - 1] = '\0';
-
-    return connect_to(host, buffer);
 }
 
 //

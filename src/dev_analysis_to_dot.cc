@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 
     if (!cliParseResult)
     {
-        spdlog::error("Error parsing command line arguments: {}", cliParseResult.errorMessage());
+        spdlog::error("Error parsing command line arguments: {}", cliParseResult.message());
         return 1;
     }
 

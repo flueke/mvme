@@ -62,7 +62,7 @@ inline void simulate_lut(
     simulate_lut(lut, inputs, outputs, nullptr, maxtime);
 }
 
-void simulate_single_lut_output(
+LIBMVME_EXPORT void simulate_single_lut_output(
     const LUT::Bitmap &mapping,
     const LutInputTraces &inputs,
     Trace *outputTrace,

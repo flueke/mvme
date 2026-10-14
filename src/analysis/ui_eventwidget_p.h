@@ -63,6 +63,7 @@ enum NodeType
 
     NodeType_Directory,
     NodeType_PlotGridView,
+    NodeType_HistogramOperation,
 
     NodeType_MaxNodeType
 };
@@ -245,6 +246,9 @@ struct EventWidgetPrivate
 
     QVector<UserLevelTrees> m_levelTrees;
     ObjectToNode m_objectMap;
+    // keep track of the operators/objects for which tree nodes have been created
+    QSet<AnalysisObjectPtr> m_placedObjects;
+    QHash<DirectoryPtr, TreeNode *> m_dirNodes;
 
     Mode m_mode = Default;
     QWidget *m_uniqueWidget = nullptr;
@@ -324,8 +328,13 @@ struct EventWidgetPrivate
     bool repopEnabled = true;
 
     void createView();
+    UserLevelTrees createEmptyTrees(s32 level);
+    QHash<DirectoryPtr, TreeNode *> addDirectoryNodes(s32 level);
+    void populateTrees(s32 level);
     void populateDataSourceTree(DataSourceTree *tree);
-    UserLevelTrees createTrees(s32 level);
+    void populateOperatorTree(s32 level, ObjectTree *tree);
+    void populateSinkTree(s32 level, ObjectTree *tree);
+
     void appendTreesToView(UserLevelTrees trees);
     void repopulate();
 

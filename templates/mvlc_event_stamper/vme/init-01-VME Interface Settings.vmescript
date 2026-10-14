@@ -1,8 +1,10 @@
 # MVLC_Event_Stamper
-# uses Counter 0 as event time stamper. Strobe input generates an event stamp
-# lower 30 bits of the counter are copied to the EOE word.
-# two thresholds are available to signal a lower event treshold (usually by MVLC IRQ 8) for readout cycle start
-# A second one to signal "FIFO almost full" to stop the trigger
+# Uses Counter 0 as event time stamper. A pulse on the counters latch input
+# generates an event stamp. The lower 30 bits of the counter are copied to the
+# EOE word.
+# Two thresholds are available to signal a lower event treshold (usually by MVLC
+# IRQ 8) for readout cycle start. A second one to signal "FIFO almost full" to
+# stop the trigger.
 # Start cycle signal:
 0x6010 8     # irq level 8 for start threshold
 0x6012 9	 # irq level for pause trigger

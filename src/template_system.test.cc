@@ -34,7 +34,6 @@ TEST(vats, LoadTemplates)
         ASSERT_TRUE(mm.typeName.size() > 0);
         ASSERT_TRUE(mm.displayName.size() > 0);
         ASSERT_TRUE(mm.templatePath.size() > 0);
-        ASSERT_TRUE(mm.eventHeaderFilters.size() >= 0);
 
         qDebug() << "#eventHeaderFilters =" << mm.eventHeaderFilters.size();
         for (const auto &filterDef: mm.eventHeaderFilters)

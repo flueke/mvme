@@ -25,6 +25,7 @@
 #include <QDir>
 #include <QWidget>
 #include "analysis/analysis.h"
+#include "qt_util.h"
 
 /* Similar design to Histo1DWidget:
  * Must be able to display a plain RateHistoryBuffer, a RateSampler and a list
@@ -43,7 +44,7 @@
 
 struct RateMonitorWidgetPrivate;
 
-class LIBMVME_EXPORT RateMonitorWidget: public QWidget
+class LIBMVME_EXPORT RateMonitorWidget: public QWidget, public IWidgetViewState
 {
     Q_OBJECT
     public:
@@ -59,6 +60,9 @@ class LIBMVME_EXPORT RateMonitorWidget: public QWidget
         explicit RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers, QWidget *parent = nullptr);
 
         virtual ~RateMonitorWidget();
+
+        QJsonObject getViewState() const override;
+        void setViewState(const QJsonObject &state) override;
 
         void setSink(const SinkPtr &sink, SinkModifiedCallback sinkModifiedCallback);
         void setPlotExportDirectory(const QDir &dir);

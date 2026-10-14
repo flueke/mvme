@@ -220,7 +220,7 @@ int main(int argc, char *argv[])
                 ctx->setName(fmt::format("analysis_crate{}", crateId));
                 ctx->crateId = configs.crateConfig.crateId;
                 if (!outputListfilename.empty())
-                    ctx->runInfo.runId = QFileInfo(outputListfilename.c_str()).baseName();
+                    ctx->runInfo.runId = QFileInfo(outputListfilename.c_str()).completeBaseName();
                 ctx->runInfo.isReplay = false;
                 // TODO analysis object id handling / rewriting before beginRun()
                 ctx->analysis->beginRun(ctx->runInfo, ctx->asp->vmeConfig_);

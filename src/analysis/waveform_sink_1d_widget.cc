@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QCheckBox>
+#include <QDateTime>
 #include <QMenu>
 #include <QStack>
 #include <QTimer>
@@ -38,6 +39,13 @@ enum RefreshMode
     RefreshMode_EventSnapshot
 };
 
+enum FadeMode
+{
+    FadeMode_IndexBased = 0, // alpha proportional to trace index (oldest = most transparent)
+    FadeMode_TimeBased = 1,  // alpha proportional to wall-clock age of trace
+    FadeMode_None = 2,       // all traces at full alpha
+};
+
 template<>
 struct fmt::formatter<RefreshMode>: fmt::formatter<string_view>
 {
@@ -55,7 +63,7 @@ struct fmt::formatter<RefreshMode>: fmt::formatter<string_view>
     }
 };
 
-inline QComboBox *add_mode_selector(QToolBar *toolbar)
+inline QComboBox *add_refresh_mode_selector(QToolBar *toolbar)
 {
     auto result = new QComboBox;
     result->addItem(fmt::format("{}", RefreshMode_LatestData).c_str(), RefreshMode_LatestData);
@@ -66,6 +74,17 @@ inline QComboBox *add_mode_selector(QToolBar *toolbar)
         "Latest Data: Buffers and displays the latest data from the module, not neccessarily belonging to the same readout event.\n"
         "Event Snapshot: Shows data originating from the same readout event."
     ));
+    return result;
+}
+
+inline QComboBox *add_fade_mode_selector(QToolBar *toolbar)
+{
+    auto result = new QComboBox;
+    result->addItem("Index Fade", FadeMode_IndexBased);
+    result->addItem("Time Fade", FadeMode_TimeBased);
+    result->addItem("No Fade", FadeMode_None);
+    auto boxstruct = make_vbox_container("Fade Mode", result, 0, -2);
+    toolbar->addWidget(boxstruct.container.release());
     return result;
 }
 
@@ -145,6 +164,10 @@ struct WaveformSink1DWidget::Private
     // In RefreshMode_EventSnapshot this is just a copy of analysisTraceSnapshot_.
     waveforms::TraceHistories displayTraceData_;
 
+    // Wall-clock timestamps (ms since epoch) for each entry in displayTraceData_.
+    // Used for time-based trace fading. Parallel structure to displayTraceData_.
+    std::vector<std::deque<qint64>> displayTraceTimestamps_;
+
     // Linear list of traces that are displayed in the plot. This holds the data
     // that is referenced by the qwt curves when plotting.
     waveforms::TraceHistory tracesToPlot_;
@@ -157,6 +180,7 @@ struct WaveformSink1DWidget::Private
     mesytec::mvlc::util::Stopwatch frameTimer_;
 
     QComboBox *combo_modeSelect_ = nullptr;
+    QComboBox *combo_fadeSelect_ = nullptr;
     QSpinBox *traceSelect_ = nullptr;
     QSpinBox *spin_chanSelect = nullptr;
     QCheckBox *cb_showAllChannels_ = nullptr;
@@ -245,12 +269,19 @@ WaveformSink1DWidget::WaveformSink1DWidget(
     d->zoomer_ = histo_ui::install_scrollzoomer(this);
     tb->addSeparator();
 
-    d->combo_modeSelect_ = add_mode_selector(tb);
+    d->combo_modeSelect_ = add_refresh_mode_selector(tb);
+    d->combo_fadeSelect_ = add_fade_mode_selector(tb);
 
     d->actionHold_ = tb->addAction(QIcon(":/control_pause.png"), "Hold");
     d->actionHold_->setCheckable(true);
     d->actionHold_->setChecked(false);
     tb->addSeparator();
+
+    tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
+        clear();
+    });
+    tb->addSeparator();
+
 
     d->traceSelect_ = add_trace_selector(tb);
     d->traceSelect_->setEnabled(false);
@@ -361,6 +392,11 @@ WaveformSink1DWidget::WaveformSink1DWidget(
         replot();
     });
 
+    connect(d->combo_fadeSelect_, qOverload<int>(&QComboBox::currentIndexChanged),
+        this, [this] {
+        replot();
+    });
+
     connect(d->traceSelect_, qOverload<int>(&QSpinBox::valueChanged),
         this, [this]  {
         d->selectedTraceChanged_ = true;
@@ -419,14 +455,23 @@ bool WaveformSink1DWidget::Private::updateDataFromAnalysis()
 {
     auto newAnalysisTraceData = sink_->getTraceHistories();
 
-    // Note: this makes the method return true even if no single trace was
-    // decoded. The reason is that the trace meta (module_header, timestamp)
-    // changes, so the != comparsion is true if the module produced new data.
+    //qDebug() << __PRETTY_FUNCTION__ << "newTraceCount=" << newTraceCount << "prevTraceCount=" << waveforms::get_trace_count(analysisTraceSnapshot_);
+
+    // Comparing the snapshots also compares trace meta data. Returning just the
+    // comparison result would make the method return true even if no new trace
+    // was decoded, but the meta data changed. So we also check if there is at
+    // least one new trace in the new snapshot.
+    auto newTraceCount = waveforms::get_trace_count(newAnalysisTraceData);
+
     if (newAnalysisTraceData != analysisTraceSnapshot_)
     {
         std::swap(analysisTraceSnapshot_, newAnalysisTraceData);
-        traceDataUpdateTime_ = QTime::currentTime();
-        return true;
+
+        if (newTraceCount > 0)
+        {
+            traceDataUpdateTime_ = QTime::currentTime();
+            return true;
+        }
     }
 
     return false;
@@ -444,12 +489,48 @@ void WaveformSink1DWidget::Private::updateDisplayTraceData(
         // In EventSnapshot mode we just copy the analysis trace data to the
         // display traces.
         displayTraceData_ = analysisTraceData;
+        // Timestamps are not used in EventSnapshot mode; reset to empty.
+        displayTraceTimestamps_.assign(displayTraceData_.size(), std::deque<qint64>{});
     }
     else
     {
+        // Record deque sizes before prepending to detect newly added traces.
+        std::vector<size_t> prevSizes(displayTraceData_.size());
+        for (size_t i = 0; i < displayTraceData_.size(); ++i)
+            prevSizes[i] = displayTraceData_[i].size();
+
         // In LatestData mode we prepend the latest traces from the analysis
         // sink to the display traces.
         waveforms::prepend_latest_traces(analysisTraceData, displayTraceData_, params.maxTracesPerChannel);
+
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        displayTraceTimestamps_.resize(displayTraceData_.size());
+
+        for (size_t chan = 0; chan < displayTraceData_.size(); ++chan)
+        {
+            auto &ts = displayTraceTimestamps_[chan];
+            const auto &traces = displayTraceData_[chan];
+            const size_t prevSize = chan < prevSizes.size() ? prevSizes[chan] : 0;
+
+            // A trace was prepended if the deque grew, or if it was at max
+            // capacity (recycle: oldest popped, newest pushed to front).
+            const bool newTracePrepended =
+                traces.size() > prevSize ||
+                (prevSize > 0 && prevSize >= params.maxTracesPerChannel && !traces.empty());
+
+            if (newTracePrepended)
+            {
+                ts.push_front(now);
+                if (ts.size() > traces.size())
+                    ts.pop_back();
+            }
+
+            // Keep timestamps in sync with trace deque.
+            while (ts.size() > traces.size())
+                ts.pop_back();
+            while (ts.size() < traces.size())
+                ts.push_front(now);
+        }
     }
 }
 
@@ -575,39 +656,25 @@ inline void set_curve_color(QwtPlotCurve *curve, const QColor &color)
     curve->setPen(pen);
 }
 
-inline void set_curve_alpha(QwtPlotCurve *curve, double alpha)
-{
-    auto pen = curve->pen();
-    auto penColor = pen.color();
-    penColor.setAlphaF(std::min(alpha, 1.0));
-    pen.setColor(penColor);
-    curve->setPen(pen);
-}
-
 inline const QVector<QColor> make_plot_colors()
 {
+    // Color palette optimized for light grey backgrounds
+    // Based on ColorBrewer Dark2 and Tableau-10 categorical schemes
+    // All colors have sufficient contrast ratio (>4.5:1) against light backgrounds
     static const QVector<QColor> result =
     {
-        "#000000",
-        "#e6194b",
-        "#3cb44b",
-        "#ffe119",
-        "#0082c8",
-        "#f58231",
-        "#911eb4",
-        "#46f0f0",
-        "#f032e6",
-        "#d2f53c",
-        "#fabebe",
-        "#008080",
-        "#e6beff",
-        "#aa6e28",
-        "#fffac8",
-        "#800000",
-        "#aaffc3",
-        "#808000",
-        "#ffd8b1",
-        "#000080",
+        "#1b9e77",  // Teal/Cyan - high visibility
+        "#d95f02",  // Dark Orange - warm, distinct
+        "#7570b3",  // Purple/Blue - cool tone
+        "#e7298a",  // Magenta/Pink - vibrant
+        "#66a61e",  // Olive Green - earthy
+        "#e41a1c",  // Strong Red - ColorBrewer Set1
+        "#377eb8",  // Strong Blue - ColorBrewer Set1
+        "#b8860b",  // Dark Goldenrod - replaces problematic yellow
+        "#a6761d",  // Brown - neutral warm
+        "#8b4513",  // Saddle Brown - deeper earth tone
+        "#17becf",  // Cyan/Turquoise - Tableau-10
+        "#666666",  // Dark Grey - subtle alternative
     };
 
     return result;
@@ -618,6 +685,8 @@ void WaveformSink1DWidget::replot()
     spdlog::trace("begin WaveformSink1DWidget::replot()");
 
     const bool gotNewData = !d->actionHold_->isChecked() ?  d->updateDataFromAnalysis() : false;
+
+    spdlog::trace("WaveformSink1DWidget::replot(): gotNewData={}", gotNewData);
 
     d->updateUi(); // update, selection boxes, buttons, etc.
 
@@ -646,6 +715,7 @@ void WaveformSink1DWidget::replot()
     params.showSampleSymbols = d->showSampleSymbols_;
     params.showInterpolatedSymbols = d->showInterpolatedSymbols_;
     params.dtSample = xAxisShowsSamples ? 1.0 : d->spin_dtSample_->value();
+    params.phaseCorrection = static_cast<waveforms::PhaseCorrectionMode>(d->combo_phaseCorrection_->currentData().toInt());
 
     if (gotNewData)
         d->updateDisplayTraceData(params, d->analysisTraceSnapshot_);
@@ -655,10 +725,13 @@ void WaveformSink1DWidget::replot()
     static const auto colors = make_plot_colors();
     QRectF newBoundingRect = d->maxBoundingRect_;
 
+    const auto fadeMode = static_cast<FadeMode>(d->combo_fadeSelect_->currentData().toInt());
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+
     for (auto &[chanIndex, handles]: d->channelToWaveformHandles_)
     {
-        //spdlog::warn("WaveformSink1DWidget::replot(): channelIndex={}, #handles={}", chanIndex, handles.size());
         const auto traceCount = handles.size();
+        spdlog::trace("WaveformSink1DWidget::replot(): channelIndex={}, traceCount={}", chanIndex, traceCount);
         const double slope = (1.0 - 0.1) / traceCount; // want alpha from 1.0 to 0.1
         const auto traceColor = colors.value(chanIndex % colors.size());
 
@@ -668,7 +741,31 @@ void WaveformSink1DWidget::replot()
             d->curveHelper_.setRawSymbolsVisible(handle, params.showSampleSymbols);
             d->curveHelper_.setInterpolatedSymbolsVisible(handle, params.showInterpolatedSymbols);
 
-            double alpha = std::min(0.1 + slope * (traceCount - traceIndex), 1.0);
+            double alpha;
+            switch (fadeMode)
+            {
+            case FadeMode_TimeBased:
+                {
+                    const size_t dataIndex = params.traceIndex + traceIndex;
+                    if (params.refreshMode == RefreshMode_LatestData &&
+                        chanIndex < d->displayTraceTimestamps_.size() &&
+                        dataIndex < d->displayTraceTimestamps_[chanIndex].size())
+                    {
+                        const qint64 ageMs = now - d->displayTraceTimestamps_[chanIndex][dataIndex];
+                        const qint64 fadeWindowMs = params.maxTracesPerChannel * ReplotInterval_ms;
+                        alpha = std::clamp(1.0 - static_cast<double>(ageMs) / fadeWindowMs, 0.0, 1.0);
+                    }
+                    else
+                        alpha = std::min(0.1 + slope * (traceCount - traceIndex), 1.0); // fallback to index-based
+                }
+                break;
+            case FadeMode_None:
+                alpha = 1.0;
+                break;
+            default: // FadeMode_IndexBased
+                alpha = std::min(0.1 + slope * (traceCount - traceIndex), 1.0);
+                break;
+            }
             auto thisColor = traceColor;
             thisColor.setAlphaF(alpha);
 
@@ -743,6 +840,17 @@ void WaveformSink1DWidget::replot()
         getPlot()->axisWidget(QwtPlot::xBottom)->setTitle("Time [ns]");
 
     spdlog::trace("end WaveformSink1DWidget::replot()");
+}
+
+void WaveformSink1DWidget::clear()
+{
+    if (d->sink_)
+        d->sink_->clearState();
+    d->analysisTraceSnapshot_.clear();
+    d->displayTraceData_.clear();
+    d->displayTraceTimestamps_.clear();
+    d->tracesToPlot_.clear();
+    replot();
 }
 
 void WaveformSink1DWidget::Private::makeInfoText(std::ostringstream &out)

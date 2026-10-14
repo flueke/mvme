@@ -36,6 +36,7 @@ class LIBMVME_EXPORT ObjectVisitor
         virtual void visit(ConditionInterface *cond) = 0;
         virtual void visit(Directory *dir) = 0;
         virtual void visit(PlotGridView *view) = 0;
+        virtual void visit(HistogramOperation *histOp) = 0;
 };
 
 template<typename It>

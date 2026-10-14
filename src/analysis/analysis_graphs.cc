@@ -296,6 +296,11 @@ struct CreateGraphVisitor: public ObjectVisitor
     {
         Q_UNUSED(view_);
     }
+
+    void visit(HistogramOperation *histOp_) override
+    {
+        Q_UNUSED(histOp_);
+    }
 };
 
 LIBMVME_EXPORT GraphContext create_graph_context()
@@ -438,6 +443,7 @@ class ShowObjectGraphCommand: public QUndoCommand
             prevObj_ = graphWidgetPrivate_->q->getRootObject();
             graphWidgetPrivate_->setObject(curObj_);
             graphWidgetPrivate_->q->fitInView();
+            graphWidgetPrivate_->q->objectSelected(curObj_);
         }
 
         void undo() override
@@ -445,8 +451,8 @@ class ShowObjectGraphCommand: public QUndoCommand
             if (prevObj_)
             {
                 graphWidgetPrivate_->setObject(prevObj_);
-                prevObj_ = {};
                 graphWidgetPrivate_->q->fitInView();
+                graphWidgetPrivate_->q->objectSelected(prevObj_);
             }
         }
 
@@ -518,6 +524,11 @@ DependencyGraphWidget::DependencyGraphWidget(AnalysisServiceProvider *asp, QWidg
 
     connect(d->gctx_.view, &QWidget::customContextMenuRequested,
             this, [this] (const QPoint &pos) { d->runContextMenu(pos); });
+
+    if (auto analysis = asp->getAnalysis())
+    {
+        connect(analysis, &Analysis::modified, this, [this] (bool) { refresh(); });
+    }
 
     d->onSceneSelectionChanged();
 }
@@ -611,6 +622,13 @@ void DependencyGraphWidget::fitInView()
     d->gctx_.view->fitInView(d->gctx_.view->scene()->sceneRect(), Qt::KeepAspectRatio);
 }
 
+void DependencyGraphWidget::refresh()
+{
+    d->setObject(getRootObject());
+    fitInView();
+    objectSelected(getRootObject());
+}
+
 bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
 {
     // Go forward/backward with mouse buttons 4/5.
@@ -646,6 +664,19 @@ bool DependencyGraphWidget::eventFilter(QObject *watched, QEvent *ev)
                 show_sink_widget(d->asp_, sink);
             else
                 emit editObject(obj);
+        }
+    }
+
+    // Single click emits objectSelected() so the main UI can select and
+    // highlight the object in its tree.
+    if (watched == d->scene() && ev->type() == QEvent::GraphicsSceneMousePress && getRootObject())
+    {
+        auto mev = reinterpret_cast<QGraphicsSceneMouseEvent *>(ev);
+
+        if (mev->buttons() & Qt::MouseButton::LeftButton)
+        {
+            if (auto obj = d->objectAtScenePos(mev->scenePos()))
+                emit objectSelected(obj);
         }
     }
 

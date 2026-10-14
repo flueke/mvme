@@ -26,11 +26,13 @@
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDebug>
+#include <QJsonDocument>
 #include <QLineEdit>
 #include <QPainter>
 #include <QPushButton>
 #include <QSettings>
 #include <QTextEdit>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <quazipfile.h>
@@ -94,6 +96,71 @@ bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
+    return QObject::eventFilter(obj, event);
+}
+
+QJsonArray rectToJson(const QRectF &rect)
+{
+    return QJsonArray{ rect.x(), rect.y(), rect.width(), rect.height() };
+}
+
+QRectF rectFromJson(const QJsonArray &arr)
+{
+    if (arr.size() != 4)
+        return {};
+    return QRectF(arr[0].toDouble(), arr[1].toDouble(), arr[2].toDouble(), arr[3].toDouble());
+}
+
+WidgetViewStateSaver::WidgetViewStateSaver(QObject *parent)
+    : QObject(parent)
+{}
+
+void WidgetViewStateSaver::addWidget(QWidget *widget, const QString &key)
+{
+    if (!m_widgetKeys.contains(widget))
+    {
+        widget->installEventFilter(this);
+        connect(widget, &QWidget::destroyed, this, [this, widget] (QObject *) {
+            m_widgetKeys.remove(widget);
+        });
+    }
+    m_widgetKeys.insert(widget, key);
+}
+
+void WidgetViewStateSaver::restoreState(QWidget *widget, const QString &key)
+{
+    if (!m_settings.contains(key))
+        return;
+    auto vs = dynamic_cast<IWidgetViewState *>(widget);
+    if (!vs)
+        return;
+    auto doc = QJsonDocument::fromJson(m_settings.value(key).toByteArray());
+    if (doc.isNull())
+        return;
+    auto state = doc.object();
+    // Defer until after the widget is shown and laid out so the canvas has its
+    // actual size when the zoom is applied (scroll bar geometry depends on it).
+    QTimer::singleShot(0, widget, [vs, state] { vs->setViewState(state); });
+}
+
+void WidgetViewStateSaver::addAndRestore(QWidget *widget, const QString &key)
+{
+    addWidget(widget, key);
+    restoreState(widget, key);
+}
+
+bool WidgetViewStateSaver::eventFilter(QObject *obj, QEvent *event)
+{
+    auto widget = qobject_cast<QWidget *>(obj);
+    if ((event->type() == QEvent::Close || event->type() == QEvent::Hide)
+        && widget && m_widgetKeys.contains(widget))
+    {
+        if (auto vs = dynamic_cast<IWidgetViewState *>(widget))
+        {
+            auto json = QJsonDocument(vs->getViewState()).toJson(QJsonDocument::Compact);
+            m_settings.setValue(m_widgetKeys[widget], json);
+        }
+    }
     return QObject::eventFilter(obj, event);
 }
 

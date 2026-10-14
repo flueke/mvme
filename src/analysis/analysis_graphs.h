@@ -80,6 +80,7 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
     Q_OBJECT
     signals:
         void editObject(const AnalysisObjectPtr &obj);
+        void objectSelected(const AnalysisObjectPtr &obj);
 
     public:
         explicit DependencyGraphWidget(AnalysisServiceProvider *asp, QWidget *parent = nullptr);
@@ -92,6 +93,7 @@ class LIBMVME_EXPORT DependencyGraphWidget: public QWidget
         void setRootObject(const AnalysisObjectPtr &rootObj);
         void setGraphObjectAttributes(const GraphObjectAttributes &goa);
         void fitInView();
+        void refresh();
 
     protected:
         bool eventFilter(QObject *obj, QEvent *ev) override;

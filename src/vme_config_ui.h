@@ -85,21 +85,17 @@ class ModuleConfigDialog: public QDialog
             QWidget *parent = 0);
         ~ModuleConfigDialog() override;
 
-        ModuleConfig *getModule() const { return m_module; }
+        ModuleConfig *getModule() const;
+
+        // If set to false the module type cannot be changed. Used when editing
+        // an existing module instance or importing from a .mvmemodule file.
+        void setAllowTypeChange(bool allow);
 
         virtual void accept() override;
 
-        QComboBox *typeCombo;
-        QLineEdit *nameEdit;
-        QLineEdit *addressEdit;
-
-        ModuleConfig *m_module;
-        const VMEConfig *m_vmeConfig;
-        QVector<vats::VMEModuleMeta> m_moduleMetas;
-
     private:
         struct Private;
-        std::unique_ptr<Private> m_d;
+        std::unique_ptr<Private> d;
 };
 
 QLineEdit *make_vme_address_edit(u32 address = 0u, QWidget *parent = nullptr);
@@ -138,10 +134,13 @@ class ModuleEventHeaderFiltersEditor: public QWidget
         void setData(const std::vector<vats::VMEModuleEventHeaderFilter> &filterDefs);
         std::vector<vats::VMEModuleEventHeaderFilter> getData() const;
 
-        ModuleEventHeaderFiltersTable *getTable() const { return m_table; }
+        ModuleEventHeaderFiltersTable *getTable() const { return m_table_; }
+        void addEntry();
 
     private:
-        ModuleEventHeaderFiltersTable *m_table;
+        ModuleEventHeaderFiltersTable *m_table_;
+        QPushButton *pb_addEntry_;
+        QPushButton *pb_removeEntry_;
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */

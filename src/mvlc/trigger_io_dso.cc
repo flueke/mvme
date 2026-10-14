@@ -285,17 +285,10 @@ jitter_correct_dso_snapshot(
     {
         for (auto &trace: snapshot)
         {
-            // Never correct the first sample: it is either 0 or 1 (the latter
-            // to indicate overflow).
-            //bool isFirstSample = true;
-
             for (auto &sample: trace)
             {
-                //if (!isFirstSample && sample.time != SampleTime::zero())
                 if (sample.time.count() >= jitter)
                     sample.time = SampleTime(sample.time.count() - jitter);
-
-                //isFirstSample = false;
             }
         }
     }

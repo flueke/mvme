@@ -343,6 +343,11 @@ TEST(vme_script_expressions, EvaluateExpression)
         ASSERT_EQ(evaluate_expressions("$(3*4+8)", 0), QSL("20"));
         ASSERT_EQ(evaluate_expressions("$(-(3*4+8))", 0), QSL("-20"));
 
+        // This is '0xffffff00 + 0xff' but exprtk does not do hex literals.
+        ASSERT_EQ(evaluate_expressions("$(4294967040 + 255)", 0), QSL("4294967295"));
+        // This is '0xffffffff + 0xff'
+        ASSERT_EQ(evaluate_expressions("$(4294967295 + 255)", 0), QSL("4294967550"));
+
     } catch (ParseError &e)
     {
         std::cout << e.toString().toStdString() << std::endl;

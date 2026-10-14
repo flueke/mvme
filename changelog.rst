@@ -4,6 +4,360 @@
 Changelog
 ##################################################
 
+Version 1.22.0
+--------------------------------------------------
+
+* New command line tool ``mvme_listfile_export``: export module data arrays
+  from listfiles to CSV or plain text, one row per event, one column per array
+  element.
+
+  - ``explore`` lists meta info and all exportable arrays.
+  - Select whole arrays or single elements, e.g. ``ev.mdpp16.amplitude[0-3,8]``.
+  - Output to file or stdout, configurable separator (``--separator``) and
+    representation of missing values (``--missing nan|empty|0``).
+
+* Support markdown formatting in DAQ run_notes.
+
+* Waveforms: add 'clear' button, implement age based CRT-like fading of traces
+
+* analysis:
+
+  - Store Expression Conditions under the special 'Conditions' directory.
+
+  - Improve Expression Condition connection handling: Allow connections to arrays of size 1.
+
+  - Remove duplicate 'open in plot grid' context menu entries.
+
+  - Crash fixes.
+
+* Fix crashes on startup and on application shutdown.
+
+* Windows installer: remove the Zadig USB driver installer. It is only needed
+  for the VM-USB, and was being installed for the MVLC, which breaks things.
+
+Version 1.21.0
+--------------------------------------------------
+
+* analysis:
+
+  - fix upper bound of the multiplicity operator
+
+  - add 'sum' row to the histogram list stats
+
+  - multiple fixes for both 2d and 1d list projections
+
+  - limit projections to zoomed in area of the source histogram
+
+  - remember zoom state and axis scaling when closing histograms. restore when opening
+
+  - fix titles and axis labels when exporting plots to pdf or image
+
+  - plotgrid: if there are pending changes ask if the view should be saved before closing
+
+* analysis waveforms:
+
+  - change the color table to have more contrast.
+
+  - fix the phase correction setting not being applied to the ui
+
+
+Version 1.20.0
+--------------------------------------------------
+
+* new feature: Ability to update the analysis config stored in listfiles.
+
+  Use case: the baseline analysis config at DAQ time is stored in the listfile
+  zip archive at the end of a run. During offline analysis changes are made to
+  the analysis config. At some point these changes should be saved to the
+  listfile, so that subsequent replays automatically use the updated analysis
+  setup.
+
+  Use 'Save to Listfile' from the toolbar in the analysis window to start the
+  update process.
+
+  The update is done by writing a new listfile zip archive containing the
+  original listmode data and the updated analysis config. The original file is
+  atomically replaced with the updated file to minimize the risk of data loss.
+
+* event_builder: Suppress completely empty output events. Fixes weird looking
+  counts in the analysis window.
+
+* internal: The non-gui MVLC Trigger/IO abstractions now live in the
+  mesytec-mvlc driver.
+
+Version 1.19.0
+--------------------------------------------------
+
+* new feature: A rudimentary diff tool to compare an existing VME config against
+  the template baseline.
+
+  The Diff UI can be accessed by right-clicking on an Event or Module and
+  selecting 'Compare with Template' in the context menu.
+
+*  templates:
+
+   - Add new templates for MDPP32-v2_SCP/QDC
+
+   - Update 'Module Init' of MTDC-32 (bank input config + bank input threshold)
+
+   - Update the MDPP-16/32 (Streaming) SCP/QDC templates: new event header filters for streaming mode,
+
+* doc: Cleanup the MVLC Trigger I/O section. No more reserved units.
+
+* Fix the MVLC VME scanbus UI looping forever if the MVLC cannot be reached.
+
+
+Version 1.18.0
+--------------------------------------------------
+
+Important: mvme-1.18 contains the new event builder implementation which has a
+slightly different configuration than the old version. An attempt is made to
+convert the old config to the new format on load, but settings have to be
+manually reviewed in 'Processing Settings -> Event Builder Settings'.
+
+* general:
+
+  - Multiple ui related crash and bugfixes.
+
+  - Disabled qt debug output in release builds. Might speed things up, especially under windows.
+
+  - Compatibility fix for very old listfiles recorded with the VMUSB.
+
+  - Fix a deadlock when pausing the DAQ while the event builder is active.
+
+  - Can now load and replay listfiles that contain only a MVLC CrateConfig but
+    not a mvme VMEConfig.
+
+* analysis:
+
+  - Fixes for the histogram projection code.
+
+  - Fix for a crash when projecting from a '1d listview' histogram.
+
+  - h1d: add 'relative width' stat to the gauss info box.
+
+  - Fix rare crash in 'show dependency graph'.
+
+  - Allow larger 'rate monitor' capacities (2^30 up from 2^20).
+
+  - Immediately replot after selecting a new histogram from a histo array.
+    Forces and update of the axis scales which previously was delayed.
+
+  - ui: Allow larger range for event builder histograms axes.
+
+  - Improve the event builder (aka timestamp sorter) to gracefully handle the
+    case where none of the modules in an incoming event yields a valid timestamp.
+    This case was not handled properly and lead to excess buffering and eventual
+    halt of the analysis processing.
+
+* daq:
+
+  - MVLC export: add more mvme metadata to exported mvlc crateconfig yaml files.
+
+  - Better config checks prior to daq start. It's now an error to have data
+    producing readout commands in the event multicast start/stop sequences.
+
+  - Add a stream server for streaming raw readout data over TCP or UNIX. If
+    enabled this currently forwars the raw unmodified MVLC readout stream.
+    Uses async send calls to efficiently stream buffers to multiple clients in
+    parallel.
+
+    A simple settings GUI is under 'Workspace Settings -> Stream Server'.
+
+* templates: Update the description of 'sample_source' in the MDPP32_QDC template.
+
+
+Version 1.17.5
+--------------------------------------------------
+
+* Fix a regression with MVLC FW0046 where the 'daq_start' trigger_io signal
+  did not become active when starting the DAQ.
+
+Version 1.17.4
+--------------------------------------------------
+
+* internal changes to stay compatible with newer graphviz versions(13, 14).
+
+* event_server: inline the functions to avoid duplicate definitions under linux
+
+Version 1.17.3
+--------------------------------------------------
+
+* event_server: fix broken socket reads in the example (and ROOT) client under windows.
+
+
+Version 1.17.2
+--------------------------------------------------
+
+* Merge in VMUSB fixes from Chang, Jin-Hee <ChangJ@frib.msu.edu> & Ron Fox. This fixes IRQ
+  mask register handling in certain cases.
+
+* Compatibility with old (2017) VMUSB listfiles restored. These were
+  recorded before the SIS and MVLC controller existed.
+
+* Crash fixes in some of the listfile handling code.
+
+Version 1.17.1
+--------------------------------------------------
+
+* analysis:
+
+  - Fixes and updates to histogram projections. Zooming and on-the-fly
+    resolution reduction have been improved.
+
+  - Fix various UI related crashes
+
+- Add/update Dockerfiles for debian:testing, ubuntu:latest and ubuntu:rolling.
+  Remove the Dockerfiles running only tests but not doing packaging (less files,
+  less maintenance).
+
+- Compile fixes for gcc-15 and clang-19 (removed pre-ansi-c style MBS code, will revive if needed)
+
+Version 1.17.0
+--------------------------------------------------
+
+* config:
+
+  - Remove special handling for MVLC periodic triggers realized via the trigger
+    io subsystem from the UI.
+
+    These triggers have been superseded by the new StackTimers added in MVLC
+    FW0037. If higher frequency timers are needed they can still be implemented
+    via the trigger io system. This change only removes them as a first class
+    trigger condition from the UI.
+
+    Existing event configs will now show 'MVLC Trigger I/O' as their condition
+    instead of 'Periodic (via MVLC Trigger I/O)'.
+
+* analysis:
+
+  - fix crashes in 'Debug & Stats' and the plot grid widget
+
+  - increase initial size of the 'new operator' dialogs
+
+  - speed up and improve the 'MDPP Sample Decoder Monitor' widget (it was able
+    to lag the whole application)
+
+  - fix crashes in the multiplot widget (plot grid)
+
+  - allow editing polygon vertex coordinates directly in the table
+
+  - zero init memory segments in the internal arena under windows
+
+  - fix convert_to_signed() yielding wrong results under windows.
+
+* templates:
+
+  - various fixes when saving/loading custom modules (.mvmemodule)
+
+  - fixed updating of module meta info when loading a VME config
+
+  - mdpp32_scp/mdpp32_qdc
+
+    - lower readout_num_events from +2 to +1 (buffer limitation if sampling is enabled)
+
+    - corrected number of max samples (488 for SCP, 1000 for QDC)
+
+    This only affects newly created modules, existing modules need to be updated manually.
+
+* trigger_io:
+
+  - remove special hightlight for the previously reserved timer and stackstart units
+
+  -  improve the gate generator editors
+
+  - better LUT strobe input explanation
+
+* ui:
+
+  - disable 'Recent Workspaces' action when DAQ is not idle
+
+  - improve log output for errors and the 'accu test' command
+
+  - fix broken listfile recovery under windows
+
+  - fix silly listfile recovery progress values
+
+  - when importing a .mvmemodule file, disable the module type dropdown
+
+  - fix incorrect module meta info when loading a module from file
+
+  - fix multiple issues with exporting & importing .mvmemodule files
+
+  - update the copyright notices
+
+* vme_script:
+
+  - add new commands for the software accu: 'accu_add' and 'accu_write'. These were added for the PTP support
+    in FW0046: read the current ptp seconds value, add a constant to it and write that value back to a special
+    PTP trigger register.
+
+  - fix evaluation of numerical expressions exceeding 32-bit unsigned
+
+- Fix crash when starting a second mvme instance under windows (logfile related).
+
+- add a Dockerfile for debian trixie and fix some issues with trixie
+
+
+Version 1.16.3
+--------------------------------------------------
+
+* Fix non-multievent readouts for the VMUSB and SIS controllers. This has been broken since 1.16.1
+  Note: multievent splitting is currently not supported for these old controller.
+
+Version 1.16.2
+--------------------------------------------------
+
+* vme_templates: lower max sample count for mdpp32_scp from 1k to 500 (buffer limitation)
+
+* add doc/mdpp_sampling_mode.md with a short description of how to use MDPP
+  sampling mode and decode the data
+
+Version 1.16.1
+--------------------------------------------------
+* multi_event_splitter:
+
+  - The splitter can now make use of multiple event header filters per module.
+    This is needed to support mdpp16/32 sampling formats which use a new header
+    word allowing to encode larger frame sizes.
+
+  - Revive error counters (moduleHeaderMismatches and
+    moduleEventSizeExceedsBuffer are counted again).
+
+  - Display more info when inspecting buffers.
+
+* vme_templates:
+
+  - Add strict firmware version checks for MTDC-32 IRQ masks.
+
+  - Add new module header filters to support sampling mode for mdpp16_qdc,
+    mdpp16_scp, mdpp32_scp and mdpp32_qdc.
+
+  - Improve the load/save module functionality and ui.
+
+* analysis:
+
+  - Add spline interpolation option to the waveform viewer
+
+  - Rework of the waveform viewer logic. Most update and mode related bugs
+    should be fixed now.  Note: the plot legend may start to jitter at times.
+    Still have to find a fix for this.
+
+  - Add a deconvolution operator to be used with mdpp sampling mode.
+
+  - Improve the multiplot widget
+
+    * Can now drop single 1D histograms onto the widget.
+
+    * Autosave the view on dropping an object.
+
+* Add a tiny lmd2mvme converter tool. Works with GSI MBS TRIVA structured
+  readout configs only.
+
+* Add 'Tools -> Scan VME Bus' for the MVLC. Does a full scan of the VME address
+  space and tries to identify mesytec modules.
+
+
 Version 1.16.0
 --------------------------------------------------
 

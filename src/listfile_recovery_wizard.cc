@@ -227,8 +227,11 @@ RunPage::RunPage(QWidget *parent)
             this, [this]
             {
                 auto p = progress_.copy();
-                progressBar_->setRange(0, p.inputFileSize);
-                progressBar_->setValue(p.inputBytesRead);
+                auto donePercent = (p.inputFileSize > 0
+                    ? static_cast<double>(p.inputBytesRead) / static_cast<double>(p.inputFileSize) * 100.0
+                    : 0.0);
+                progressBar_->setRange(0, 100);
+                progressBar_->setValue(donePercent);
             });
 }
 
