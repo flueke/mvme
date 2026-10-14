@@ -95,7 +95,7 @@ TEST(ListfileExport, ResolveSelectors)
         ASSERT_EQ(r.selection->arrays[0].moduleIndex, 0u);
         ASSERT_EQ(r.selection->arrays[0].arrayIndex, 1u);
         ASSERT_EQ(r.selection->arrays[1].moduleIndex, 1u);
-        ASSERT_EQ(r.selection->arrays[1].columnOffset, 16u);
+        ASSERT_EQ(r.selection->arrays[1].addressToColumn[0], 16);
         ASSERT_EQ(r.selection->columnNames.size(), 32u);
         ASSERT_EQ(r.selection->columnNames[0], "ev0.my_mdpp.channel_time[0]");
         ASSERT_EQ(r.selection->columnNames[31], "ev0.mdpp16_scp_1.amplitude[15]");
@@ -104,6 +104,79 @@ TEST(ListfileExport, ResolveSelectors)
     ASSERT_FALSE(resolve_selectors(model, {"ev0.my_mdpp.nope"}).selection);
     ASSERT_FALSE(resolve_selectors(model, {}).selection);
     ASSERT_FALSE(resolve_selectors(model, {"ev0.my_mdpp.amplitude", "ev1.other_mdpp.amplitude"}).selection);
+}
+
+TEST(ListfileExport, ParseSelector)
+{
+    {
+        auto r = parse_selector("ev0.m.a");
+        ASSERT_TRUE(r.selector);
+        ASSERT_EQ(r.selector->path, "ev0.m.a");
+        ASSERT_FALSE(r.selector->indices);
+    }
+
+    {
+        auto r = parse_selector("ev0.m.a[3]");
+        ASSERT_TRUE(r.selector);
+        ASSERT_EQ(r.selector->path, "ev0.m.a");
+        ASSERT_EQ(*r.selector->indices, std::vector<size_t>({3}));
+    }
+
+    {
+        auto r = parse_selector("ev0.m.a[5, 0-2,12-13]");
+        ASSERT_TRUE(r.selector);
+        ASSERT_EQ(*r.selector->indices, std::vector<size_t>({5, 0, 1, 2, 12, 13}));
+    }
+
+    for (const auto &bad: {"a[", "a[]", "a[1,]", "a[,1]", "a[3-1]", "a[x]", "a[1-]", "a[-1]", "a[1]b"})
+        ASSERT_FALSE(parse_selector(bad).selector) << bad;
+}
+
+TEST(ListfileExport, ResolveIndexSelectors)
+{
+    auto model = make_listfile_model(make_test_crate_config(), make_test_db());
+
+    {
+        auto r = resolve_selectors(model, {"ev0.my_mdpp.amplitude[15,0-1]", "ev0.my_mdpp.module_timestamp[0]"});
+        ASSERT_TRUE(r.selection);
+        ASSERT_EQ(r.selection->columnNames,
+                  std::vector<std::string>({"ev0.my_mdpp.amplitude[15]", "ev0.my_mdpp.amplitude[0]",
+                                            "ev0.my_mdpp.amplitude[1]", "ev0.my_mdpp.module_timestamp[0]"}));
+        const auto &a2c = r.selection->arrays[0].addressToColumn;
+        ASSERT_EQ(a2c[15], 0);
+        ASSERT_EQ(a2c[0], 1);
+        ASSERT_EQ(a2c[1], 2);
+        ASSERT_EQ(a2c[2], -1);
+        ASSERT_EQ(r.selection->arrays[1].addressToColumn[0], 3);
+    }
+
+    ASSERT_FALSE(resolve_selectors(model, {"ev0.my_mdpp.amplitude[16]"}).selection);
+    ASSERT_FALSE(resolve_selectors(model, {"ev0.my_mdpp.amplitude[1,1]"}).selection);
+    ASSERT_FALSE(resolve_selectors(model, {"ev0.my_mdpp.nope[1]"}).selection);
+}
+
+TEST(ListfileExport, ExportIndexSelection)
+{
+    auto model = make_listfile_model(make_test_crate_config(), make_test_db());
+    auto sel = resolve_selectors(model, {"ev0.my_mdpp.amplitude[15,1]"}).selection;
+    ASSERT_TRUE(sel);
+
+    std::ostringstream out;
+    TextRowWriter writer(out, {",", "", true});
+    Exporter exporter(model, *sel, writer, {true});
+
+    std::vector<u32> data0 = {amplitude_word(0, 100), amplitude_word(1, 101), amplitude_word(15, 115)};
+    std::vector<u32> data1 = {amplitude_word(0, 100)}; // only unselected channels
+    std::vector<mvlc::readout_parser::ModuleData> mds0 = {make_module_data(data0)};
+    std::vector<mvlc::readout_parser::ModuleData> mds1 = {make_module_data(data1)};
+
+    exporter.begin();
+    exporter.processEvent(0, mds0.data(), mds0.size());
+    exporter.processEvent(0, mds1.data(), mds1.size());
+    exporter.end();
+
+    ASSERT_EQ(out.str(), "ev0.my_mdpp.amplitude[15],ev0.my_mdpp.amplitude[1]\n115,101\n");
+    ASSERT_EQ(exporter.counters().emptyRows, 1u);
 }
 
 TEST(ListfileExport, Export)

@@ -1,5 +1,6 @@
 #include "listfile_export/listfile_export.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -133,6 +134,75 @@ std::string array_path(const ListfileModel &model, size_t ei, size_t mi, size_t 
     return event.name + "." + module_.name + "." + module_.arrays.at(ai).name;
 }
 
+namespace
+{
+
+std::optional<size_t> parse_index(const std::string &s)
+{
+    if (s.empty() || s.size() > 9 || s.find_first_not_of("0123456789") != std::string::npos)
+        return {};
+    return std::stoul(s);
+}
+
+} // namespace
+
+ParseSelectorResult parse_selector(const std::string &selector)
+{
+    ParseSelectorResult result;
+    auto bracket = selector.find('[');
+
+    if (bracket == std::string::npos)
+    {
+        result.selector = ParsedSelector{selector, {}};
+        return result;
+    }
+
+    if (selector.back() != ']')
+    {
+        result.error = "missing closing ']' in selector '" + selector + "'";
+        return result;
+    }
+
+    std::string spec;
+    for (char c: selector.substr(bracket + 1, selector.size() - bracket - 2))
+    {
+        if (c != ' ')
+            spec += c;
+    }
+
+    if (spec.empty())
+    {
+        result.error = "empty index list in selector '" + selector + "'";
+        return result;
+    }
+
+    std::vector<size_t> indices;
+    size_t pos = 0;
+
+    while (pos <= spec.size())
+    {
+        auto comma = std::min(spec.find(',', pos), spec.size());
+        auto part = spec.substr(pos, comma - pos);
+        auto dash = part.find('-');
+        auto first = parse_index(part.substr(0, dash));
+        auto last = dash == std::string::npos ? first : parse_index(part.substr(dash + 1));
+
+        if (!first || !last || *last < *first)
+        {
+            result.error = "invalid index '" + part + "' in selector '" + selector + "'";
+            return result;
+        }
+
+        for (size_t i = *first; i <= *last; ++i)
+            indices.push_back(i);
+
+        pos = comma + 1;
+    }
+
+    result.selector = ParsedSelector{selector.substr(0, bracket), std::move(indices)};
+    return result;
+}
+
 SelectionResult resolve_selectors(const ListfileModel &model, const std::vector<std::string> &selectors)
 {
     SelectionResult result;
@@ -145,10 +215,18 @@ SelectionResult resolve_selectors(const ListfileModel &model, const std::vector<
 
     Selection sel;
     std::optional<size_t> eventIndex;
-    size_t columnOffset = 0;
 
     for (const auto &selector: selectors)
     {
+        auto parsed = parse_selector(selector);
+
+        if (!parsed.selector)
+        {
+            result.error = parsed.error;
+            return result;
+        }
+
+        const auto &path = parsed.selector->path;
         bool found = false;
 
         for (size_t ei = 0; ei < model.events.size() && !found; ++ei)
@@ -159,7 +237,7 @@ SelectionResult resolve_selectors(const ListfileModel &model, const std::vector<
 
                 for (size_t ai = 0; ai < arrays.size() && !found; ++ai)
                 {
-                    if (array_path(model, ei, mi, ai) != selector)
+                    if (array_path(model, ei, mi, ai) != path)
                         continue;
 
                     found = true;
@@ -172,18 +250,47 @@ SelectionResult resolve_selectors(const ListfileModel &model, const std::vector<
                     }
 
                     eventIndex = ei;
-                    sel.arrays.push_back({mi, ai, columnOffset});
-                    columnOffset += arrays[ai].size;
 
-                    for (size_t i = 0; i < arrays[ai].size; ++i)
-                        sel.columnNames.emplace_back(selector + "[" + std::to_string(i) + "]");
+                    std::vector<size_t> indices;
+
+                    if (parsed.selector->indices)
+                        indices = *parsed.selector->indices;
+                    else
+                    {
+                        for (size_t i = 0; i < arrays[ai].size; ++i)
+                            indices.push_back(i);
+                    }
+
+                    SelectedArray sa{mi, ai, std::vector<int>(arrays[ai].size, -1)};
+
+                    for (auto index: indices)
+                    {
+                        if (index >= arrays[ai].size)
+                        {
+                            result.error = "index " + std::to_string(index) + " out of range in selector '" +
+                                           selector + "' (array size is " + std::to_string(arrays[ai].size) + ")";
+                            return result;
+                        }
+
+                        if (sa.addressToColumn[index] >= 0)
+                        {
+                            result.error = "duplicate index " + std::to_string(index) + " in selector '" +
+                                           selector + "'";
+                            return result;
+                        }
+
+                        sa.addressToColumn[index] = static_cast<int>(sel.columnNames.size());
+                        sel.columnNames.emplace_back(path + "[" + std::to_string(index) + "]");
+                    }
+
+                    sel.arrays.emplace_back(std::move(sa));
                 }
             }
         }
 
         if (!found)
         {
-            result.error = "no such array: '" + selector + "'";
+            result.error = "no such array: '" + path + "'";
             return result;
         }
     }
@@ -277,20 +384,21 @@ void Exporter::processEvent(int eventIndex, const mvlc::readout_parser::ModuleDa
         const auto data = md.hasDynamic ? mvlc::readout_parser::dynamic_span(md)
                                         : mvlc::readout_parser::prefix_span(md);
         const auto &ai = eventInfo.modules.at(sa.moduleIndex).arrays.at(sa.arrayIndex);
-        double *dest = row_.data() + sa.columnOffset;
-
         for (const u32 *word = data.data, *end = data.data + data.size; word < end; ++word)
         {
             if (!mvlc::util::matches(ai.filter, *word))
                 continue;
 
             u32 address = mvlc::util::extract(ai.fAddress, *word);
-            u32 value = mvlc::util::extract(ai.fValue, *word);
+            int column = sa.addressToColumn[address];
 
-            if (!std::isnan(dest[address]))
+            if (column < 0)
+                continue;
+
+            if (!std::isnan(row_[column]))
                 ++counters_.overwrittenHits;
 
-            dest[address] = value;
+            row_[column] = mvlc::util::extract(ai.fValue, *word);
             hasValues = true;
         }
     }

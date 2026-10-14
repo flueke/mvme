@@ -12,6 +12,7 @@ Version 1.22.0-rc
   element.
 
   - ``explore`` lists meta info and all exportable arrays.
+  - Select whole arrays or single elements, e.g. ``ev.mdpp16.amplitude[0-3,8]``.
   - Output to file or stdout, configurable separator (``--separator``) and
     representation of missing values (``--missing nan|empty|0``).
 

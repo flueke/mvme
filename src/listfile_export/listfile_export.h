@@ -94,12 +94,32 @@ ListfileModel make_listfile_model(const mvlc::CrateConfig &crateConfig, const Fi
 std::string array_path(const ListfileModel &model, size_t ei, size_t mi, size_t ai);
 
 // Resolved array selectors. All selected arrays must belong to the same event.
+//
+// Selector syntax: "<event>.<module>.<array>" selects the whole array,
+// "<event>.<module>.<array>[<indices>]" selects single elements. <indices> is a comma separated
+// list of element indices and inclusive ranges, e.g. "[3]", "[0,2,5]", "[0-3,8,12-15]".
+// Columns are written in the given order.
+
+struct ParsedSelector
+{
+    std::string path;
+    std::optional<std::vector<size_t>> indices; // unset: whole array
+};
+
+struct ParseSelectorResult
+{
+    std::optional<ParsedSelector> selector;
+    std::string error;
+};
+
+ParseSelectorResult parse_selector(const std::string &selector);
 
 struct SelectedArray
 {
     size_t moduleIndex;
     size_t arrayIndex;
-    size_t columnOffset;
+    // Row column for each array address, -1 if the address is not selected.
+    std::vector<int> addressToColumn;
 };
 
 struct Selection

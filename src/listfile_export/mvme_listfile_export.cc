@@ -24,9 +24,12 @@ Commands:
   explore   Show listfile meta info and all arrays available for export.
   export    Write the selected arrays to a table with one row per event and one
             column per array element. Arrays are selected by their full path as
-            shown by 'explore', e.g. my_event.my_mdpp16.amplitude. All arrays must
-            belong to the same event. If no array is given and the listfile
-            contains exactly one module with data, its first array is exported.
+            shown by 'explore', e.g. my_event.my_mdpp16.amplitude. Single elements
+            are selected by appending a list of indices and inclusive ranges in
+            brackets, e.g. 'my_event.my_mdpp16.amplitude[0-3,8]'. Quote these to
+            avoid shell globbing. All arrays must belong to the same event. If no
+            array is given and the listfile contains exactly one module with data,
+            its first array is exported.
 
 Export options:
   -o, --output <file>     Output file, '-' for stdout. Default: listfile name with .csv or
