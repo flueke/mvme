@@ -51,8 +51,8 @@ int main(int argc, char *argv[])
     dump_gv_error_buffer("gv error buffer after gvLayout(): ");
 
     char *renderDest = nullptr;
-    unsigned int renderSize = 0;
-    gvRenderData(gvc, g, outputFormat, &renderDest, &renderSize);
+    size_t renderSize = 0;
+    gv_render_data(gvc, g, outputFormat, &renderDest, &renderSize);
     dump_gv_error_buffer("gv error buffer after gvRenderData(): ");
     assert(renderDest);
 
