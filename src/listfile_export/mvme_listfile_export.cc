@@ -34,7 +34,9 @@ Export options:
   --format <csv|text>     csv: comma separated, missing values are empty.
                           text: space separated, missing values are 'nan'.
                           Default: from the output file extension, otherwise csv.
-  --missing <nan|empty>   Override the representation of missing values.
+  --separator <sep>       Override the column separator. Any string, '\t' or 'tab' for a tab
+                          character.
+  --missing <nan|empty|0> Override the representation of missing values.
   --skip-empty-rows       Do not write events where all selected values are missing.
   --no-header             Do not write the column name header line.
 
@@ -321,15 +323,24 @@ static int cmd_export(ListfileContext &ctx, const ListfileModel &model, const ar
             writerOpts.missing = "nan";
         else if (missing == "empty")
             writerOpts.missing = "";
+        else if (missing == "0")
+            writerOpts.missing = "0";
         else
         {
-            std::cerr << "Error: --missing must be 'nan' or 'empty'\n";
+            std::cerr << "Error: --missing must be 'nan', 'empty' or '0'\n";
             return 1;
         }
     }
 
-    if (writerOpts.missing.empty() && writerOpts.separator == " ")
-        spdlog::warn("empty missing values with space separated output will result in ambiguous rows");
+    if (auto sep = parser("--separator").str(); !sep.empty())
+    {
+        if (sep == "\\t" || sep == "tab")
+            sep = "\t";
+        writerOpts.separator = sep;
+    }
+
+    if (writerOpts.missing.empty() && (writerOpts.separator == " " || writerOpts.separator == "\t"))
+        spdlog::warn("empty missing values with whitespace separated output will result in ambiguous rows");
 
     writerOpts.header = !parser["--no-header"];
 
@@ -423,7 +434,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    argh::parser parser({"-o", "--output", "--format", "--missing", "--log-level"});
+    argh::parser parser({"-o", "--output", "--format", "--separator", "--missing", "--log-level"});
     parser.parse(static_cast<int>(args.size()), args.data());
 
     if (parser[{"-h", "--help"}] || parser.size() < 3)
