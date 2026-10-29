@@ -32,7 +32,7 @@ HistoStatsTableModel::~HistoStatsTableModel()
 
 struct HistoStatsWidget::Private
 {
-    static const int AdditionalTableRows = 4; // rms, min, max mean for each of the columns
+    static const int AdditionalTableRows = 5; // rms, min, max, mean, sum for each of the columns
 
     // Indexes for the bottom rows containing aggrregate values. The index value
     // is subtracted from model->rowCount() to calculate the final row index.
