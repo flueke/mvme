@@ -1,0 +1,33 @@
+{
+  "builtin-baseline": "44ccfd88b3eca6929d6d16398c7b19945c29a5f6",
+  "dependencies": [
+    "boost-circular-buffer",
+    "boost-dynamic-bitset",
+    "boost-endian",
+    "boost-geometry",
+    "boost-iterator",
+    "boost-property-tree",
+    "boost-range",
+    "boost-scope-exit",
+    "boost-variant",
+    "getopt",
+    "graphviz",
+    "liblzma",
+    "libusb-win32",
+    "lz4",
+    "nng",
+    "qt5-svg",
+    "qt5-websockets",
+    "quazip-qt5",
+    "qwt-qt5",
+    "zlib",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}
