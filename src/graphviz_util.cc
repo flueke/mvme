@@ -54,7 +54,7 @@ std::string layout_and_render_dot(
 
     std::string result;
 
-    if (GVC_t *gvc = gvContext())
+    if (GVC_t *gvc = qgv_new_gv_context())
     {
         if (Agraph_t *g = agmemread(dotCode))
         {
