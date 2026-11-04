@@ -4,6 +4,29 @@
 Changelog
 ##################################################
 
+Version 1.23.0-pre
+--------------------------------------------------
+
+* mvlc-cli: new ``reboot`` command. Reboots the MVLC (requires FW0036 or
+  newer) through its MVP interface, waits for it to come back and
+  reconnects. ``reboot <vme-address>`` reboots a mesytec VME module instead.
+  Without ``--area`` the dipswitch area (the power-up default) is booted.
+
+* MVLC USB: updated the FTDI D3XX driver.
+
+  - Linux: support ftdi-d3xx 1.1.8. Better command pipe timeouts and
+    performance. Fixes stale replies after a USB reset and recovers locked
+    up MVLCs.
+  - Windows: the installer bundles ftd3xx 1.3 (FTDIBUS3) and 1.4 (WinUSB).
+    The matching one is loaded at runtime. Command reads use a 100 ms
+    timeout and no longer abort on a timeout.
+  - Command pipe reader: fixes a possible infinite loop and stalls on bad
+    continuation headers.
+
+* Fix MVLC ETH "Force Reset" not disabling DAQ mode and triggers.
+
+* analysis: fix the broken last channel row in the histogram list stats.
+
 Version 1.22.0
 --------------------------------------------------
 
