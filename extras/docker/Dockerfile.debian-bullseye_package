@@ -27,9 +27,11 @@ WORKDIR /build
 
 ENV QT_QPA_PLATFORM=minimal
 
+ARG JOBS
 RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/install \
           -DMVME_BUILD_TESTS=OFF /sources \
-    && ninja && ctest . -LE not_in_docker --output-on-failure && ninja package
+    && cmake --build . ${JOBS:+-j $JOBS} && ctest . -LE not_in_docker --output-on-failure \
+    && cmake --build . --target package
 
 FROM scratch
 COPY --from=build /build/packages ./build-artifacts
