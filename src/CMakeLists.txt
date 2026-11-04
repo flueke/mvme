@@ -8,14 +8,7 @@ set(CMAKE_AUTORCC OFF)
 set(CMAKE_AUTOUIC OFF)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Qt5Concurrent REQUIRED)
-find_package(Qt5Gui REQUIRED)
-find_package(Qt5Network REQUIRED)
-find_package(Qt5OpenGL REQUIRED)
-find_package(Qt5PrintSupport REQUIRED)
-find_package(Qt5Svg REQUIRED)
-find_package(Qt5Widgets REQUIRED)
-find_package(Qt5Xml REQUIRED)
+find_package(Qt5 COMPONENTS Concurrent Gui Network OpenGL PrintSupport Svg Widgets Xml REQUIRED)
 find_package(Qt5WebEngineWidgets QUIET)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
@@ -26,7 +19,7 @@ endif()
 find_package(Threads)
 
 # libusb-0.1
-if (WIN32)
+if (MINGW)
     find_path(LIBUSB_INCLUDE_PATH lusb0_usb.h
         PATHS "C:/libusb-win32-bin-1.2.6.0/include")
 
@@ -43,6 +36,10 @@ if (WIN32)
             PATHS "C:/libusb-win32-bin-1.2.6.0/bin/x86")
         message("Using 32 bit libusb: ${LIBUSB_LIBRARY}")
     endif()
+elseif(WIN32) # vcpkg, etc
+    find_path(LIBUSB_INCLUDE_PATH lusb0_usb.h)
+    find_library(LIBUSB_LIBRARY NAMES libusb0)
+    message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}, LIBUSB_INCLUDE_PATH=${LIBUSB_INCLUDE_PATH}")
 else()
     find_library(LIBUSB_LIBRARY usb)
     find_path(LIBUSB_INCLUDE_PATH usb.h)
@@ -95,19 +92,19 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 #
 # libmvme_resources
 #
+# Static because a resource-only DLL exports nothing, so MSVC creates no import
+# library for it. Registration happens via Q_INIT_RESOURCE() in mvme_session.cc.
 qt5_add_resources(LIBMVME_RES_RC_OUT mvme_resources.qrc)
-add_library(libmvme_resources SHARED
+add_library(libmvme_resources STATIC
     ${LIBMVME_RES_RC_OUT})
 
-set_target_properties(libmvme_resources PROPERTIES OUTPUT_NAME mvme_resources)
+set_target_properties(libmvme_resources PROPERTIES
+    OUTPUT_NAME mvme_resources
+    POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(libmvme_resources
     PUBLIC Qt5::Core
     )
-
-install(TARGETS libmvme_resources
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib)
 
 #
 # libmvme_mdpp_decode
@@ -122,6 +119,9 @@ target_link_libraries(libmvme_mdpp_decode
     )
 
 set_target_properties(libmvme_mdpp_decode PROPERTIES OUTPUT_NAME mvme_mdpp_decode)
+if (MSVC)
+    set_target_properties(libmvme_mdpp_decode PROPERTIES PREFIX "lib")
+endif()
 generate_export_header(libmvme_mdpp_decode)
 
 install(TARGETS libmvme_mdpp_decode RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
@@ -337,12 +337,16 @@ add_library(libmvme SHARED
     )
 
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
+# MSVC does not add a "lib" prefix to DLLs. Add it manually so the dll is
+# called libmvme.dll as under MinGW and its pdb does not clash with mvme.pdb
+# from the mvme executable.
+if (MSVC)
+    set_target_properties(libmvme PROPERTIES PREFIX "lib")
+endif()
 generate_export_header(libmvme)
 
 target_link_libraries(libmvme
-    PRIVATE ${GRAPHVIZ_CDT_LIBRARY}
-    PRIVATE ${GRAPHVIZ_CGRAPH_LIBRARY}
-    PRIVATE ${GRAPHVIZ_GVC_LIBRARY}
+    PRIVATE ${GRAPHVIZ_LIBRARIES}
     PRIVATE ${LIBUSB_LIBRARY}
     PRIVATE Threads::Threads
     PRIVATE jcon
@@ -366,7 +370,7 @@ target_link_libraries(libmvme
     PUBLIC libmvme_resources
     PUBLIC libmvme_mdpp_decode
     PUBLIC mesytec-mvlc
-    PUBLIC nng
+    PUBLIC nng::nng
     PUBLIC yaml-cpp
     )
 
@@ -374,10 +378,16 @@ target_link_libraries(libmvme
 
 target_compile_options(libmvme
     PRIVATE $<${not-msvc}:-Wall -Wextra>
-    PRIVATE $<${not-msvc}:-Wno-deprecated-declarations> # disable Qt deprecation warnings
-    PRIVATE $<${not-msvc}:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
+    PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-deprecated-declarations> # disable Qt deprecation warnings
+    PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Werror=return-type> # turn missing returns into errors. these cases lead to weird crashes.
     PRIVATE -DQT_DISABLE_DEPRECATED_UP_TO=0x060700
     )
+
+if (MSVC)
+    # qwt headers only use dllimport if QWT_DLL is defined. Without it static
+    # data members like QwtLogTransform::LogMin end up as undefined symbols.
+    target_compile_definitions(libmvme PUBLIC QWT_DLL)
+endif()
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
     target_compile_options(libmvme PRIVATE -DQT_NO_DEBUG_OUTPUT)
@@ -547,24 +557,20 @@ add_mvme_dev_exe(dev_analysis_to_dot dev_analysis_to_dot.cc)
 
 if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
     add_mvme_dev_exe(dev_graphviz_lib_test0 dev_graphviz_lib_test0.cc)
-    target_link_libraries(dev_graphviz_lib_test0 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+    target_link_libraries(dev_graphviz_lib_test0 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     add_mvme_dev_exe(dev_graphviz_lib_test1 dev_graphviz_lib_test1.cc)
-    target_link_libraries(dev_graphviz_lib_test1 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+    target_link_libraries(dev_graphviz_lib_test1 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     add_mvme_dev_exe(dev_graphviz_lib_test2 dev_graphviz_lib_test2.cc)
-    target_link_libraries(dev_graphviz_lib_test2 PRIVATE cdt PRIVATE cgraph PRIVATE gvc)
+    target_link_libraries(dev_graphviz_lib_test2 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     add_mvme_dev_exe(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
     #target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc PRIVATE libgvplugin_dot_layout)
     install(TARGETS dev_graphviz_lib_test3 RUNTIME DESTINATION bin)
 
     add_executable(dev_graphviz_lib_test4 dev_graphviz_lib_test4.cc)
-    target_link_libraries(dev_graphviz_lib_test4
-        PRIVATE cdt
-        PRIVATE cgraph
-        PRIVATE gvc
-    )
+    target_link_libraries(dev_graphviz_lib_test4 PRIVATE ${GRAPHVIZ_LIBRARIES})
 
     qt5_wrap_ui(dev_graphviz_lib_test5_uic dev_graphviz_lib_test5_mainwin.ui)
     add_executable(dev_graphviz_lib_test5

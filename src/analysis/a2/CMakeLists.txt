@@ -60,10 +60,13 @@ set(liba2_SOURCES
 
 # Pass -mbig-obj to mingw gas on Win64. This works around the "too many
 # sections" error when linking code with lots of templates.
-if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+if (MINGW AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_source_files_properties(${liba2_SOURCES} PROPERTIES
         COMPILE_FLAGS "-Wa,-mbig-obj"
     )
+elseif (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set_source_files_properties(${liba2_SOURCES} PROPERTIES
+        COMPILE_FLAGS "-Wno-missing-template-arg-list-after-template-kw")
 endif()
 
 #option(A2_BUILD_SHARED "Build shared version of the a2 library" OFF)
@@ -122,7 +125,7 @@ if (A2_BUILD_STATIC)
         OUTPUT_NAME a2
         POSITION_INDEPENDENT_CODE ON)
 
-    target_compile_options(liba2_static PRIVATE -Wall -Wextra -Wno-format)
+    target_compile_options(liba2_static PRIVATE $<${not-msvc}:-Wall -Wextra -Wno-format>)
     target_include_directories(liba2_static PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>

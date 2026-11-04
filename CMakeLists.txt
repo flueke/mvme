@@ -69,7 +69,14 @@ SET(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
 SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN/")
 
-set(not-msvc $<NOT:$<CXX_COMPILER_ID:MSVC>>)
+# True for gcc/clang, false for MSVC and clang-cl (where -Wall means -Weverything).
+set(not-msvc $<NOT:$<OR:$<CXX_COMPILER_ID:MSVC>,$<STREQUAL:${CMAKE_CXX_COMPILER_FRONTEND_VARIANT},MSVC>>>)
+
+if (MSVC)
+    # WIN32_LEAN_AND_MEAN: keep windows.h from pulling in winsock.h which
+    # clashes with later winsock2.h includes.
+    add_compile_definitions(_USE_MATH_DEFINES WIN32_LEAN_AND_MEAN)
+endif()
 
 # externals
 add_subdirectory("${CMAKE_SOURCE_DIR}/external")
@@ -85,7 +92,7 @@ find_path(QUAZIP_INCLUDE_DIR
 )
 
 find_library(QUAZIP_QT5_RELEASE NAMES quazip quazip-qt5 quazip5 quazip1-qt5)
-find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d)
+find_library(QUAZIP_QT5_DEBUG NAMES quazipd quazip-qt5d quazip5d quazip1-qt5d)
 
 if (WIN32 OR QUAZIP_QT5_DEBUG)
     if (QUAZIP_QT5_DEBUG)

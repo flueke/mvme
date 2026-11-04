@@ -41,9 +41,9 @@ endif()
 add_subdirectory(qgv)
 
 # nng - networking library
-find_package(nng QUIET)
+find_package(nng 1 QUIET GLOBAL)
 
-if(NOT nng AND NOT TARGET nng)
+if (NOT TARGET nng::nng)
     message("-- Using nng from external/nng")
     set(BUILD_SHARED_LIBS ON)
     set(NNG_TESTS OFF)
@@ -70,6 +70,8 @@ if(NOT nng AND NOT TARGET nng)
     #if (LINUX)
     #    set_target_properties(nng PROPERTIES POSITION_INDEPENDENT_CODE ON)
     #endif()
+
+    add_library(nng::nng ALIAS nng)
 endif()
 
 # range-v3

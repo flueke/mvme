@@ -9,6 +9,11 @@ if (WIN32)
     target_link_libraries(mvme_event_server_example_client PRIVATE ws2_32)
 endif (WIN32)
 
+if (MSVC)
+    find_package(unofficial-getopt-win32 REQUIRED)
+    target_link_libraries(mvme_event_server_example_client PRIVATE unofficial::getopt-win32::getopt)
+endif()
+
 install(TARGETS mvme_event_server_example_client
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib)
@@ -26,4 +31,7 @@ if (pybind11_FOUND)
     if (WIN32)
         target_link_libraries(mvme_event_server_python_client PRIVATE ws2_32)
     endif (WIN32)
+    if (MSVC)
+        target_link_libraries(mvme_event_server_python_client PRIVATE unofficial::getopt-win32::getopt)
+    endif()
 endif(pybind11_FOUND)
