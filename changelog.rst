@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 1.22.0-rc
+Version 1.22.0
 --------------------------------------------------
 
 * New command line tool ``mvme_listfile_export``: export module data arrays
