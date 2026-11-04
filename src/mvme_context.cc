@@ -2842,7 +2842,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     }
 
     auto analysis_ng = std::shared_ptr<Analysis>(new Analysis(),
-        [] (auto a) { a->deleteLater(); });
+        [] (Analysis *a) { a->deleteLater(); });
 
     if (auto ec = analysis_ng->read(json, getVMEConfig()))
     {

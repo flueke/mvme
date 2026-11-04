@@ -83,6 +83,14 @@ struct LIBMVME_EXPORT Parameter
     double upperLimit = 0.0; // exclusive
 };
 
+inline bool operator==(const Parameter &lhs, const Parameter &rhs)
+{
+    return lhs.valid == rhs.valid &&
+           lhs.value == rhs.value &&
+           lhs.lowerLimit == rhs.lowerLimit &&
+           lhs.upperLimit == rhs.upperLimit;
+}
+
 inline bool isParameterValid(const Parameter *param)
 {
     return (param && param->valid);

@@ -26,6 +26,7 @@
 #include <chrono>
 #include <getopt.h>
 #include <signal.h>
+#include <thread>
 
 using std::cerr;
 using std::cout;
@@ -326,10 +327,7 @@ int main(int argc, char *argv[])
                 break;
             }
 
-            if (usleep(1000 * 1000) != 0 && errno != EINTR)
-            {
-                throw std::system_error(errno, std::generic_category(), "usleep");
-            }
+            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
         if (signal_received) break;

@@ -157,7 +157,7 @@ struct MultiPlotWidget::Private
 
     void removeEntry(const std::shared_ptr<PlotEntry> &e)
     {
-        if (auto idx = indexOf(e); 0 <= idx && idx < static_cast<ssize_t>(entries_.size()))
+        if (auto idx = indexOf(e); 0 <= idx && idx < static_cast<s64>(entries_.size()))
             entries_.erase(std::begin(entries_) + idx);
         relayout();
     }

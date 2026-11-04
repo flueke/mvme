@@ -1,4 +1,5 @@
 #include "analysis_ui_util.h"
+#include "analysis_ui_p.h"
 
 #include <QGuiApplication>
 #include <QApplication>
@@ -10,7 +11,6 @@
 #include "multiplot_widget.h"
 #include "rate_monitor_widget.h"
 
-#include "analysis_ui_p.h"
 #include "expression_operator_dialog.h"
 #include "listfilter_extractor_dialog.h"
 

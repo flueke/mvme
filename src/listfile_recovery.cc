@@ -6,6 +6,7 @@
 
 #include "listfile_recovery.h"
 #include <QtEndian>
+#include <array>
 #include <system_error>
 #include <zlib.h>
 #include <mesytec-mvlc/mvlc_listfile_zip.h>
@@ -34,7 +35,7 @@ inline std::system_error make_errno_exception(const char *what)
 	return std::system_error(errno, std::generic_category(), what);
 }
 
-#ifndef MVLC_PLATFORM_WINDOWS
+#ifndef _WIN32
 inline FILE *wrap_fopen(const std::string &filename, const char *mode)
 {
 	return fopen64(filename.c_str(), mode);
@@ -57,12 +58,12 @@ inline FILE *wrap_fopen(const std::string &filename, const char *mode)
 
 inline s64 wrap_fseek(FILE *fh, s64 offset, int whence)
 {
-	return fseek(fh, offset, whence);
+	return _fseeki64(fh, offset, whence);
 }
 
 inline s64 wrap_ftell(FILE *fh)
 {
-	return ftell(fh);
+	return _ftelli64(fh);
 }
 #endif
 

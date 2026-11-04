@@ -24,13 +24,11 @@
 #include <QMutexLocker>
 
 #ifdef WIENER_USE_LIBUSB1
-#include <libusb.h>
+    #include <libusb.h>
+#elif defined(__MINGW32__) || defined(_WIN32)
+    #include <lusb0_usb.h>
 #else
-    #ifdef __MINGW32__
-        #include <lusb0_usb.h>
-    #else
-        #include <usb.h>
-    #endif
+    #include <usb.h>
 #endif
 
 #define XXUSB_WIENER_VENDOR_ID  0x16DC  /* Wiener, Plein & Baus */
@@ -71,7 +69,7 @@ static void* addToPacket32(void* packet, uint32_t datum)
 
 static QString errnoString(int errnum)
 {
-#ifdef __MINGW32__
+#if defined(__MINGW32__) || defined(_WIN32)
     return QString(strerror(errnum));
 #else
     char buffer[256] = {};
@@ -257,11 +255,11 @@ void VMUSB::getUsbDevices(void)
 
     libusb_device **deviceList;
 
-    ssize_t deviceCount = libusb_get_device_list(m_libusbContext, &deviceList);
+    s64 deviceCount = libusb_get_device_list(m_libusbContext, &deviceList);
 
     //qDebug() << __PRETTY_FUNCTION__ << "got a list of" << deviceCount << "usb devices";
 
-    for (ssize_t deviceIndex = 0; deviceIndex < deviceCount; ++deviceIndex)
+    for (s64 deviceIndex = 0; deviceIndex < deviceCount; ++deviceIndex)
     {
         libusb_device *device = deviceList[deviceIndex];
 

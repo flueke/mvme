@@ -229,11 +229,11 @@ void RateMonitorWidgetPrivate::updateVisibleRangeInfoLabel()
 
     if (const auto sampler = currentSampler())
     {
-        ssize_t minIdx = sampler->getSampleIndex(visibleMinX / 1000.0);
-        ssize_t maxIdx = sampler->getSampleIndex(visibleMaxX / 1000.0);
+        s64 minIdx = sampler->getSampleIndex(visibleMinX / 1000.0);
+        s64 maxIdx = sampler->getSampleIndex(visibleMaxX / 1000.0);
 
         double  avg  = 0.0;
-        ssize_t size = sampler->rateHistory.size();
+        s64 size = sampler->rateHistory.size();
 
         if (0 <= minIdx && minIdx < size
             && 0 <= maxIdx && maxIdx < size)
@@ -282,10 +282,10 @@ void RateMonitorWidgetPrivate::updateCursorInfoLabel()
 
         if (sampler)
         {
-            ssize_t iy = sampler->getSampleIndex(plotX / 1000.0);
+            s64 iy = sampler->getSampleIndex(plotX / 1000.0);
             double y   = make_quiet_nan();
 
-            if (0 <= iy && iy < static_cast<ssize_t>(sampler->historySize()))
+            if (0 <= iy && iy < static_cast<s64>(sampler->historySize()))
             {
                 y = sampler->getSample(iy);
             }

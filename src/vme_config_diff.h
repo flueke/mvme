@@ -74,6 +74,14 @@ struct LIBMVME_EXPORT DiffNode
     // Child node differences
     std::vector<std::unique_ptr<DiffNode>> children;
 
+    // Explicitly move-only: exported classes get all special members
+    // instantiated under MSVC, which fails for the implicit copy operations.
+    DiffNode() = default;
+    DiffNode(const DiffNode &) = delete;
+    DiffNode &operator=(const DiffNode &) = delete;
+    DiffNode(DiffNode &&) = default;
+    DiffNode &operator=(DiffNode &&) = default;
+
     // Helper to get the relevant object for display
     const ConfigObject* getObject() const
     {

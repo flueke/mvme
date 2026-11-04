@@ -317,7 +317,7 @@ void HistoStatsWidget::Private::refresh()
             return accu;
         });
 
-    assert(static_cast<ssize_t>(allStats.size()) == statsRowCount());
+    assert(static_cast<s64>(allStats.size()) == statsRowCount());
 
     // Update the info label (the groupbox above the table).
     QStringList infoLines =

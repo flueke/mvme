@@ -55,7 +55,7 @@ ListfileBufferFormat detect_listfile_format(QIODevice *listfile)
     // do contain 'MVME' as a preamble so we default to MVMELST format.
     ListfileBufferFormat result = ListfileBufferFormat::MVMELST;
 
-    ssize_t bytesRead = listfile->read(buffer.data(), buffer.size());
+    s64 bytesRead = listfile->read(buffer.data(), buffer.size());
 
     if (std::strncmp(buffer.data(), "MVLC_ETH", bytesRead) == 0)
         result = ListfileBufferFormat::MVLC_ETH;

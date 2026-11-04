@@ -1462,14 +1462,16 @@ void DataSourceMdppSampleDecoder::read(const QJsonObject &json)
 
 size_t DataSourceMdppSampleDecoder::getStatsCount() const
 {
-    return mesytec::mvme::mdpp_sampling::TraceHeader::PartNames.size();
+    return mesytec::mvme::mdpp_sampling::TraceHeader::PartNames().size();
 }
 
 QString DataSourceMdppSampleDecoder::getStatsName(size_t index) const
 {
-    if (index < static_cast<size_t>(getStatsCount()))
+    auto &partNames = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames();
+
+    if (index < partNames.size())
     {
-        return mesytec::mvme::mdpp_sampling::TraceHeader::PartNames[index];
+        return QString::fromStdString(partNames[index]);
     }
 
     return {};
@@ -1479,7 +1481,7 @@ unsigned DataSourceMdppSampleDecoder::getStatsBits(size_t index) const
 {
     if (index < static_cast<size_t>(getStatsCount()))
     {
-        return mesytec::mvme::mdpp_sampling::TraceHeader::PartBits[index];
+        return mesytec::mvme::mdpp_sampling::TraceHeader::PartBits()[index];
     }
 
     return {};
@@ -1497,8 +1499,8 @@ s32 DataSourceMdppSampleDecoder::getStatsOutputIndex(const size_t statsIndex) co
 
 s32 DataSourceMdppSampleDecoder::getStatsOutputIndex(const QString &statsName) const
 {
-    const auto &PartNames = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames;
-    auto it = std::find(PartNames.begin(), PartNames.end(), statsName);
+    const auto &PartNames = mesytec::mvme::mdpp_sampling::TraceHeader::PartNames();
+    auto it = std::find(PartNames.begin(), PartNames.end(), statsName.toStdString());
 
     if (it == std::end(PartNames))
         return -1;

@@ -13,8 +13,17 @@
 namespace mesytec::mvme::mdpp_sampling
 {
 
-const std::array<const char *, 4> TraceHeader::PartNames = { "debug", "config", "phase", "length" };
-const std::array<unsigned, 4> TraceHeader::PartBits = { 1, 8, 9, 10 };
+const std::vector<std::string> &TraceHeader::PartNames()
+{
+    static const std::vector<std::string> partNames = { "debug", "config", "phase", "length" };
+    return partNames;
+}
+
+const std::vector<unsigned> &TraceHeader::PartBits()
+{
+    static const std::vector<unsigned> partBits = { 1, 8, 9, 10 };
+    return partBits;
+}
 
 namespace
 {

@@ -245,7 +245,7 @@ class ClientContext: public mvme::event_server::Client
             m_analysisInitArgs = args;
         }
 
-        void setRootMaxTreeSize(const ssize_t maxTreeSize)
+        void setRootMaxTreeSize(const s64 maxTreeSize)
         {
             m_rootMaxTreeSize = maxTreeSize;
         }
@@ -283,7 +283,7 @@ class ClientContext: public mvme::event_server::Client
         std::string m_host;
         std::string m_port;
         std::vector<std::string> m_analysisInitArgs;
-        ssize_t m_rootMaxTreeSize = 100000000000LL;
+        s64 m_rootMaxTreeSize = 100000000000LL;
 };
 
 ClientContext::ClientContext(const Options::Opt_t &options)
@@ -1164,7 +1164,7 @@ int client_main(
     const std::string &port,
     const Options::Opt_t &clientOpts,
     const std::vector<std::string> &additionalArgs,
-    const ssize_t rootMaxTreeSize)
+    const s64 rootMaxTreeSize)
 {
     // Act as a client to the mvme event_server. This code tries to connect
     // to mvme, receive run data and produce ROOT files until canceled via
@@ -1429,7 +1429,7 @@ int main(int argc, char *argv[])
     std::string host = "localhost";
     std::string port = "13801";
     std::string analysisArg;
-    ssize_t rootMaxTreeSize = 100000000000LL;
+    s64 rootMaxTreeSize = 100000000000LL;
     bool showHelp = false;
 
     using Opts = Options;

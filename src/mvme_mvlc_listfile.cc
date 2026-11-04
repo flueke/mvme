@@ -32,7 +32,7 @@ namespace
     template<typename T>
     bool checked_read(QIODevice &input, T &dest)
     {
-        ssize_t bytesRead = input.read(reinterpret_cast<char *>(&dest), sizeof(dest));
+        s64 bytesRead = input.read(reinterpret_cast<char *>(&dest), sizeof(dest));
 
         return bytesRead == sizeof(dest);
     }

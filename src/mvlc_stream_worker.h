@@ -21,10 +21,10 @@
 #ifndef __MVLC_STREAM_WORKERS_H__
 #define __MVLC_STREAM_WORKERS_H__
 
+#include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/mvlc_readout_parser.h>
 #include "stream_worker_base.h"
 
-#include <mesytec-mvlc/mesytec-mvlc.h>
 #include <mesytec-mvlc/event_builder2.hpp>
 
 #include "libmvme_export.h"

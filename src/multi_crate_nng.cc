@@ -1087,9 +1087,10 @@ LoopResult replay_loop(ReplayJobContext &context)
 
     auto process_input_data = [&] (auto input)
     {
-        auto nextHeader = std::begin(input);
-        auto cratePartsBegin = std::begin(input);
-        const auto end = std::end(input);
+        // Raw pointers: string_view iterators are not pointers under MSVC.
+        const u32 *nextHeader = input.data();
+        const u32 *cratePartsBegin = input.data();
+        const u32 *const end = input.data() + input.size();
 
         auto [crateId, partWords, bufferType] = extract_part_info(nextHeader, end);
         // if partsWords == 0  -> no header info could be extrated
@@ -1097,7 +1098,7 @@ LoopResult replay_loop(ReplayJobContext &context)
         while (partWords > 0 && nextHeader + partWords <= end)
         {
             nextHeader += partWords;
-            auto [nextCrateId, nextPartWords, nextBufferType] = extract_part_info(nextHeader, std::end(input));
+            auto [nextCrateId, nextPartWords, nextBufferType] = extract_part_info(nextHeader, end);
             partWords = nextPartWords;
 
             if (nextHeader + nextPartWords > end)
@@ -1122,7 +1123,7 @@ LoopResult replay_loop(ReplayJobContext &context)
             }
         }
 
-        if (nextHeader + partWords <= std::end(input))
+        if (nextHeader + partWords <= end)
             nextHeader += partWords;
         auto cratePartsEnd = nextHeader;
         auto cratePartWords = std::distance(cratePartsBegin, cratePartsEnd);
@@ -1187,7 +1188,7 @@ LoopResult replay_loop(ReplayJobContext &context)
         auto it = process_input_data(input);
 
         {
-            auto wordsConsumed = std::distance(std::begin(input), it);
+            auto wordsConsumed = std::distance(input.data(), it);
             auto bytesConsumed = wordsConsumed * sizeof(u32);
             auto bytesToMove = std::distance(mainBuf.data() + bytesConsumed, mainBuf.data() + mainBuf.used());
             spdlog::debug("replay_loop: input consumed: words={}, bytes={}, bytesToMove={}", wordsConsumed, bytesConsumed, bytesToMove);

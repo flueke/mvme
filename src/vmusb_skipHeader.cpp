@@ -19,7 +19,7 @@
 
 #include <stdint.h>
 
-#ifdef __MINGW32__
+#if defined(__MINGW32__)  || defined(_WIN32)
 
 /* Source: https://codereview.stackexchange.com/a/149751 */
 #include <string.h>
@@ -44,7 +44,7 @@ uint16_t ntohs(uint16_t const net)
          | ((uint16_t) data[0] << 8);
 }
 
-#else // __MINGW32__
+#else // not windoof
     #include <arpa/inet.h>
 #endif
 

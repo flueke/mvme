@@ -197,9 +197,9 @@ class WaveformCollectionVerticalRasterData: public QwtMatrixRasterData
     private:
         const Trace *getTraceForY(double y) const
         {
-            const ssize_t traceIndex = y;
+            const s64 traceIndex = y;
 
-            if (0 > traceIndex || traceIndex >= static_cast<ssize_t>(traces_.size()))
+            if (0 > traceIndex || traceIndex >= static_cast<s64>(traces_.size()))
                 return nullptr;
 
             return traces_[traceIndex];

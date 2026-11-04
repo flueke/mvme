@@ -3,6 +3,8 @@
 
 #include <QUuid>
 #include <chrono>
+#include <string>
+#include <vector>
 #include <mesytec-mvlc/util/int_types.h>
 
 #include <QList>
@@ -68,8 +70,8 @@ union LIBMVME_MDPP_DECODE_EXPORT TraceHeader
         Length = 3
     };
 
-    static const LIBMVME_MDPP_DECODE_EXPORT std::array<const char *, 4> PartNames;
-    static const LIBMVME_MDPP_DECODE_EXPORT std::array<unsigned, 4> PartBits;
+    static const std::vector<std::string> &PartNames();
+    static const std::vector<unsigned> &PartBits();
 
     Parts parts;
     u32 value = 0;
@@ -113,7 +115,7 @@ struct LIBMVME_MDPP_DECODE_EXPORT DecodedMdppSampleEvent
     QUuid moduleId;             // optional mvme module id
     std::string moduleType;     // optional module type string that was used when decoding the event
     std::vector<u32> inputData; // optional copy of the raw input data used to decode this event
-    ssize_t eventNumber = -1;   // optional linear event number of the decoded event. Leave set
+    s64 eventNumber = -1;   // optional linear event number of the decoded event. Leave set
                                 // to -1 when using this structure as a history buffer for a
                                 // single channel and use ChannelTrace.eventNumber instead to
                                 // keep track of the origin event number of a trace.

@@ -516,13 +516,13 @@ struct LIBMVME_EXPORT ReadoutProcessor: public CrateProcessor
     std::shared_ptr<MvlcInstanceReadoutContext> readoutContext;
 };
 
-struct LIBMVME_EXPORT VmeConfigs
+struct VmeConfigs
 {
     std::unique_ptr<VMEConfig> vmeConfig;
     mvlc::CrateConfig crateConfig;
 };
 
-struct LIBMVME_EXPORT ReplayModel
+struct ReplayModel
 {
     std::vector<ReplayProcessor> processors;
     std::vector<VmeConfigs> vmeConfigs;
@@ -549,7 +549,7 @@ class LIBMVME_EXPORT CReplayModel: public QObject
 };
 #endif
 
-struct LIBMVME_EXPORT ReadoutModel
+struct ReadoutModel
 {
     std::vector<ReadoutProcessor> processors;
     std::vector<VmeConfigs> vmeConfigs;

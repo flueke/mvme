@@ -117,12 +117,12 @@ inline std::pair<double, double> get_minmax_values(const a2::RateSampler &sample
      * find minmax elements in the iterator interval
      */
 
-    ssize_t minIndex = sampler.getSampleIndex(timeInterval.minValue);
-    ssize_t maxIndex = sampler.getSampleIndex(timeInterval.maxValue);
-    const ssize_t size = sampler.historySize();
+    s64 minIndex = sampler.getSampleIndex(timeInterval.minValue);
+    s64 maxIndex = sampler.getSampleIndex(timeInterval.maxValue);
+    const s64 size = sampler.historySize();
 
-    minIndex = cpp17::std::clamp(minIndex, ssize_t(0), ssize_t(size-1));
-    maxIndex = cpp17::std::clamp(maxIndex, ssize_t(0), ssize_t(size-1));
+    minIndex = cpp17::std::clamp(minIndex, s64(0), s64(size-1));
+    maxIndex = cpp17::std::clamp(maxIndex, s64(0), s64(size-1));
 
     a2::RateSampler::UniqueLock guard(sampler.mutex);
 
