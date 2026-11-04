@@ -166,6 +166,7 @@ struct MVMEContextPrivate
     RunInfo m_runInfo;
     u32 m_ctrlOpenRetryCount = 0;
     mesytec::mvme::TicketMutex tryOpenControllerMutex;
+    bool m_mvlcForceResetPending = false;
 
     std::unique_ptr<FileAutoSaver> m_vmeConfigAutoSaver;
     std::unique_ptr<FileAutoSaver> m_analysisAutoSaver;
@@ -1069,6 +1070,21 @@ void MVMEContext::onControllerOpenFinished()
                        .arg(mvlcCtrl->getIdentifyingString())
                        .arg(mvlcObj->getConnectionInfo()));
 
+            if (m_d->m_mvlcForceResetPending)
+            {
+                m_d->m_mvlcForceResetPending = false;
+
+                if (auto ec = mesytec::mvlc::disable_daq_mode_and_triggers(mvlcCore))
+                    logMessage(QSL("Error disabling MVLC DAQ mode and triggers: %1")
+                               .arg(ec.message().c_str()));
+                else
+                    logMessage(QSL("Disabled MVLC DAQ mode and triggers"));
+
+                // For ETH the flag only skips the InUse check in connect(). Re-enable
+                // the check so later reconnects don't take over a running MVLC.
+                mvlcCore.setDisableTriggersOnConnect(false);
+            }
+
             if (mvlcCore.firmwareRevision() < 0x0037)
             {
                 logMessage(QSL("Warning: MVLC firmware >= FW0037 is recommended. Update instructions can be found"
@@ -1173,6 +1189,7 @@ void MVMEContext::forceResetVMEController()
         {
             auto mvlc_eth = reinterpret_cast<mesytec::mvlc::eth::Impl *>(mvlc->getImpl());
             mvlc_eth->setDisableTriggersOnConnect(true);
+            m_d->m_mvlcForceResetPending = true;
         }
     }
 
