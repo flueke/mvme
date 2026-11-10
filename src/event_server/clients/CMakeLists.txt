@@ -14,7 +14,7 @@ if (MSVC)
     target_link_libraries(mvme_event_server_example_client PRIVATE unofficial::getopt-win32::getopt)
 endif()
 
-install(TARGETS mvme_event_server_example_client
+install(TARGETS mvme_event_server_example_client ${MVME_RUNTIME_DEPS}
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib)
 
