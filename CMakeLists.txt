@@ -78,11 +78,15 @@ if (MSVC)
     add_compile_definitions(_USE_MATH_DEFINES WIN32_LEAN_AND_MEAN)
 
     # Pass to install(TARGETS) so the runtime DLLs of the target get deployed
-    # by cmake/MvmeDeployWindows.cmake.
-    if (CMAKE_VERSION VERSION_LESS 3.21)
-        message(FATAL_ERROR "MSVC builds require CMake >= 3.21 for runtime dependency deployment")
+    # by cmake/MvmeDeployWindows.cmake. Left empty when vcpkg's own install
+    # hook (X_VCPKG_APPLOCAL_DEPS_INSTALL) does the deployment: its argument
+    # parser does not know RUNTIME_DEPENDENCY_SET.
+    if (NOT X_VCPKG_APPLOCAL_DEPS_INSTALL)
+        if (CMAKE_VERSION VERSION_LESS 3.21)
+            message(FATAL_ERROR "MSVC builds require CMake >= 3.21 for runtime dependency deployment")
+        endif()
+        set(MVME_RUNTIME_DEPS RUNTIME_DEPENDENCY_SET mvme_runtime_deps)
     endif()
-    set(MVME_RUNTIME_DEPS RUNTIME_DEPENDENCY_SET mvme_runtime_deps)
 endif()
 
 # externals

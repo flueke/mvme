@@ -57,6 +57,12 @@ cmake --build build
 Required DLLs and Qt plugins are copied into the build directory, so mvme.exe
 can be run from there.
 
+`cmake --install` and `cpack` deploy DLLs, Qt plugins and the MSVC runtime
+(see `cmake/MvmeDeployWindows.cmake`). Alternatively pass
+`-DX_VCPKG_APPLOCAL_DEPS_INSTALL=ON` to let vcpkg's toolchain copy the DLLs
+and Qt plugins at install time (experimental vcpkg feature, deploys all
+available Qt plugins).
+
 
 ### Windows ucrt64 via msys2 (updated 4/2025)
 
