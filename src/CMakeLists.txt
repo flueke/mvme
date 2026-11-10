@@ -124,7 +124,7 @@ if (MSVC)
 endif()
 generate_export_header(libmvme_mdpp_decode)
 
-install(TARGETS libmvme_mdpp_decode RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS libmvme_mdpp_decode ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 #
 # libmvme
@@ -431,7 +431,7 @@ target_include_directories(libmvme
     #PRIVATE $<BUILD_INTERFACE:${MVME_YAML_CPP_DIR}/include>
     )
 
-install(TARGETS libmvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS libmvme ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvlc_dev_win_usb_debug
 #if (WIN32)
@@ -468,7 +468,7 @@ if (WIN32)
     target_compile_options(mvme PRIVATE -Wno-format)
 endif()
 
-install(TARGETS mvme RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvme ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # Helper for additional utility / debug binaries and alternative launchers.
 function(add_mvme_dev_exe exe_name exe_sources)
@@ -539,7 +539,7 @@ add_mvme_dev_exe(dev_qfiledialog_save_test "dev_qfiledialog_save_test.cc")
 add_mvme_dev_exe(dev_listfile_recovery "dev_listfile_recovery.cc")
 add_mvme_dev_exe(dev_mdpp_sample_decoder "dev_mdpp_sample_decoder.cc")
 add_mvme_exe(mvlc_dev_gui mvlc/mvlc_dev_gui_main.cc)
-install(TARGETS mvlc_dev_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvlc_dev_gui ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 add_mvme_dev_exe(dev_mvlc_vmescript_runner mvlc/dev_mvlc_vmescript_runner.cc)
 
 if (NOT WIN32)
@@ -548,7 +548,7 @@ endif(NOT WIN32)
 
 add_mvme_dev_exe(mvlc_listfile_updater mvlc_listfile_updater.cc)
 if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
-    install(TARGETS mvlc_listfile_updater RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+    install(TARGETS mvlc_listfile_updater ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 endif()
 
 add_mvme_dev_exe(cpp_vector_at_test "cpp_vector_at_test.cc")
@@ -567,7 +567,7 @@ if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
 
     add_mvme_dev_exe(dev_graphviz_lib_test3 dev_graphviz_lib_test3.cc)
     #target_link_libraries(dev_graphviz_lib_test3 PRIVATE cdt PRIVATE cgraph PRIVATE gvc PRIVATE libgvplugin_dot_layout)
-    install(TARGETS dev_graphviz_lib_test3 RUNTIME DESTINATION bin)
+    install(TARGETS dev_graphviz_lib_test3 ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin)
 
     add_executable(dev_graphviz_lib_test4 dev_graphviz_lib_test4.cc)
     target_link_libraries(dev_graphviz_lib_test4 PRIVATE ${GRAPHVIZ_LIBRARIES})
@@ -580,7 +580,7 @@ if (CMAKE_BUILD_TYPE MATCHES "^Debug$")
     target_link_libraries(dev_graphviz_lib_test5 PRIVATE qgvcore PRIVATE libmvme)
 
     add_mvme_dev_exe(dev_dotwidget dev_dotwidget.cc)
-    install(TARGETS dev_dotwidget RUNTIME DESTINATION bin)
+    install(TARGETS dev_dotwidget ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin)
 endif()
 
 #TODO: install a CMakeLists.txt for the treewriter client application. how to
@@ -594,20 +594,20 @@ add_subdirectory(event_server)
 #add_subdirectory(listfile_reader)
 
 add_mvme_exe(mvme_histo_viewer mvme_histo_viewer_main.cc)
-install(TARGETS mvme_histo_viewer RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvme_histo_viewer ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # listfile recovery tool
 add_mvme_exe(mvme_listfile_recovery_gui mvme_listfile_recovery_gui.cc)
-install(TARGETS mvme_listfile_recovery_gui RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvme_listfile_recovery_gui ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # export module data arrays from mvlc listfiles to csv/text
 add_mvme_exe(mvme_listfile_export
     "listfile_export/mvme_listfile_export.cc;listfile_export/listfile_export.cc;listfile_export/filter_db_from_templates.cc")
-install(TARGETS mvme_listfile_export RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvme_listfile_export ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvlc vmeconfig -> crateconfig debug tool
 add_mvme_exe(mvme_crateconfig_tool mvlc/mvme_crateconfig_tool.cc)
-install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvme_crateconfig_tool ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvme multicrate collector
 #add_mvme_exe(mvme_multicrate_collector mvme_multicrate_collector.cc)
@@ -619,11 +619,11 @@ install(TARGETS mvme_crateconfig_tool RUNTIME DESTINATION bin LIBRARY DESTINATIO
 
 # mvme multicrate replay2
 add_mvme_exe(mvme_multicrate_replay2 mvme_multicrate_replay2.cc)
-install(TARGETS mvme_multicrate_replay2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvme_multicrate_replay2 ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 # mvme multicrate readout2
 add_mvme_exe(mvme_multicrate_readout2 mvme_multicrate_readout2.cc)
-install(TARGETS mvme_multicrate_readout2 RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
+install(TARGETS mvme_multicrate_readout2 ${MVME_RUNTIME_DEPS} RUNTIME DESTINATION bin LIBRARY DESTINATION lib)
 
 add_mvme_exe(qfuturewatcher_fire_forget qfuturewatcher_fire_forget.cc)
 add_mvme_exe(statemachine_test statemachine_test.cc)

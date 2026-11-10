@@ -34,6 +34,36 @@ The install step is optional, mvme does run directly from the build directory.
 
 See the files under extras/docker for up-to-date dependencies and build steps.
 
+### Windows using vcpkg and clang-cl (updated 11/2026)
+
+* Install the Visual Studio Build Tools with the C++ workload, the
+  "C++ Clang tools for Windows" and vcpkg components. This provides cmake,
+  ninja, clang-cl and vcpkg (`VCPKG_ROOT` is set by the developer prompt).
+* Open the 'x64 Native Tools Command Prompt for VS'.
+
+Dependencies are listed in `vcpkg.json` and installed automatically during the
+first configure run. Qt5 builds of qwt and quazip come from the overlay ports in
+`vcpkg-overlay-ports/`. Building all dependencies from source takes about an
+hour; later runs restore them from the vcpkg binary cache.
+
+```
+for /f "delims=" %I in ('where clang-cl.exe') do set "CC=%I"
+for /f "delims=" %I in ('where clang-cl.exe') do set "CXX=%I"
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
+  -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
+cmake --build build
+```
+
+Required DLLs and Qt plugins are copied into the build directory, so mvme.exe
+can be run from there.
+
+`cmake --install` and `cpack` deploy DLLs, Qt plugins and the MSVC runtime
+(see `cmake/MvmeDeployWindows.cmake`). Alternatively pass
+`-DX_VCPKG_APPLOCAL_DEPS_INSTALL=ON` to let vcpkg's toolchain copy the DLLs
+and Qt plugins at install time (experimental vcpkg feature, deploys all
+available Qt plugins).
+
+
 ### Windows ucrt64 via msys2 (updated 4/2025)
 
 http://www.msys2.org/
@@ -59,29 +89,6 @@ http://www.msys2.org/
     mkdir build; cd build
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ..
     ninja
-
-### Windows using vcpkg and clang-cl (updated 11/2026)
-
-* Install the Visual Studio Build Tools with the C++ workload, the
-  "C++ Clang tools for Windows" and vcpkg components. This provides cmake,
-  ninja, clang-cl and vcpkg (`VCPKG_ROOT` is set by the developer prompt).
-* Open the 'x64 Native Tools Command Prompt for VS'.
-
-Dependencies are listed in `vcpkg.json` and installed automatically during the
-first configure run. Qt5 builds of qwt and quazip come from the overlay ports in
-`vcpkg-overlay-ports/`. Building all dependencies from source takes about an
-hour; later runs restore them from the vcpkg binary cache.
-
-```
-for /f "delims=" %I in ('where clang-cl.exe') do set "CC=%I"
-for /f "delims=" %I in ('where clang-cl.exe') do set "CXX=%I"
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
-  -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
-cmake --build build
-```
-
-Required DLLs and Qt plugins are copied into the build directory, so mvme.exe
-can be run from there.
 
 ## Mac OS X using Homebrew (out of date, needs verification)
 * Note that the OS X port has only been tested with our MVLC VME Controller via

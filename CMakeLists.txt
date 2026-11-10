@@ -76,6 +76,17 @@ if (MSVC)
     # WIN32_LEAN_AND_MEAN: keep windows.h from pulling in winsock.h which
     # clashes with later winsock2.h includes.
     add_compile_definitions(_USE_MATH_DEFINES WIN32_LEAN_AND_MEAN)
+
+    # Pass to install(TARGETS) so the runtime DLLs of the target get deployed
+    # by cmake/MvmeDeployWindows.cmake. Left empty when vcpkg's own install
+    # hook (X_VCPKG_APPLOCAL_DEPS_INSTALL) does the deployment: its argument
+    # parser does not know RUNTIME_DEPENDENCY_SET.
+    if (NOT X_VCPKG_APPLOCAL_DEPS_INSTALL)
+        if (CMAKE_VERSION VERSION_LESS 3.21)
+            message(FATAL_ERROR "MSVC builds require CMake >= 3.21 for runtime dependency deployment")
+        endif()
+        set(MVME_RUNTIME_DEPS RUNTIME_DEPENDENCY_SET mvme_runtime_deps)
+    endif()
 endif()
 
 # externals
@@ -166,6 +177,10 @@ endif()
 add_subdirectory(src)
 add_subdirectory(extras)
 
+if (MSVC)
+    include(cmake/MvmeDeployWindows.cmake)
+endif()
+
 option(MVME_BUILD_DOCS "Build the mvme documentation (requires Sphinx)" OFF)
 
 if (MVME_BUILD_DOCS)
@@ -197,8 +212,9 @@ endif()
 # the target system: shared objects, Qt plugins, Qt configuration, shell
 # scripts, etc.
 #
-# Under windows These files are handled using an external deploy directory
-# which is added via the install() command.
+# Under windows MinGW builds use an external deploy directory which is added
+# via the install() command. MSVC/vcpkg builds deploy their dependencies via
+# cmake/MvmeDeployWindows.cmake.
 #
 # Under linux the `linuxdeployqt` tool and a custom cmake script for the cpack
 # `External` generator are used.
