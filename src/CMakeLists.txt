@@ -513,6 +513,22 @@ if (WIN32)
     endif()
 endif(WIN32)
 
+if (MSVC)
+    find_package(unofficial-getopt-win32 REQUIRED)
+    foreach(exe_name
+            vmusb_read_buffers_file
+            dev_data_filter_runner
+            dev_sis3153_read_raw_buffers_file
+            dev_listfile_tcp_sender
+            dev_listfile_tcp_receiver
+            dev_listfile_dumper
+            dev_mvme_event_processing)
+        if (TARGET ${exe_name})
+            target_link_libraries(${exe_name} PRIVATE unofficial::getopt-win32::getopt)
+        endif()
+    endforeach()
+endif(MSVC)
+
 add_mvme_dev_exe(mvme_to_mvlc mvme_to_mvlc.cc)
 add_mvme_dev_exe(dev_mvlc_qt_debug_client dev_mvlc_qt_debug_client.cc)
 add_mvme_dev_exe(dev_mvlc_dso dev_mvlc_dso.cc)
