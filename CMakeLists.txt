@@ -30,11 +30,16 @@ else()
     string(REGEX REPLACE "v(.*)" "\\1" GIT_VERSION_SHORT ${GIT_VERSION})
 endif()
 
-execute_process(
-    COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_BRANCH
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+# CI checkouts may be on a detached HEAD, prefer the branch name passed in BUILD_BRANCH.
+if (NOT "$ENV{BUILD_BRANCH}" STREQUAL "")
+    set(GIT_BRANCH "$ENV{BUILD_BRANCH}")
+else()
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_BRANCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
 
 message("-- GIT_VERSION=${GIT_VERSION}")
 message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
