@@ -1,3 +1,5 @@
+
+
 # mvme - mesytec VME data acquisition
 
 ## Building mvme
@@ -51,7 +53,6 @@ http://www.msys2.org/
     mingw-w64-ucrt-x86_64-boost \
     mingw-w64-ucrt-x86_64-qwt-qt5 \
     mingw-w64-ucrt-x86_64-graphviz \
-    mingw-w64-ucrt-x86_64-quazip-qt5
     mingw-w64-ucrt-x86_64-quazip-qt5
 
 #### ucrt64 build
