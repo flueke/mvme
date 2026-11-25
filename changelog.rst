@@ -27,6 +27,13 @@ Version 1.23.0-pre
 
 * analysis: fix the broken last channel row in the histogram list stats.
 
+*  templates:
+
+    - Update ``Frontend Settings`` for the VMMR-8/16 (new MMR registers).
+
+* Build and Packaging: mvme now builds under msvc with the clang-cl compiler.
+  Dependencies and deployed files are handled by vcpkg.
+
 Version 1.22.0
 --------------------------------------------------
 
