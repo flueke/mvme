@@ -4,7 +4,7 @@
 Changelog
 ##################################################
 
-Version 1.23.0-pre
+Version 1.23.0
 --------------------------------------------------
 
 * mvlc-cli: new ``reboot`` command. Reboots the MVLC (requires FW0036 or
@@ -17,9 +17,11 @@ Version 1.23.0-pre
   - Linux: support ftdi-d3xx 1.1.8. Better command pipe timeouts and
     performance. Fixes stale replies after a USB reset and recovers locked
     up MVLCs.
+
   - Windows: the installer bundles ftd3xx 1.3 (FTDIBUS3) and 1.4 (WinUSB).
     The matching one is loaded at runtime. Command reads use a 100 ms
     timeout and no longer abort on a timeout.
+
   - Command pipe reader: fixes a possible infinite loop and stalls on bad
     continuation headers.
 
